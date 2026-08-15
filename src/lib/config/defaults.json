@@ -1,0 +1,8 @@
+{
+    "theme": "light",
+    "font": "dyslexic",
+    "tts": {
+        "voiceUri": null,
+        "rate": 1
+    }
+}
