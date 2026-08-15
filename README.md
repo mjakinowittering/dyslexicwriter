@@ -179,13 +179,14 @@ locally. There is no server process.
     - **Add `static/.nojekyll`.** Pages runs Jekyll by default, which strips
       directories beginning with an underscore — that is SvelteKit's entire
       `_app/` bundle. Without the file the deployed site loads nothing
-    - **Settle the base path first.** A project site serves from
-      `https://<user>.github.io/<repo>/` and needs `kit.paths.base` plus every
-      asset URL routed through it; a user site or a custom domain serves from `/`
-      and needs none of it. The remote is still `product-app.git`, so this is
-      tangled with the rename item above. CLAUDE.md rules out environment
-      configuration, so a base belongs in `svelte.config.js` as a literal, not a
-      build flag
+    - **The base path is `/dyslexicwriter`.** This is settled: the repo is now
+      `mjakinowittering/dyslexicwriter` and `package.json` already declares the
+      matching `homepage`. A project site serves from
+      `https://<user>.github.io/<repo>/`, so `kit.paths.base` has to be set and
+      every asset URL routed through it — a user site or a custom domain would
+      serve from `/` and need none of it. CLAUDE.md rules out environment
+      configuration, so the base belongs in `svelte.config.js` as a literal, not
+      a build flag
     - **There is no `.github/workflows/` at all** — add a deploy job on `master`
       using `actions/upload-pages-artifact` + `actions/deploy-pages` over `build/`
     - **The metadata is site-level, not per-route.** The public surface is one
@@ -204,39 +205,6 @@ locally. There is no server process.
       not reinstating SSR
     - `static/robots.txt` already allows everything. A `sitemap.xml` is only worth
       adding once the base path decision produces a stable public URL
-- [ ] Move the project to a clean GitHub repo and drop the inherited history. The
-      remote is still `git@github.com:mjakinowittering/product-app.git`, and its 74
-      commits belong to a different product — the first is "Initial commit of
-      working project and demo for offline and SSE broadcasting", which is the
-      skeleton app's accounts / sync / SSE work that CLAUDE.md has since cut. None
-      of it describes DyslexicWriter, so it is noise rather than history. Repo and
-      history only: the rename is already done (`package.json` now names the repo
-      `mjakinowittering/dyslexicwriter`), and the Pages deploy is the item above.
-    - **The working tree is the only copy of the rewrite — do not touch it.** At
-      the time of writing there are 221 modified-or-deleted tracked files and 32
-      untracked ones, and the untracked set is core code (the whole `src/lib/fs/`
-      layer, `SettingsPanel.svelte`, the `Toolbar/` components). `rm -rf .git`
-      followed by `git init` leaves the working tree alone and is the whole job;
-      anything reaching for `reset --hard`, `checkout .` or `clean` destroys the
-      app instead of the history
-    - **Keep `product-app` on GitHub.** It holds 73 of the 74 commits (`9dfa190`
-      is unpushed), so once the local `.git` goes it is the only surviving copy of
-      the old history. Leaving it is what keeps this reversible — deleting it is a
-      separate decision to take later and deliberately, not part of this
-    - **Name the new repo `dyslexicwriter`** — `package.json` already uses that
-      name. It also sets the GitHub Pages base path, so it has to be settled
-      before the deploy item below can start
-    - **Settle `master` vs `main`.** The branch is `master`; GitHub defaults a new
-      repo to `main`. The Pages workflow triggers on a branch name, so pick once
-      and use the same name in both places
-    - **Check what the first commit will contain before making it.** On a fresh
-      history `git add -A` stages everything not ignored — confirm `.gitignore`
-      still covers `node_modules/`, `build/`, `.svelte-kit/` and the generated
-      `src/lib/paraglide/`, and that no local env or key file is caught. A bad
-      first commit is exactly as public as any other
-    - order: create the empty repo on GitHub first, then `rm -rf .git`, `git init`,
-      set the remote, make one initial commit, push. Creating it first means there
-      is never a window with no remote to push to
 - [ ] Show the Files screen as a folder tree rather than a flat list, and stop
       assuming every document is a top-level folder of its own. `scanFolder`
       (`src/lib/fs/documents.ts:54`) walks the working folder exactly one level
