@@ -192,3 +192,57 @@ Within each, related items sit next to each other.
       grouped toolbar — the toolbar's shape and its capped control set are not in
       question here. Note the overlap with the table-styling bug above: whichever
       lands second authors its borders against the palette that landed first
+- [ ] Show a preview of the editor on the welcome screen, below the two cards, so it
+      is obvious what the app does before a folder is picked. Nothing like it exists
+      today: `Welcome.svelte` ends at the folder hint and the error line
+      (`src/lib/components/Welcome/Welcome.svelte:84-88`), and the route wraps the
+      whole screen in `max-w-2xl` (`src/routes/+page.svelte:94`), which a preview
+      would need widening past. Dress it as a small macOS-style window — rounded
+      corners and a title bar with traffic lights, not a full browser with a URL bar
+      and tabs. What sits inside is a **static mock** of the toolbar, the sheet and
+      the status bar, not a live TipTap instance: a real editor here would be a
+      second document with nowhere to save it.
+    - **The traffic lights are a colour problem.** Theme colours are CSS variables
+      in `src/routes/layout.css` and components never hardcode one, but red/amber/
+      green are not theme colours and have no token. Decide whether they earn three
+      new tokens or count as functional colour, the way the read-aloud highlight
+      does
+    - **Decorative, so keep it out of the a11y tree** — `aria-hidden` on the window
+      chrome and nothing focusable inside it; a fake close button that takes a tab
+      stop is worse than no preview at all. Storybook enforces a11y in both themes,
+      and the story belongs in `src/stories/Welcome/`
+    - **Scope: the welcome screen only** — not a tour, not an animation reel. Any
+      motion is native Svelte off `$lib/config/motion.ts` and all copy goes through
+      Paraglide. Overlaps the palette item above: whichever lands second authors its
+      window chrome against the palette that landed first
+- [ ] Give the welcome and Files screens a shared header, so there is somewhere for
+      the logo, a menu and a theme toggle to live. Neither screen has app chrome
+      today: the root layout is a bare flex column (`src/routes/+layout.svelte:24`),
+      the welcome branch renders straight into a centred column
+      (`src/routes/+page.svelte:94-105`), and the `<header>` at
+      `src/routes/+page.svelte:108` is the Files list's own title row inside the
+      content column rather than a page landmark — it would fold into the new one.
+      The mark already exists but is editor-only and deliberately inert
+      (`ToolbarLogo.svelte`: "no button, no tooltip").
+    - **Settle the theme toggle's persistence first.** Theme lives in `config.json`
+      and nowhere else, and `workspace.#persist`
+      (`src/lib/stores/workspace.svelte.ts:368-369`) returns early when there is no
+      root — so on the welcome screen, before a folder is chosen, a toggle would
+      change `<html>` and be forgotten by the next launch. Either accept that and
+      adopt the choice into `config.json` once the folder is picked, or hide the
+      toggle until there is one. `localStorage` is not an option
+    - **Decide what the menu holds** before building it. The editor toolbar's capped
+      control set is a decision about the toolbar and does not bind here, but the
+      same instinct does: default to "no"
+- [ ] Give the welcome and Files screens a shared footer, for licence information,
+      a link back to GitHub and a short note from the author — contents still to be
+      decided. Same absence as the header above: there is no chrome around either
+      screen. The repository and homepage URLs are already in `package.json:7-11`,
+      so the GitHub link can read from those rather than hardcode a string.
+    - **There is no licence to point at yet.** No `LICENSE` file, no `license` field
+      in `package.json` (it is `private: true`) and no `## License` section in this
+      README, so a licence has to be chosen before the footer can name one — for the
+      app itself and for what ships inside it, starting with OpenDyslexic, bundled
+      via `@fontsource/opendyslexic` (`src/routes/layout.css:9-12`)
+    - The app is a static SPA with no server, so the footer is markup and Paraglide
+      copy only — nothing fetched, no analytics, no external assets
