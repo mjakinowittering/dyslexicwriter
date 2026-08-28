@@ -74,7 +74,7 @@
 
             {#if open}
                 <div
-                    class="border-border ms-4 border-s ps-2"
+                    class="border-border ms-4.75 border-s ps-2"
                     transition:slide={reveal}
                 >
                     {#if folder.folders.length === 0 && folder.documents.length === 0}
