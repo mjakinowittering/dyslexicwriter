@@ -65,7 +65,7 @@ round-trip does not get added to the editor.
 
 ## Editor component
 
-`ContentEditor/Editor/Editor.svelte` owns the TipTap instance. It composes
+`Editor/Page/PageEditor.svelte` owns the TipTap instance. It composes
 `documentExtensions()` with three editor-only extensions that add **no content
 nodes**: `Placeholder`, `CharacterCount`, and `TtsHighlightExtension`.
 
@@ -75,7 +75,7 @@ nodes**: `Placeholder`, `CharacterCount`, and `TtsHighlightExtension`.
 - `handleDrop` intercepts an image drop, writes the file into the document's own
   folder via the document store, and inserts a relative-path image node. It calls
   `preventDefault()` **before** awaiting, or the browser navigates to the file.
-- `Canvas.svelte` is the document sheet. Its `narrow` prop mirrors the settings
+- `Page.svelte` is the document sheet. Its `narrow` prop mirrors the settings
   panel and tweens the measure — a persistent element, so a `Tween` rather than a
   `transition:` (see `[[animations]]`).
 

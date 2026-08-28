@@ -118,15 +118,41 @@ interface Doc {
 
 ### On disk
 
+The app **creates** one folder per document. It **finds** whatever is actually there —
+a writer's existing folder has loose files at the root and chapters nested several
+levels down, and all of it is theirs to open.
+
 ```
 <working folder>/            <- chosen once via showDirectoryPicker()
 ├── config.json              <- ALL preferences + the document index
-├── My Chapter/              <- one folder per document, named for its title
+├── My Chapter/              <- a folder-document: what the app creates
 │   ├── My Chapter.md        <- the document; markdown is what persists
 │   └── diagram.png          <- images belong to the document that uses them
-└── Another Draft/
-    └── Another Draft.md
+├── notes.md                 <- a file-document: found, not created
+└── Book/
+    └── Chapters/
+        ├── One.md           <- also file-documents; they share the folder
+        └── Two.md
 ```
+
+That gives **two kinds of document**, and every filesystem operation branches on
+which it is:
+
+| Kind                | Is                                                        | Rename                                    | Delete                 | Images    |
+| ------------------- | --------------------------------------------------------- | ----------------------------------------- | ---------------------- | --------- |
+| **folder-document** | `X/X.md`, alone in its folder — the shape the app creates | moves the whole folder, inside its parent | removes it recursively | inside it |
+| **file-document**   | a markdown file sitting among others, at any depth        | renames the file alone                    | removes only the file  | beside it |
+
+`ownsFolder` is what separates them, and it is **recomputed by every scan**, never
+trusted from the config cache. A folder only qualifies when it holds exactly that one
+markdown file and no subdirectories — both conditions exist for delete, which is
+recursive: a folder with anything else in it must never qualify, or deleting one
+document takes its neighbours with it.
+
+The scan walks **three directory levels** below the working folder. A directory the
+cap stops at comes back unloaded and the Files screen shows it closed; expanding it
+scans three more from there. An unbounded walk of somebody's whole Documents tree is
+slow enough to read as broken. Dot-directories and `node_modules` are skipped.
 
 ### `config.json`
 
@@ -136,9 +162,14 @@ interface Doc {
     theme: 'light' | 'dark',
     font: 'sans' | 'dyslexic',
     tts: { voiceUri: string | null, rate: number },
-    documents: [{ title, folder, file, lastModified }]
+    documents: [{ title, folder, file, ownsFolder, lastModified }]
 }
 ```
+
+`folder` is a `/`-joined path relative to the working folder, and `''` is the working
+folder itself — where a loose `notes.md` lives. `title` is the markdown file's
+basename. `ownsFolder` is optional on read so an index written by an older version
+still parses.
 
 Validated with Valibot on read, **key by key**: a hand-edited mistake in one setting
 costs the user that setting alone, not every other preference they have chosen. A
@@ -155,16 +186,30 @@ in-code constants when malformed.
 - **The filesystem is the source of truth.** `contentJson` is a working copy that exists
   only while a document is open. Nothing else caches document content — not IndexedDB,
   not `localStorage`, not `sessionStorage`.
+- **The Files screen shows the folder structure**, not a flat list — a disclosure tree
+  of the directories the scan reached. Sorting is folders first then documents,
+  alphabetical; `lastModified` is shown per row but no longer orders anything.
+- **A folder holding nothing but one document is shown as that document.** The scan
+  lifts it into the parent rather than emitting a folder row you must open to find
+  the single file named after it — `My Chapter/My Chapter.md` is one row, not two.
+  The folder is untouched on disk and the entry's `folder` still points inside it,
+  so rename, delete and images are unaffected. An unloaded folder is never
+  collapsed: nothing is known about what else is in it.
 - **A new document is in-memory only** until its first save. It starts as `Untitled`,
   incrementing to `Untitled 2`, `Untitled 3`… when a folder of that name already exists.
   Nothing is written to disk until there is something to write.
 - **First save creates the folder, then the file inside it** — `My Chapter/My Chapter.md`.
+  New documents are always created as a top-level folder-document, never into a
+  subfolder.
 - **Rename is folder first, then the file inside it**, so a failure halfway through can
-  never leave a folder and file whose names disagree. Renaming is triggered on the title
-  field's `change`/blur, debounced — **never** on every keystroke.
-- **Images are written into the document's own folder** and referenced by relative path.
-  Never base64, never a shared top-level images folder — a document folder must stay
-  self-contained and portable as a unit.
+  never leave a folder and file whose names disagree. A file-document renames only its
+  file — its folder and any images beside it belong to the user, not to that document.
+  Renaming is triggered on the title field's `change`/blur, debounced — **never** on
+  every keystroke.
+- **Images are written into the document's own directory** and referenced by relative
+  path. Never base64, never a shared top-level images folder — a document folder must
+  stay self-contained and portable as a unit. For a file-document that directory is the
+  user's own folder, so the image lands beside the markdown that references it.
 - **IndexedDB stores exactly one thing**: the `FileSystemDirectoryHandle`. It goes there
   because a handle is structured-cloneable but not string-serializable, so
   `localStorage` genuinely cannot hold it. Nothing else may be added to that store.
@@ -345,12 +390,19 @@ project has no environment configuration.
   giving its first-run value, and a new setting adds **both in the same commit** — the
   pairing `toMarkdown`/`fromMarkdown` already follows. `defaults.json` holds preferences
   only; `version` and `documents` stay owned by the code
-- Renames establish the **new folder first**, copy contents into it (the markdown
-  file taking the new name), and remove the **old folder last** — Chromium's
-  `move()` is not reliable for directories, and deleting last means a failure
-  leaves a duplicate, never a loss. Triggered on `change`/blur — never per keystroke
-- Images are written into **their own document's folder** and referenced by relative
-  path — never base64, never a shared images folder
+- Renames establish the **new name first** and remove the **old one last**, whichever
+  kind of document it is — Chromium's `move()` is not reliable for directories, and
+  deleting last means a failure leaves a duplicate, never a loss. A folder-document
+  copies its whole folder inside its own parent, the markdown file taking the new
+  name; a file-document copies just the file. Triggered on `change`/blur — never per
+  keystroke
+- Images are written into **their own document's directory** and referenced by
+  relative path — never base64, never a shared images folder
+- Paths are `/`-joined and relative to the working folder, `''` being the working
+  folder itself. `sanitiseTitle` owns each **segment** as it is created; a path is
+  never parsed out of user input, and the resolver refuses `.` and `..` regardless
+- `ownsFolder` is **recomputed by every scan**, never trusted from the config index —
+  it decides whether delete removes a folder recursively or a single file
 - New documents stay **in memory until first save**, named `Untitled`, `Untitled 2`, …
   by probing for an existing folder of that name
 - Any node or mark added to the editor must be taught to **both** `toMarkdown` **and**
@@ -393,6 +445,10 @@ project has no environment configuration.
 - Fonts are **self-hosted** under `static/fonts/` — never load a webfont from a CDN
 - Storybook stories live in `src/stories/` and mirror the `src/lib/components/` tree —
   never co-locate stories inside `src/lib/components/`
+- Vitest suites live in `src/tests/` and mirror the `src/lib/` tree, importing their
+  subject through `$lib/…` — never co-locate a test beside the module it tests. Shared
+  harnesses go in `src/tests/support/`; the `.svelte.test.ts` suffix is what routes a
+  suite to the browser project, so it must survive any move
 - **Custom-submit forms** (an `onsubmit` handler rather than a native submit) must call
   `event.preventDefault()` — otherwise the browser does a full-page reload and the async
   handler never completes

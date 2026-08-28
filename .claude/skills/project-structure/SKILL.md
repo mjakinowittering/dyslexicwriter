@@ -20,17 +20,17 @@ src/
 │   │   └── tooltip-suppression.svelte.ts   // hides portaled tooltip balloons during transitions
 │   │
 │   ├── components/
-│   │   ├── Content/                  // two chips shared by the editor status bar
-│   │   │   ├── ContentTimeToRead/    //   reading-time estimate from a word count
-│   │   │   └── ContentWordCount/     //   live word count
-│   │   ├── ContentEditor/
-│   │   │   ├── Editor/
-│   │   │   │   ├── Canvas.svelte     //   the document sheet; `narrow` tweens the measure
-│   │   │   │   └── Editor.svelte     //   the TipTap instance + image drop handling
+│   │   ├── Editor/                   // the whole editing surface; every file is
+│   │   │   │                         // prefixed with its group's name
+│   │   │   ├── Page/
+│   │   │   │   ├── Page.svelte       //   the document sheet; `narrow` tweens the measure
+│   │   │   │   └── PageEditor.svelte //   the TipTap instance + image drop handling
 │   │   │   ├── Format/               //   the capped formatting controls (see content-editor)
 │   │   │   │   ├── FormatToggle*.svelte      // bold, italic, lists, blockquote, hr, headings
 │   │   │   │   └── FormatInsert*.svelte      // table, image
 │   │   │   ├── Statusbar/            //   word count · reading time · save state
+│   │   │   │   ├── StatusbarWordCount.svelte   // live word count
+│   │   │   │   └── StatusbarTimeToRead.svelte  // reading-time estimate from that count
 │   │   │   └── Toolbar/
 │   │   │       ├── ToolbarRail.svelte      // the tall left rail (bare chevron)
 │   │   │       ├── ToolbarSettings.svelte  // the gear
@@ -78,7 +78,10 @@ src/
 │   └── utils.ts                      // `cn()` class merge
 │
 ├── routes/                           // see the route map below
-└── stories/                          // Storybook, mirroring lib/components/
+├── stories/                          // Storybook, mirroring lib/components/
+└── tests/                            // Vitest, mirroring lib/
+    ├── lib/                          //   src/tests/lib/fs/documents.svelte.test.ts, …
+    └── support/                      //   shared harnesses (opfs.ts)
 ```
 
 There is **no** `lib/server/`, no `hooks.server.ts`, no `.remote.ts`, no
@@ -114,9 +117,11 @@ colour in a component.**
 
 - A new **persisted setting** → `config.json` (schema in `models/config.model.ts`,
   accessor on the workspace store). Never `localStorage`, never IndexedDB.
-- A new **filesystem operation** → `lib/fs/documents.ts`, with an OPFS test.
+- A new **filesystem operation** → `lib/fs/documents.ts`, with an OPFS test under
+  `src/tests/lib/fs/`.
 - A new **editor node** → `markdown/extensions.ts` **plus** both converters **plus**
-  a round-trip test, in the same commit.
+  a round-trip test (`src/tests/lib/markdown/`), in the same commit.
 - A new **UI string** → `messages/en.json`, then recompile Paraglide.
 - A new **component** → `lib/components/<Name>/`, with its story mirrored under
   `src/stories/<Name>/`.
+- A new **test** → `src/tests/`, at the mirrored path of what it tests.

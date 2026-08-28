@@ -21,20 +21,77 @@ more than elegance here.
 | `fs/handle-store.ts`         | The **only** IndexedDB use: one `FileSystemDirectoryHandle`, plus `ensurePermission`                                   |
 | `fs/config.ts`               | `readConfig` / `writeConfig` / `updateConfig` over `config.json`                                                       |
 | `fs/documents.ts`            | `scanFolder`, `readDocument`, `writeDocument`, `renameDocument`, `deleteDocument`, `writeImage`, `suggestUntitledName` |
-| `stores/workspace.svelte.ts` | The chosen folder, the parsed config, the document index, and the `WorkspaceStatus` machine                            |
+| `stores/workspace.svelte.ts` | The chosen folder, the parsed config, the document tree, and the `WorkspaceStatus` machine                             |
 | `stores/document.svelte.ts`  | The open document: autosave debounce, flush, rename, image insert                                                      |
 
 ## On-disk shape
 
+The app **creates** one folder per document. It **finds** whatever is there.
+
 ```
 <working folder>/
 ├── config.json              <- ALL preferences + the document index
-├── My Chapter/
+├── My Chapter/              <- a folder-document: what the app creates
 │   ├── My Chapter.md        <- the document
 │   └── diagram.png          <- images belong to the document that uses them
-└── Another Draft/
-    └── Another Draft.md
+├── notes.md                 <- a file-document: found, not created
+└── Book/
+    └── Chapters/
+        ├── One.md           <- also file-documents; they share the folder
+        └── Two.md
 ```
+
+## Two kinds of document
+
+Every operation in `documents.ts` branches on `location.ownsFolder`:
+
+- **folder-document** — `X/X.md`, alone in its folder. Rename copies the whole
+  folder inside its own **parent** and removes the source last; delete removes it
+  recursively; images go inside it.
+- **file-document** — a markdown file among others, at any depth. Rename renames
+  only the file (new file first, old one last — same guarantee); delete removes
+  only that file; images land beside it, in the user's own folder.
+
+`ownsItsFolder()` requires the folder to be named after the file **and** to hold
+exactly that one markdown file **and** no subdirectories. The last two conditions
+exist for delete, which is recursive — a folder with anything else in it must never
+qualify, or deleting one document takes its neighbours with it. It is recomputed by
+every scan and never trusted from the config cache.
+
+## Paths
+
+A document's `folder` is a `/`-joined path relative to the working folder, and `''`
+is the working folder itself. `resolveDirectory()` walks it to a handle and refuses
+`.` and `..` — paths are assembled from segments `sanitiseTitle` already owns and
+are never parsed out of user input, but a path that escapes the working folder is
+the one mistake with no recovery. Helpers (`joinPath`, `parentPath`, `lastSegment`,
+`documentPath`, `titleFromFileName`) live in `models/document.model.ts`.
+
+## The scan is depth-limited and lazy
+
+`scanFolder(root, { path, depth })` returns a `FolderNode` tree and walks
+`SCAN_DEPTH` (3) directory levels. A directory the cap stops at comes back
+`loaded: false`; the Files screen shows it closed, and `workspace.toggle()` scans
+three more levels from there when the user opens it. An unbounded walk of somebody's
+whole Documents tree stats every markdown file in it — slow enough to read as broken.
+Dot-entries and `node_modules` are skipped; `config.json` falls out of the `.md`
+filter.
+
+A folder whose entire contents is one markdown file is **collapsed into its
+parent**: the walk lifts that document up and emits no folder row, so the shape the
+app creates for itself (`My Chapter/My Chapter.md`) reads as one row rather than a
+disclosure repeating the same name inside itself. It cascades — `Book/Chapters/One.md`
+with nothing else in either folder surfaces `One` at the root. Only the tree changes;
+the entry's `folder` still names the real directory, so `ownsFolder`, rename, delete
+and image writes all behave exactly as before. An unloaded folder is never collapsed.
+That also means a document's row is not necessarily under `findFolder(entry.folder)`,
+which is why `findDocument()` searches the tree level by level.
+
+`workspace.refresh()` re-walks from the root and replays the folders the user had
+opened past the cap, so a rescan never folds the tree back up. Autosave calls
+`workspace.touch(entry)` instead — a full re-walk on a 600ms debounce is far too
+much work, so `touch` moves one entry's mtime and only falls back to `refresh()`
+when the document is one the tree has never seen (a first save).
 
 ## The three storage rules
 
@@ -71,23 +128,28 @@ On a write error the store sets `#dirty = true` again and surfaces the message.
 The next keystroke or flush retries. Silently swallowing the error is how writing
 gets lost.
 
-### Rename: new folder first, old folder LAST
+### Rename: new name first, old name LAST
 
 Chromium's `FileSystemHandle.move()` is reliable for files but **not for
-directories**, so a rename is a copy followed by a delete:
+directories**, so a folder-document rename is a copy followed by a delete, run
+inside the folder's own parent:
 
 1. create the destination folder
 2. copy every file across, the markdown file taking the new name as it goes
 3. only then `removeEntry` the source, recursively
 
-Deleting last is what makes it safe: a failure at any point leaves the original
-intact. The worst case is a duplicate folder, never a lost document. Renaming
-fires on the title field's `change`/blur — **never** per keystroke.
+A file-document does the same thing one level down: write the new file, then
+remove the old one. Deleting last is what makes either safe — a failure at any
+point leaves the original intact. The worst case is a duplicate, never a lost
+document. Renaming fires on the title field's `change`/blur — **never** per
+keystroke.
 
 ### Confirm before deleting
 
-`deleteDocument` removes a real folder from the user's disk and there is no trash.
-Always confirm, and name what is being removed.
+`deleteDocument` removes something real from the user's disk and there is no
+trash. Always confirm, and be honest about which it is: a folder-document takes
+its folder and images with it, a file-document takes only itself. That is two
+different confirmation strings, not one.
 
 ## Permissions can vanish at any time
 
@@ -117,16 +179,23 @@ authority. `scanFolder` reconciles it; the folder on disk always wins.
 separators, control characters, leading dots (which would hide the folder) and
 trailing dots/spaces (which Windows drops silently, desyncing the index from
 disk), suffixes Windows reserved device names (`CON`, `LPT1`, …), caps length, and
-never returns an empty string. New documents are `Untitled`, `Untitled 2`, … by
-probing existing folder names.
+never returns an empty string. It owns one **segment** at a time — the path around
+it is the app's, not the user's. New documents are `Untitled`, `Untitled 2`, … by
+probing top-level folder names, and are always created as a folder-document at the
+root; the app never creates a document into a subfolder.
 
 ## Images
 
-Written into **their own document's folder** and referenced by relative path
+Written into **their own document's directory** and referenced by relative path
 (`![alt](diagram.png)`). Never base64, never a shared top-level images folder — a
 document folder has to stay self-contained and portable as a unit, and images then
 travel with a rename for free. `writeImage` suffixes rather than overwriting when
 the name is taken.
+
+For a file-document that directory is the user's own folder, so the image lands
+beside the markdown that references it. That is what "beside it" has to mean when
+there is no folder belonging to that document alone — inventing one behind the
+user's back would be worse.
 
 ## Testing
 
