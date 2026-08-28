@@ -123,7 +123,7 @@ worked example (a `<body>` attribute + an unlayered CSS rule).
 
 When the animated thing is a persistent element whose style changes (no mount/unmount), a
 `transition:` can't apply. Use a `Tween` on a numeric progress and interpolate in the style.
-`ContentEditor/Editor/Canvas.svelte` tweens the document width `0→1` and interpolates with
+`Editor/Page/Page.svelte` tweens the document width `0→1` and interpolates with
 `calc()`; per-`set` options give the same asymmetric phase delay:
 
 ```ts

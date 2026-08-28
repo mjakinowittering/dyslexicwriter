@@ -126,15 +126,30 @@ class SpeechController implements TtsTransport {
     // it. Consumed by the next play().
     #capturedRange: Range | null = null;
 
-    // Populate the voice list. getVoices() is empty until the async load fires.
+    // The live `voiceschanged` handler, kept so it can be removed again — holding it
+    // also makes loadVoices() idempotent, so a remount can't stack listeners.
+    #voicesChanged: (() => void) | null = null;
+
+    // Populate the voice list. getVoices() is empty until the async load fires, so
+    // we read it now and again whenever the engine says the list has changed.
     loadVoices(): void {
         const s = synth();
-        if (!s) return;
+        if (!s || this.#voicesChanged) return;
         const apply = (): void => {
             this.voices = s.getVoices();
         };
+        this.#voicesChanged = apply;
         apply();
         s.addEventListener('voiceschanged', apply);
+    }
+
+    // Drop the voice subscription — paired with loadVoices() on the editor's
+    // lifecycle, so the listener doesn't outlive the screen that wanted it.
+    unloadVoices(): void {
+        const s = synth();
+        if (!s || !this.#voicesChanged) return;
+        s.removeEventListener('voiceschanged', this.#voicesChanged);
+        this.#voicesChanged = null;
     }
 
     // Snapshot the current preferences for persistence.

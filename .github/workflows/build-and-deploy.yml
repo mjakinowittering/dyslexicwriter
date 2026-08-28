@@ -1,0 +1,82 @@
+# Workflow for building and deploying DyslexicWriter (SvelteKit) to GitHub Pages
+name: Deploy DyslexicWriter to Pages
+
+on:
+    push:
+        branches: ['master']
+
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    pages: write
+    id-token: write
+
+# Allow only one concurrent deployment; do not cancel in-progress runs.
+concurrency:
+    group: 'pages'
+    cancel-in-progress: false
+
+jobs:
+    build:
+        name: Build
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+            - name: Setup Node
+              uses: actions/setup-node@v6
+              with:
+                  node-version: '22'
+                  cache: 'npm'
+            - name: Setup Pages
+              id: pages
+              uses: actions/configure-pages@v6
+            - name: Cache npm dependencies
+              uses: actions/cache@v6
+              with:
+                  path: ~/.npm
+                  key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+                  restore-keys: |
+                      ${{ runner.os }}-npm-
+            - name: Install dependencies
+              run: npm ci
+            - name: Compile Paraglide messages
+              # See ci.yml — `src/lib/paraglide` is generated and gitignored, and
+              # `npm run check` runs svelte-check, which doesn't run Vite plugins.
+              run: npx paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide
+            - name: Cache Playwright browsers
+              uses: actions/cache@v6
+              with:
+                  path: ~/.cache/ms-playwright
+                  key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+            - name: Install Playwright browser
+              # Vitest's client + storybook projects run in a real Chromium.
+              # No --with-deps: the runner image already ships every library
+              # Chromium needs, and apt stalls fetching the optional CJK fonts.
+              run: npx playwright install chromium
+              timeout-minutes: 5
+            - name: Type check
+              run: npm run check
+            - name: Unit tests
+              run: npm run test
+            - name: Build
+              run: npm run build
+              env:
+                  BASE_PATH: ${{ steps.pages.outputs.base_path }}
+            - name: Upload artifact
+              uses: actions/upload-pages-artifact@v5
+              with:
+                  path: build
+
+    deploy:
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        needs: build
+        runs-on: ubuntu-latest
+        name: Deploy
+        steps:
+            - name: Deploy to GitHub Pages
+              id: deployment
+              uses: actions/deploy-pages@v5

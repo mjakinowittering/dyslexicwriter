@@ -20,6 +20,7 @@
         "format": "prettier --write .",
         "test:unit": "vitest",
         "test": "npm run test:unit -- --run",
+        "test:coverage": "vitest run --coverage",
         "storybook": "storybook dev -p 6006",
         "build-storybook": "storybook build"
     },
@@ -85,6 +86,7 @@
         "@tiptap/starter-kit": "^3.27.1",
         "date-fns": "^4.4.0",
         "dexie": "^4.4.3",
+        "js-yaml": "^5.3.0",
         "marked": "^18.0.9",
         "mode-watcher": "^1.1.0",
         "turndown": "^7.2.4",
