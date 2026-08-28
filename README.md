@@ -189,3 +189,18 @@ Within each, related items sit next to each other.
       here; noted so the green run isn't read as more than it is
     - **Then flip `test: 'todo'` to `test: 'error'`** so the suite holds the
       line. Doing that before the canvas story is settled only leaves the run red
+- [ ] Add the two missing Storybook stories. Every component under
+      `src/lib/components/` has a story in the mirrored `src/stories/` tree except
+      `Editor/Statusbar/StatusbarSaveState.svelte` and
+      `Editor/Statusbar/StatusbarUnsaved.svelte`. Their behaviour is not untested —
+      `Statusbar.stories.svelte` already drives `idle`/`saving`/`saved`/`pending`
+      and both `savedAt` cases through the composite — but neither leaf appears in
+      the autodocs tree beside its siblings `StatusbarWordCount` and
+      `StatusbarTimeToRead`, so the two chips a writer relies on to know their work
+      has landed can't be viewed or checked on their own. `StatusbarSaveState` wants
+      four stories (`saving`, a fresh save inside `FRESH_MS`, an aged save via
+      `editor_saved_when`, and `savedAt: null` rendering nothing);
+      `StatusbarUnsaved` wants two (`pending`, and hidden otherwise). Follow
+      `StatusbarWordCount.stories.svelte` for shape. `src/lib/components/ui/` is
+      shadcn-vendored and deliberately storyless, so it stays out of scope — and
+      note this lands ~6 more stories on the a11y run counted above
