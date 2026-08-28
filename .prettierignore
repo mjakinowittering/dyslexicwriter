@@ -8,3 +8,12 @@ bun.lockb
 # Miscellaneous
 /static/
 /drizzle/
+
+# Inlang writes these two on every `paraglide-js compile`, in its own
+# formatting. They are untracked (project.inlang/.gitignore keeps everything
+# but settings.json out of git) — but Prettier only reads the *root*
+# .gitignore, so on CI, where the compile step regenerates them, it would
+# check files that no commit can ever fix. settings.json is hand-edited and
+# stays linted.
+/project.inlang/.meta.json
+/project.inlang/README.md
