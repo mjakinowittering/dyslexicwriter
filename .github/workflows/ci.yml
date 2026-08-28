@@ -1,0 +1,66 @@
+# Lint, type-check and unit-test every pull request. Master ships through
+# build-and-deploy.yml, so it needs no CI trigger of its own here.
+#
+# PR-only (not `push`) is deliberate: this job is a *required* status check in
+# the master ruleset. If it also ran on `push`, a push to a branch with an open
+# PR would fire both `push` and `pull_request` on the same commit; the
+# concurrency cancel below would cancel one of them, and a cancelled run still
+# posts a `Lint · Check · Test` check onto that commit — which the ruleset reads
+# as a required check that isn't passing, blocking the merge. With
+# `pull_request` alone, rapid pushes produce runs on *different* commits, so a
+# cancelled run only ever lands on a superseded SHA, never on the PR head being
+# evaluated.
+name: CI
+
+on:
+    pull_request:
+
+concurrency:
+    group: ci-${{ github.head_ref }}
+    cancel-in-progress: true
+
+jobs:
+    check:
+        name: Lint · Check · Test
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+            - name: Setup Node
+              uses: actions/setup-node@v6
+              with:
+                  node-version: '22'
+                  cache: 'npm'
+            - name: Cache npm dependencies
+              uses: actions/cache@v6
+              with:
+                  path: ~/.npm
+                  key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+                  restore-keys: |
+                      ${{ runner.os }}-npm-
+            - name: Install dependencies
+              run: npm ci
+            - name: Compile Paraglide messages
+              # `src/lib/paraglide` is generated and gitignored, so a fresh
+              # checkout doesn't have it. The Vite plugin rebuilds it during
+              # `vite build` and `vitest`, but `npm run check` is svelte-check,
+              # which doesn't run Vite plugins — without this step every
+              # `$lib/paraglide/messages` import is unresolved.
+              run: npx paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide
+            - name: Cache Playwright browsers
+              uses: actions/cache@v6
+              with:
+                  path: ~/.cache/ms-playwright
+                  key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+            - name: Install Playwright browser
+              # Vitest's client + storybook projects run in a real Chromium.
+              # No --with-deps: the runner image already ships every library
+              # Chromium needs, and apt stalls fetching the optional CJK fonts.
+              run: npx playwright install chromium
+              timeout-minutes: 5
+            - name: Lint
+              run: npm run lint
+            - name: Type check
+              run: npm run check
+            - name: Unit tests
+              run: npm run test
