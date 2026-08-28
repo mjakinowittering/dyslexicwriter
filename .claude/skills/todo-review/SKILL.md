@@ -153,6 +153,31 @@ If plan mode's verification drops a stale item and that makes the name wrong, em
 corrected `/rename` line at that point rather than leaving a name for work that is no
 longer in the plan.
 
+**Name the branch.** The work never lands on `develop` directly. The branch is named
+here, stated in the plan, and created as the plan's **first step** once approved — plan
+mode changes nothing on disk, branches included.
+
+- **Prefix** — `bug/` for an item under **Bugs**, `feature/` for one under
+  **Features**. The subsection decides it, not the phrasing; a mixed selection takes
+  `feature/`
+- **Then `/` and a kebab-cased description of the work** — **5-8 words**, and no more.
+  Economy is the point: drop articles and conjunctions, keep the subsystem and the
+  change
+- Lower case throughout; **no item numbers** (Step 1 renumbers on every run) and no
+  ticket refs
+- **One branch per plan**, however many items it covers — name what they share, as the
+  session name does
+- Examples:
+    - `bug/image-src-blob-url-resolution`
+    - `bug/table-cell-borders-header-tint`
+    - `feature/read-aloud-karaoke-auto-scroll`
+    - `feature/github-pages-deploy-and-metadata`
+- **Off `develop`**, never `master` and never whatever happens to be checked out:
+  `git switch develop && git switch -c <name>`
+- Check `git status` first. An unrelated dirty tree is the user's call — say what is
+  uncommitted and ask before switching, rather than carrying it onto the new branch
+- Already on a branch for this work? Stay on it; don't stack a second one
+
 **Call `EnterPlanMode`.** Then:
 
 1. **Verify each item against the code.** Todos go stale — line numbers drift, files get
@@ -175,6 +200,8 @@ Keep each item traceable: a reader should be able to see which steps satisfy whi
 
 It should cover, briefly:
 
+- **a first step that opens the branch**: `git switch develop && git switch -c <name>`,
+  with the branch name written out in the plan so it is approved along with the work
 - what changes, in behaviour terms — what the user will see afterwards
 - the files touched and roughly what happens in each
 - the CLAUDE.md invariants that constrain it (the markdown round-trip's
@@ -207,6 +234,28 @@ and still beside its relatives: fixing the broken half of a bug can leave a rema
 that is really a feature, and it should move rather than sit under **Bugs** describing
 work that isn't one. Report the removals alongside the change so the list and the code
 never disagree.
+
+**Stage, and suggest the commit.** Last of all, once the change is verified, the README
+items are removed and `npm run check` / `npm test` pass:
+
+- **Stage everything** — `git add -A` from the repo root, then `git status --short` so
+  the user sees exactly what is staged
+- **Do not commit.** As with `/rename`, hand the message over as one pasteable line,
+  the command alone in a fenced block:
+
+```
+git commit -m "Resolve image src to a blob: URL at render time"
+```
+
+- If the user asks you to make the commit instead, run that line, with the usual
+  `Co-Authored-By` trailer
+- **Subject line only** — no body, no bullet list in the message
+- Imperative mood, sentence case, no trailing full stop, **under 72 characters**
+- Say what changed and where: `Style editor tables with cell borders and header tint`,
+  not `Fix styling`
+- One commit per plan; several items share a subject naming what they share
+- A partly-finished item commits what actually landed — the message describes the work
+  done, never the item's title
 
 ## Step 3b — Add an item
 
