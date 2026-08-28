@@ -37,7 +37,7 @@
     ariaLabel={m.content_format_heading({ level })}
     {disabled}
     {onClick}
-    shortcut={['Ctrl', 'Alt', String(level)]}
+    shortcut={['Mod', 'Alt', String(level)]}
     tooltip={m.content_format_heading_hint({ level })}
     value="heading{level}"
 >

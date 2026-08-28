@@ -140,6 +140,33 @@ describe('splitSentences', () => {
         const sentences = splitSentences('Just a fragment');
         expect(sentences).toEqual([{ start: 0, end: 15 }]);
     });
+
+    it('does not split on a dot inside a filename', () => {
+        const text = 'Open diagram.png to see it. Then close it.';
+        const sentences = splitSentences(text);
+        expect(sentences.map((s) => text.slice(s.start, s.end))).toEqual([
+            'Open diagram.png to see it.',
+            'Then close it.'
+        ]);
+    });
+
+    it('does not split on a decimal or a version number', () => {
+        const text = 'Read notes.md, then 1.5 and v2.0.1 all fine. Next.';
+        const sentences = splitSentences(text);
+        expect(sentences.map((s) => text.slice(s.start, s.end))).toEqual([
+            'Read notes.md, then 1.5 and v2.0.1 all fine.',
+            'Next.'
+        ]);
+    });
+
+    it('lets a closing quote or bracket follow the terminator', () => {
+        const text = 'She left (in a hurry.) He stayed.';
+        const sentences = splitSentences(text);
+        expect(sentences.map((s) => text.slice(s.start, s.end))).toEqual([
+            'She left (in a hurry.)',
+            'He stayed.'
+        ]);
+    });
 });
 
 describe('chunkUtterance', () => {

@@ -126,14 +126,12 @@ locally. There is no server process.
 
 ## Todo
 
-- [ ] Read-aloud: karaoke-style auto-scroll to keep the spoken word in view as playback
-      advances (the sentence highlight is in place; scrolling to follow it is not)
-- [ ] Fix the empty read-aloud voice picker — `SpeechController.loadVoices()`
-      (`speech-controller.svelte.ts:98`) is never called from anywhere, so `speech.voices`
-      stays empty and the picker always shows its no-voices state. Call it on editor mount
-      (and remove the `voiceschanged` listener on teardown)
-- [ ] Add support for Apple Mac keyboard shortcuts in toolbar tooltips — map `Ctrl`→`⌘`,
-      `Alt`→`⌥` based on platform (currently hardcoded to `Ctrl`/`Alt`)
+Split into **Bugs** — something already built that doesn't behave as intended — and
+**Features** — work not yet built, plus the decisions and chores that go with it.
+Within each, related items sit next to each other.
+
+### Bugs
+
 - [ ] Make inserted images actually display — insertion is already a proper TipTap image
       node (`setImage` in `FormatInsertImage.svelte`), but its `src` is a path relative to
       the document folder (`diagram.png`), which the browser resolves against the app URL
@@ -148,20 +146,29 @@ locally. There is no server process.
       `min-width` in `layout.css`, plus the ProseMirror table internals — `.tableWrapper`
       (horizontal overflow) and `.selectedCell` (cell-selection tint). Column resizing is
       off by design, so `.column-resize-handle` is not needed
+
+### Features
+
+- [ ] Read-aloud: karaoke-style auto-scroll to keep the spoken word in view as playback
+      advances (the sentence highlight is in place; scrolling to follow it is not)
 - [ ] Improve the welcome / first-run experience — replace the single "choose folder"
-      button with two large graphical cards, both of which open the directory picker: - **Suggested** — ends up at `Documents/DyslexicWriter`. The picker cannot be pointed
-      at a path, so this opens with `startIn: 'documents'` and then creates the folder
-      inside whatever the user picks, via `getDirectoryHandle('DyslexicWriter',
-{ create: true })`. Say plainly on the card where the writing will end up - **Choose your own** — the same picker, no subfolder created. It cannot start at the
-      home directory: Chromium refuses the home folder, Downloads and system directories
-      outright (see the existing `welcome_folder_hint` copy), so start at Documents or
-      Desktop - Returning visits already work — `workspace.restore()` reads the stored handle from
-      IndexedDB (a directory handle has no string form, so it can never be localStorage)
-      and falls back to the welcome screen. What's missing is the middle case: when
-      `queryPermission` is not yet `granted`, restore drops silently to first-run. Instead
-      remember the folder's name and offer a "Reopen <name>" card, which supplies the user
-      gesture `requestPermission` needs. Chromium's "allow on every visit" grant makes
-      this silent thereafter
+      button with two large graphical cards, both of which open the directory picker:
+    - **Suggested** — ends up at `Documents/DyslexicWriter`. The picker cannot be
+      pointed at a path, so this opens with `startIn: 'documents'` and then creates
+      the folder inside whatever the user picks, via
+      `getDirectoryHandle('DyslexicWriter', { create: true })`. Say plainly on the
+      card where the writing will end up
+    - **Choose your own** — the same picker, no subfolder created. It cannot start at
+      the home directory: Chromium refuses the home folder, Downloads and system
+      directories outright (see the existing `welcome_folder_hint` copy), so start at
+      Documents or Desktop
+    - Returning visits already work — `workspace.restore()` reads the stored handle
+      from IndexedDB (a directory handle has no string form, so it can never be
+      localStorage) and falls back to the welcome screen. What's missing is the middle
+      case: when `queryPermission` is not yet `granted`, restore drops silently to
+      first-run. Instead remember the folder's name and offer a "Reopen <name>" card,
+      which supplies the user gesture `requestPermission` needs. Chromium's "allow on
+      every visit" grant makes this silent thereafter
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
 - [ ] Deploy to GitHub Pages as a static SPA, and add the site-level SEO /
@@ -205,106 +212,30 @@ locally. There is no server process.
       not reinstating SSR
     - `static/robots.txt` already allows everything. A `sitemap.xml` is only worth
       adding once the base path decision produces a stable public URL
-- [ ] Show the Files screen as a folder tree rather than a flat list, and stop
-      assuming every document is a top-level folder of its own. `scanFolder`
-      (`src/lib/fs/documents.ts:54`) walks the working folder exactly one level
-      deep and skips anything that is not a directory, so the only shape it can
-      find is `<folder>/<name>.md`; `+page.svelte:152` then renders what it
-      found as a flat `<ul>` sorted by `lastModified`. A loose `notes.md` at the
-      root, or a chapter nested two levels down, is invisible — point the app at
-      an existing writing folder and it can look empty. The scan should walk the
-      tree, take every file ending in `MARKDOWN_EXTENSION` wherever it sits, and
-      the screen should show the directory structure it came from.
-    - **The scan.** Recurse from the root, keep every `.md`, skip
-      `config.json`. Settle a depth cap and whether dot-directories are skipped
-      — an unbounded walk of a folder the user pointed at their whole Documents
-      tree is slow enough to feel broken. `findMarkdownFile`
-      (`documents.ts:36`) already tolerates a markdown file whose name differs
-      from its folder, so that half of "not a singleton directory" is done
-    - **`DocumentIndexEntry.folder` stops being a single segment.** It is one
-      today everywhere it is used: the `{#each}` key, the `?doc=` route param
-      (`+page.svelte:38`), and the value handed straight to
-      `getDirectoryHandle` by `readDocument`, `writeDocument`,
-      `renameDocument`, `deleteDocument` and `writeImage`. A nested document
-      needs a path — segments or a `/`-joined string — plus one resolver that
-      walks it to a handle, and `documentIndexEntrySchema`
-      (`config.model.ts:37`) widened to match. `sanitiseTitle` still owns each
-      segment individually; the path itself is never user input and must never
-      be built from one
-    - **A root-level `.md` has no folder to own.** Rename copies a whole folder
-      and removes the old one last, and `writeImage` writes into the document's
-      folder — neither is meaningful for a loose file sitting beside the user's
-      other files. Decide per case (rename the file alone; write images beside
-      it) rather than inventing a folder behind the user's back, and keep the
-      delete confirmation honest about whether a file or a folder goes
-    - **This changes the documented data model**, so CLAUDE.md's "On disk"
-      shape and the one-folder-per-document rules move in the same commit —
-      raise the widened model before building it, not after
-    - **The tree UI itself.** shadcn-svelte's `collapsible` is not installed
-      (`src/lib/components/ui/`), expand/collapse motion is native Svelte with
-      timings from `$lib/config/motion.ts`, and the rows need real tree
-      semantics rather than nested `<ul>`s styled to look indented. The current
-      list carries rename and delete buttons per row, which have to survive the
-      move. Sorting by `lastModified` is a flat-list idea and mostly stops
-      making sense here
-    - Scope: the Files screen and the scan. Not a sidebar file tree inside the
-      editor, not creating documents into a chosen subfolder, and not moving
-      documents between folders — all follow more easily once the path work
-      above exists
-- [ ] Preserve YAML frontmatter instead of silently destroying it. `fromMarkdown`
-      hands the raw file straight to marked (`from-markdown.ts:30`), which has no
-      frontmatter support: an opening `---` parses as a thematic break, the lines
-      under it as a paragraph, and the closing `---` as a setext underline for
-      that paragraph. A file opening with a `---` fence around `title:`,
-      `author:` and `tags:` lines therefore becomes an `<hr>` plus an `<h2>`,
-      and the first autosave writes it back as `* * *` followed by
-      `## title: My Chapter author: Matthew tags: \[draft\]` — delimiters gone,
-      the line breaks collapsed into one heading, the brackets escaped, and the
-      metadata now sitting in the prose for the writer to delete. Nothing warns
-      and there is no undo. Split the file on read, hold the frontmatter on the
-      document store beside the JSON, and reunite the two on write.
-    - **Use `gray-matter`.** `matter(raw)` returns `data` (the frontmatter as an
-      object) and `content` (the body markdown); `matter.stringify` takes the
-      two back to a file — one dependency closing the loop in both
-      directions. `front-matter` only reads and has no `stringify`;
-      `vfile-matter` needs the vfile object model; `yaml` v2 knows nothing about
-      markdown fences. Accepted trade-off: comments in the frontmatter are
-      dropped and quoting style is normalised on write-back. If the 2020 publish
-      date and its unmaintained js-yaml v3 dependency prove a problem, the swap
-      is `yaml` v2 plus a small local fence split — same design, one more file
-      to own
-    - **Two settings to get right.** js-yaml coerces `date: 2026-08-14` into a
-      JS `Date` and writes it back as `2026-08-14T00:00:00.000Z`, which is a
-      semantic change to the user's file rather than a cosmetic one — pass
-      js-yaml's `JSON_SCHEMA` through gray-matter's `engines` option to keep
-      scalars as written. It also throws on malformed YAML, and that is the
-      document-open path: catch it and fall back to treating the file as all
-      body, so a typo in someone's YAML can never make a document unopenable
-    - **Where it threads through.** `readDocument` reads the file's text
-      (`documents.ts:120`); split there and add the result to `OpenedDocument`
-      (`documents.ts:97`). It needs a home on the document store beside
-      `contentJson` (`document.svelte.ts:30`) as a `$state` holding a
-      `Record<string, unknown>`, and a parameter on
-      `writeDocument`, which today derives the whole file from `contentJson`
-      alone (`documents.ts:139`). Derive-before-write still holds: build the
-      whole file string first, then open the writable
-    - **`#reset()` must clear it** (`document.svelte.ts:184`). Miss that and
-      opening document B after document A writes A's frontmatter into B's file —
-      a corruption that crosses documents silently, which is the worst shape a
-      bug can take in this app
-    - **Nothing in the app may read the values.** A `title:` key must not start
-      competing with the folder name, which is the only title authority
-      (`documents.ts:123`), and the editor must not display or edit the block.
-      Preservation only; a metadata panel is a separate decision
-    - **Two edge cases.** A document that never had frontmatter must not gain an
-      empty `---` fence on its first save. A file that is _only_ frontmatter
-      leaves an empty body, which hits `fromMarkdown`'s empty-document guard
-      (`from-markdown.ts:26`) and must keep its frontmatter alongside the empty
-      doc
-    - **Tests.** A frontmatter case in `round-trip.test.ts`, and an OPFS case in
-      `documents.svelte.test.ts` proving read-then-write leaves an existing
-      file's frontmatter intact. `renameDocument` needs no change — it copies
-      files byte-for-byte (`documents.ts:196`)
-    - Worth doing before the folder-tree item above: pointing the app at an
-      existing Obsidian or Hugo folder is exactly what surfaces this, and it
-      damages every file it opens
+- [ ] Settle the last Storybook a11y failure, then enforce the checks.
+      `@storybook/addon-a11y` is wired (`.storybook/main.ts`) but still runs as
+      `test: 'todo'` (`.storybook/preview.ts:26`), so violations surface in the
+      Storybook UI and never fail a run. The editor and the speed slider now
+      have accessible names, which leaves exactly **one** failing story out of
+      95 — everything else passes under `'error'` today.
+    - **The canvas reads as a keyboard-inaccessible scroll region**
+      (`scrollable-region-focusable`, the Page `Long document` story).
+      `Page.svelte:56` scrolls on overflow and is neither focusable nor
+      guaranteed to hold focusable content. Confirmed **not** a product defect:
+      `Page` is only ever used as `Page.Root` wrapping
+      `Page.Editor` (`edit/+page.svelte:166`), whose contenteditable is
+      focusable and satisfies the rule. The story is the artifact — it renders
+      the sheet around static prose. Either disable that one rule for that one
+      story (`parameters.a11y.config.rules`, verified to work) or give the story
+      focusable content; do not change the component
+    - **Only the dark theme is ever scanned.** `withThemeByClassName` sets
+      `defaultTheme: 'dark'` (`.storybook/preview.ts:10`) and the test run takes
+      the default global, so no story is axe-checked in the warm light theme and
+      every light-theme contrast defect is invisible. Worth deciding whether
+      enforcement should cover both themes before the flag is flipped
+    - **Nothing checks the routes.** `/` and `/edit` have no stories, so
+      landmarks, heading order and the focus path across rail → title → toolbar
+      → editor → settings are outside the addon's reach entirely. Out of scope
+      here; noted so the green run isn't read as more than it is
+    - **Then flip `test: 'todo'` to `test: 'error'`** so the suite holds the
+      line. Doing that before the canvas story is settled only leaves the run red

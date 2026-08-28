@@ -22,7 +22,7 @@
     ariaLabel={m.content_format_bullet_list()}
     {disabled}
     {onClick}
-    shortcut={['Ctrl', 'Shift', '8']}
+    shortcut={['Mod', 'Shift', '8']}
     tooltip={m.content_format_bullet_list_hint()}
     value="bulletList"
 >

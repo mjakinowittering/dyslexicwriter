@@ -4,13 +4,13 @@
     import { page } from '$app/state';
     import { onDestroy, onMount } from 'svelte';
 
-    import * as ContentEditor from '$lib/components/ContentEditor/Editor';
-    import * as Format from '$lib/components/ContentEditor/Format';
-    import * as Statusbar from '$lib/components/ContentEditor/Statusbar';
-    import * as Toolbar from '$lib/components/ContentEditor/Toolbar';
-    import Logo from '$lib/components/ContentEditor/Toolbar/ToolbarLogo.svelte';
-    import Rail from '$lib/components/ContentEditor/Toolbar/ToolbarRail.svelte';
-    import Settings from '$lib/components/ContentEditor/Toolbar/ToolbarSettings.svelte';
+    import * as Format from '$lib/components/Editor/Format';
+    import * as Page from '$lib/components/Editor/Page';
+    import * as Statusbar from '$lib/components/Editor/Statusbar';
+    import * as Toolbar from '$lib/components/Editor/Toolbar';
+    import Logo from '$lib/components/Editor/Toolbar/ToolbarLogo.svelte';
+    import Rail from '$lib/components/Editor/Toolbar/ToolbarRail.svelte';
+    import Settings from '$lib/components/Editor/Toolbar/ToolbarSettings.svelte';
     import * as SettingsPanel from '$lib/components/Settings';
     import Input from '$lib/components/ui/input/input.svelte';
 
@@ -26,13 +26,20 @@
     let settingsOpen = $state(false);
     let title = $state('');
 
-    const folder = $derived(page.url.searchParams.get('doc'));
+    // The markdown file's path relative to the working folder — `notes.md`,
+    // `Chapters/One.md`. A bare folder name from an older link still resolves.
+    const path = $derived(page.url.searchParams.get('doc'));
 
     onMount(async () => {
         if (!isFileSystemAccessSupported()) {
             await goto('/');
             return;
         }
+
+        // Ask for the voice list before anything awaits: engines populate it
+        // asynchronously, and getVoices() is empty until they do.
+        speech.loadVoices();
+
         if (workspace.status === 'loading') await workspace.restore();
         if (workspace.status !== 'ready') {
             await goto('/');
@@ -43,7 +50,7 @@
         // the user's folder rather than living in this browser.
         speech.applyPreferences(workspace.config.tts);
 
-        if (folder) await doc.open(folder);
+        if (path) await doc.open(path);
         else if (!doc.contentJson) await doc.createNew();
 
         title = doc.title;
@@ -63,6 +70,7 @@
         // Audio would otherwise bleed into the next document and the highlight
         // would target a destroyed view.
         speech.stop();
+        speech.unloadVoices();
         void doc.close();
     });
 
@@ -161,8 +169,8 @@
             <p class="text-destructive px-4 py-2 text-sm">{doc.error}</p>
         {/if}
 
-        <ContentEditor.Root narrow={settingsOpen}>
-            <ContentEditor.Editor
+        <Page.Root narrow={settingsOpen}>
+            <Page.Editor
                 bind:editor
                 bind:wordCount={doc.wordCount}
                 class="flex flex-1 flex-col"
@@ -177,10 +185,11 @@
                     if (editor) doc.applyEdit(editor.getJSON());
                 }}
             />
-        </ContentEditor.Root>
+        </Page.Root>
 
         <Statusbar.Root
             error={doc.error}
+            savedAt={doc.savedAt}
             saveState={doc.saveState}
             {wordCount}
         />

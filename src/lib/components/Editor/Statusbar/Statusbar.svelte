@@ -1,8 +1,9 @@
 <script lang="ts">
-    import * as m from '$lib/paraglide/messages';
     import type { SaveState } from '$lib/stores/document.svelte';
 
+    import SaveIndicator from './StatusbarSaveState.svelte';
     import TimeToRead from './StatusbarTimeToRead.svelte';
+    import Unsaved from './StatusbarUnsaved.svelte';
     import WordCount from './StatusbarWordCount.svelte';
 
     // Always-visible bar along the bottom of the content column. It spans that
@@ -10,10 +11,12 @@
     let {
         wordCount,
         saveState = 'idle',
+        savedAt = null,
         error = ''
     }: {
         wordCount: number;
         saveState?: SaveState;
+        savedAt?: number | null;
         error?: string;
     } = $props();
 </script>
@@ -24,14 +27,14 @@
     <WordCount {wordCount} />
     <TimeToRead {wordCount} />
 
-    <div class="ml-auto">
+    <!-- Two separate answers: whether the disk is behind, and how far behind. -->
+    <div class="ml-auto flex items-center gap-3">
         {#if error}
             <!-- A failed write is the one thing here that must never be quiet. -->
             <span class="text-destructive">{error}</span>
-        {:else if saveState === 'saving'}
-            <span>{m.editor_saving()}</span>
-        {:else if saveState === 'saved'}
-            <span>{m.editor_saved()}</span>
+        {:else}
+            <Unsaved {saveState} />
+            <SaveIndicator {saveState} {savedAt} />
         {/if}
     </div>
 </footer>

@@ -20,7 +20,7 @@
     {disabled}
     onClick={() =>
         editor && toggleWithWordBoundary(editor, (c) => c.toggleItalic())}
-    shortcut={['Ctrl', 'I']}
+    shortcut={['Mod', 'I']}
     tooltip={m.content_format_italic_hint()}
     value="italic"
 >

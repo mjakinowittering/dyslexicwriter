@@ -73,6 +73,52 @@ export function fileNameFor(title: string): string {
     return `${sanitiseTitle(title)}${MARKDOWN_EXTENSION}`;
 }
 
+// A document's location is a '/'-joined path relative to the working folder. The
+// empty string is the working folder itself, so a loose `notes.md` sitting beside
+// config.json has a folder of ''.
+//
+// Paths are assembled from segments the app already owns — sanitiseTitle handles
+// each segment as it is created — and are never parsed out of user input, so
+// nothing here re-sanitises. `resolveDirectory` in `fs/documents.ts` still refuses
+// `.` and `..` as defence in depth.
+
+export function pathSegments(path: string): string[] {
+    return path.split('/').filter((segment) => segment.length > 0);
+}
+
+export function joinPath(...parts: string[]): string {
+    return parts.filter((part) => part.length > 0).join('/');
+}
+
+// The path of the directory containing `path`, or '' when it sits at the root.
+export function parentPath(path: string): string {
+    const segments = pathSegments(path);
+    segments.pop();
+    return segments.join('/');
+}
+
+// The last segment of a path, or '' for the root.
+export function lastSegment(path: string): string {
+    return pathSegments(path).at(-1) ?? '';
+}
+
+// The full path of a document's markdown file: `Chapters/One.md`, or `notes.md`
+// for one sitting at the root.
+export function documentPath(location: {
+    folder: string;
+    file: string;
+}): string {
+    return joinPath(location.folder, location.file);
+}
+
+// The display title of a document is its file's basename. For the shape the app
+// creates itself — `My Chapter/My Chapter.md` — that is the folder name too.
+export function titleFromFileName(file: string): string {
+    return file.endsWith(MARKDOWN_EXTENSION)
+        ? file.slice(0, -MARKDOWN_EXTENSION.length)
+        : file;
+}
+
 // "Untitled", then "Untitled 2", "Untitled 3", … skipping names already taken.
 // `taken` is the set of folder names currently in the working directory.
 export function nextUntitledName(taken: ReadonlySet<string>): string {

@@ -22,7 +22,7 @@
     ariaLabel={m.content_format_ordered_list()}
     {disabled}
     {onClick}
-    shortcut={['Ctrl', 'Shift', '7']}
+    shortcut={['Mod', 'Shift', '7']}
     tooltip={m.content_format_ordered_list_hint()}
     value="orderedList"
 >

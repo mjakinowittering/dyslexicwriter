@@ -29,15 +29,25 @@ const themeSchema = v.picklist(themeValues);
 const fontSchema = v.picklist(fontValues);
 const versionSchema = v.pipe(v.number(), v.integer());
 
+// The longest path the scan will index. Deep enough for a real writing tree, short
+// enough that a hand-edited entry can't grow unbounded.
+const PATH_MAX_LENGTH = 1024;
+
 export const documentIndexEntrySchema = v.object({
-    // Display title, and the name of both the folder and the .md file inside it.
+    // Display title: the markdown file's basename, without the extension.
     title: v.pipe(v.string(), v.minLength(1), v.maxLength(120)),
-    // Folder name within the working directory. Equal to `title` today, but stored
-    // separately so a future sanitisation change can't orphan existing documents.
-    folder: v.pipe(v.string(), v.minLength(1), v.maxLength(120)),
+    // The containing directory as a '/'-joined path relative to the working
+    // folder. '' is the working folder itself, where a loose `notes.md` lives.
+    folder: v.pipe(v.string(), v.maxLength(PATH_MAX_LENGTH)),
     // File name within that folder, including the .md extension.
     file: v.pipe(v.string(), v.minLength(1), v.maxLength(130)),
-    // Epoch milliseconds, used to sort the Files screen.
+    // True when this document owns its folder — the `My Chapter/My Chapter.md`
+    // shape the app creates, where renaming moves the folder and deleting removes
+    // it whole. False for a markdown file the app merely found sitting among
+    // others. Optional so an index written by an older version still parses; it is
+    // recomputed by every scan and never trusted from the cache.
+    ownsFolder: v.optional(v.boolean(), false),
+    // Epoch milliseconds, shown against each document on the Files screen.
     lastModified: v.pipe(v.number(), v.minValue(0))
 });
 

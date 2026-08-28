@@ -56,7 +56,7 @@
 <div class="bg-canvas w-full flex-1 overflow-x-hidden overflow-y-auto">
     <div class="flex min-h-full w-full flex-col sm:px-16 sm:py-14">
         <div
-            class="bg-sheet sm:shadow-sheet mx-auto flex w-full flex-1 flex-col sm:rounded-xl sm:border"
+            class="bg-sheet sm:shadow-sheet 3xl:[--doc-max-width:68rem] 3xl:[--doc-sheet-padding:clamp(2rem,8vw,10.8rem)] mx-auto flex w-full flex-1 flex-col sm:rounded-xl sm:border 2xl:[--doc-max-width:54rem] 2xl:[--doc-sheet-padding:clamp(2rem,8vw,8.6rem)]"
             style={sheetStyle}
         >
             {@render children()}
