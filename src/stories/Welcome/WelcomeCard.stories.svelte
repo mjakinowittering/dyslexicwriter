@@ -42,7 +42,7 @@
     }}
 >
     {#snippet template(args)}
-        <div class="bg-background w-full max-w-md p-6">
+        <div class="bg-background w-full p-6">
             <WelcomeCard {...args} />
         </div>
     {/snippet}
@@ -58,7 +58,7 @@
     name="Reopen"
 >
     {#snippet template(args)}
-        <div class="bg-background w-full max-w-md p-6">
+        <div class="bg-background w-full p-6">
             <WelcomeCard {...args} />
         </div>
     {/snippet}
