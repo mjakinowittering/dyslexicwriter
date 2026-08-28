@@ -25,7 +25,13 @@ describe('Tooltip suppression', () => {
         await trigger.hover();
         await expect.element(page.getByText('the balloon')).toBeVisible();
 
-        tooltips.suppress(1000);
+        // Long enough that it cannot lapse mid-test. What follows is four retrying
+        // assertions and two hovers, and a hold measured in the same order as that
+        // work is a race the test loses on a loaded machine — the balloon then
+        // re-opens legitimately, because suppression really has expired, and the
+        // failure says nothing about the behaviour under test. `afterEach` releases
+        // the hold, so a long one cannot bleed into the next test.
+        tooltips.suppress(30_000);
         await expect
             .element(page.getByText('the balloon'))
             .not.toBeInTheDocument();

@@ -162,48 +162,6 @@ Within each, related items sit next to each other.
       advances (the sentence highlight is in place; scrolling to follow it is not)
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
-- [ ] Settle the last Storybook a11y failure, then enforce the checks.
-      `@storybook/addon-a11y` is wired (`.storybook/main.ts`) but still runs as
-      `test: 'todo'` (`.storybook/preview.ts:26`), so violations surface in the
-      Storybook UI and never fail a run. The editor and the speed slider now
-      have accessible names, which leaves exactly **one** failing story out of
-      95 — everything else passes under `'error'` today.
-    - **The canvas reads as a keyboard-inaccessible scroll region**
-      (`scrollable-region-focusable`, the Page `Long document` story).
-      `Page.svelte:56` scrolls on overflow and is neither focusable nor
-      guaranteed to hold focusable content. Confirmed **not** a product defect:
-      `Page` is only ever used as `Page.Root` wrapping
-      `Page.Editor` (`edit/+page.svelte:166`), whose contenteditable is
-      focusable and satisfies the rule. The story is the artifact — it renders
-      the sheet around static prose. Either disable that one rule for that one
-      story (`parameters.a11y.config.rules`, verified to work) or give the story
-      focusable content; do not change the component
-    - **Only the dark theme is ever scanned.** `withThemeByClassName` sets
-      `defaultTheme: 'dark'` (`.storybook/preview.ts:10`) and the test run takes
-      the default global, so no story is axe-checked in the warm light theme and
-      every light-theme contrast defect is invisible. Worth deciding whether
-      enforcement should cover both themes before the flag is flipped
-    - **Nothing checks the routes.** `/` and `/edit` have no stories, so
-      landmarks, heading order and the focus path across rail → title → toolbar
-      → editor → settings are outside the addon's reach entirely. Out of scope
-      here; noted so the green run isn't read as more than it is
-    - **Then flip `test: 'todo'` to `test: 'error'`** so the suite holds the
-      line. Doing that before the canvas story is settled only leaves the run red
-- [ ] Add the two missing Storybook stories. Every component under
-      `src/lib/components/` has a story in the mirrored `src/stories/` tree except
-      `Editor/Statusbar/StatusbarSaveState.svelte` and
-      `Editor/Statusbar/StatusbarUnsaved.svelte`. Their behaviour is not untested —
-      `Statusbar.stories.svelte` already drives `idle`/`saving`/`saved`/`pending`
-      and both `savedAt` cases through the composite — but neither leaf appears in
-      the autodocs tree beside its siblings `StatusbarWordCount` and
-      `StatusbarTimeToRead`, so the two chips a writer relies on to know their work
-      has landed can't be viewed or checked on their own. `StatusbarSaveState` wants
-      four stories (`saving`, a fresh save inside `FRESH_MS`, an aged save via
-      `editor_saved_when`, and `savedAt: null` rendering nothing);
-      `StatusbarUnsaved` wants two (`pending`, and hidden otherwise). Follow
-      `StatusbarWordCount.stories.svelte` for shape. `src/lib/components/ui/` is
-      shadcn-vendored and deliberately storyless, so it stays out of scope — and
-      note this lands ~6 more stories on the a11y run counted above
 - [ ] Neutralise the colour palette — roll both themes back towards shadcn-svelte's
       default neutral greys. Nothing is broken here: the tokens do what they were
       specified to do, and it is the specification that is changing. Every value in

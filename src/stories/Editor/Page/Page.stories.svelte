@@ -3,6 +3,8 @@
 
     import Page from '$lib/components/Editor/Page/Page.svelte';
 
+    import * as m from '$lib/paraglide/messages';
+
     const { Story } = defineMeta({
         title: 'Editor/Page/Page',
         component: Page,
@@ -23,18 +25,35 @@
     });
 </script>
 
+<!-- The canvas scrolls once the sheet overflows it, so something inside has to be
+     reachable from the keyboard, or a keyboard user cannot scroll the page at all.
+     `Page` itself is correct and is left alone: it is only ever given
+     `Page.Editor`, and these stories stand in prose of their own.
+
+     So the stand-in is shaped like the real thing — the contenteditable,
+     `role="textbox"` and label TipTap renders (see `PageEditor.svelte`). The
+     explicit `tabindex` is the part that does the work: axe does not count a bare
+     contenteditable as tabbable content, so without it the long story fails
+     `scrollable-region-focusable` even though the element is focusable in practice. -->
+
 <Story name="Default" args={{ narrow: false }}>
     {#snippet template({ children, ...args })}
         <div class="flex h-screen w-full">
             <Page {...args}>
-                <article class="prose dark:prose-invert">
+                <div
+                    aria-label={m.content_editor_label()}
+                    class="prose dark:prose-invert"
+                    contenteditable="true"
+                    role="textbox"
+                    tabindex="0"
+                >
                     <h1>Document title</h1>
                     <p>
                         The sheet holds the document at a comfortable measure
                         and gives up width only while the settings panel is
                         open.
                     </p>
-                </article>
+                </div>
             </Page>
         </div>
     {/snippet}
@@ -44,10 +63,16 @@
     {#snippet template({ children, ...args })}
         <div class="flex h-screen w-full">
             <Page {...args}>
-                <article class="prose dark:prose-invert">
+                <div
+                    aria-label={m.content_editor_label()}
+                    class="prose dark:prose-invert"
+                    contenteditable="true"
+                    role="textbox"
+                    tabindex="0"
+                >
                     <h1>Document title</h1>
                     <p>Narrowed while the settings panel takes its column.</p>
-                </article>
+                </div>
             </Page>
         </div>
     {/snippet}
@@ -59,7 +84,13 @@
     {#snippet template({ children, ...args })}
         <div class="flex h-screen w-full">
             <Page {...args}>
-                <article class="prose dark:prose-invert">
+                <div
+                    aria-label={m.content_editor_label()}
+                    class="prose dark:prose-invert"
+                    contenteditable="true"
+                    role="textbox"
+                    tabindex="0"
+                >
                     <h1>Document title</h1>
                     {#each { length: 40 }}
                         <p>
@@ -68,7 +99,7 @@
                             size it is ever cut to.
                         </p>
                     {/each}
-                </article>
+                </div>
             </Page>
         </div>
     {/snippet}
