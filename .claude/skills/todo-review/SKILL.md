@@ -153,30 +153,23 @@ If plan mode's verification drops a stale item and that makes the name wrong, em
 corrected `/rename` line at that point rather than leaving a name for work that is no
 longer in the plan.
 
-**Name the branch.** The work never lands on `develop` directly. The branch is named
-here, stated in the plan, and created as the plan's **first step** once approved — plan
-mode changes nothing on disk, branches included.
+**Name the branch.** The work never lands on `develop` directly. `branch-and-commit`
+owns the naming, the prefix and the `git switch` lines; it is loaded twice over a run of
+this skill — **once when the plan is approved, to cut the branch, and once when the
+change is finished, to stage and commit it**. Neither load is optional and neither
+covers for the other.
 
-- **Prefix** — `bug/` for an item under **Bugs**, `feature/` for one under
-  **Features**. The subsection decides it, not the phrasing; a mixed selection takes
-  `feature/`
-- **Then `/` and a kebab-cased description of the work** — **5-8 words**, and no more.
-  Economy is the point: drop articles and conjunctions, keep the subsystem and the
-  change
-- Lower case throughout; **no item numbers** (Step 1 renumbers on every run) and no
-  ticket refs
+Naming happens here, while planning. Two things are this skill's to supply:
+
+- The **prefix comes from the subsection** the item sits under — `bug/` for one under
+  **Bugs**, `feature/` for one under **Features**. The heading decides it, not the
+  phrasing; a mixed selection takes `feature/`
 - **One branch per plan**, however many items it covers — name what they share, as the
   session name does
-- Examples:
-    - `bug/image-src-blob-url-resolution`
-    - `bug/table-cell-borders-header-tint`
-    - `feature/read-aloud-karaoke-auto-scroll`
-    - `feature/github-pages-deploy-and-metadata`
-- **Off `develop`**, never `master` and never whatever happens to be checked out:
-  `git switch develop && git switch -c <name>`
-- Check `git status` first. An unrelated dirty tree is the user's call — say what is
-  uncommitted and ask before switching, rather than carrying it onto the new branch
-- Already on a branch for this work? Stay on it; don't stack a second one
+
+Name it here, state it in the plan so it is approved along with the work, and create it
+as the plan's **first step** once approved — plan mode changes nothing on disk, branches
+included.
 
 **Call `EnterPlanMode`.** Then:
 
@@ -223,6 +216,12 @@ It should cover, briefly:
 
 Then `ExitPlanMode` for approval.
 
+**Once the plan is approved — load `branch-and-commit` (1 of 2) and cut the branch.**
+This is the first thing that happens after approval, before a single file is edited.
+Plan mode changed nothing on disk, so the branch named in the plan does not exist yet;
+`git switch develop && git switch -c <name>`, under that skill's rules. Only then start
+the work.
+
 **Closing the loop.** When the approved plan is carried out, that last step is part of
 the work, not an optional extra: once the change is done and verified, delete each
 completed item's lines (its continuations and sub-bullets with it) and run prettier over
@@ -235,27 +234,15 @@ that is really a feature, and it should move rather than sit under **Bugs** desc
 work that isn't one. Report the removals alongside the change so the list and the code
 never disagree.
 
-**Stage, and suggest the commit.** Last of all, once the change is verified, the README
-items are removed and `npm run check` / `npm test` pass:
+**Stage, and suggest the commit — load `branch-and-commit` (2 of 2).** Last of all, once
+the change is verified, the README items are removed and `npm run check` / `npm test` /
+`npm run lint` pass. That skill owns the staging, the subject line and the bulleted
+body; load it again rather than working from memory of the first load.
 
-- **Stage everything** — `git add -A` from the repo root, then `git status --short` so
-  the user sees exactly what is staged
-- **Do not commit.** As with `/rename`, hand the message over as one pasteable line,
-  the command alone in a fenced block:
-
-```
-git commit -m "Resolve image src to a blob: URL at render time"
-```
-
-- If the user asks you to make the commit instead, run that line, with the usual
-  `Co-Authored-By` trailer
-- **Subject line only** — no body, no bullet list in the message
-- Imperative mood, sentence case, no trailing full stop, **under 72 characters**
-- Say what changed and where: `Style editor tables with cell borders and header tint`,
-  not `Fix styling`
-- One commit per plan; several items share a subject naming what they share
-- A partly-finished item commits what actually landed — the message describes the work
-  done, never the item's title
+The one thing this skill adds is the closing line naming the item the work came from —
+`Closes the "Improve the welcome / first-run experience" todo.` — so the log and the
+Todo list can be read against each other later. A partly-finished item commits what
+actually landed, and names no item it did not finish.
 
 ## Step 3b — Add an item
 
