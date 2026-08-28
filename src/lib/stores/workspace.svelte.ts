@@ -2,9 +2,12 @@ import { setMode } from 'mode-watcher';
 import { SvelteSet } from 'svelte/reactivity';
 
 import {
+    clearDirectoryHandle,
     ensurePermission,
+    ensureSubfolder,
     findDocument,
     flattenDocuments,
+    folderIsReachable,
     loadDirectoryHandle,
     readConfig,
     saveDirectoryHandle,
@@ -31,7 +34,8 @@ import * as m from '$lib/paraglide/messages';
 export type WorkspaceStatus =
     | 'loading' // checking IndexedDB for a previously chosen folder
     | 'unsupported' // browser has no File System Access API
-    | 'needs-folder' // first run, or permission was declined/revoked
+    | 'needs-folder' // first run, or the stored folder was given up on
+    | 'needs-permission' // a stored folder we may not touch until the user says so
     | 'ready';
 
 // The slice of the workspace the settings panel touches: the two preferences it
@@ -48,6 +52,10 @@ export interface PreferenceStore {
 class WorkspaceStore implements PreferenceStore {
     status = $state<WorkspaceStatus>('loading');
     root = $state<FileSystemDirectoryHandle | null>(null);
+    // The stored folder we found but may not read yet. Held only for the length
+    // of the 'needs-permission' state, so the welcome screen can name it and
+    // `reopen()` has something to ask about.
+    pending = $state<FileSystemDirectoryHandle | null>(null);
     config = $state<Config>(defaultConfig());
     // The working folder as a tree of directories and the documents inside them.
     tree = $state<FolderNode | null>(null);
@@ -67,6 +75,13 @@ class WorkspaceStore implements PreferenceStore {
         this.tree ? flattenDocuments(this.tree) : []
     );
 
+    // The stored folder's name, for the "Reopen …" card. A handle carries its
+    // name whether or not we have permission to open it, so there is nothing to
+    // remember separately — IndexedDB still holds exactly one thing.
+    get pendingName(): string {
+        return this.pending?.name ?? '';
+    }
+
     get theme(): Theme {
         return this.config.theme;
     }
@@ -76,9 +91,10 @@ class WorkspaceStore implements PreferenceStore {
     }
 
     // Try to pick up where the user left off. A stored handle usually still has
-    // its permission granted, in which case this is silent; if not we fall back to
-    // the folder picker rather than prompting outside a user gesture (Chromium
-    // rejects requestPermission without one).
+    // its permission granted, in which case this is silent; if not we hold it
+    // aside and let the welcome screen offer to reopen it, rather than prompting
+    // outside a user gesture (Chromium rejects requestPermission without one) or
+    // pretending this is a first run.
     async restore(): Promise<void> {
         const handle = await loadDirectoryHandle();
         if (!handle) {
@@ -87,7 +103,41 @@ class WorkspaceStore implements PreferenceStore {
         }
 
         if (!(await ensurePermission(handle))) {
+            this.pending = handle;
+            this.status = 'needs-permission';
+            return;
+        }
+
+        await this.#adopt(handle);
+    }
+
+    // Ask for the stored folder back. The card that calls this is the user
+    // gesture requestPermission needs; Chromium's "allow on every visit" grant
+    // then makes `restore()` silent from the next visit on.
+    async reopen(): Promise<void> {
+        const handle = this.pending;
+        if (!handle) return;
+
+        // Whatever went wrong last time is about to be answered one way or the
+        // other; leaving it up would have the screen explaining a refusal the
+        // user is in the middle of retrying.
+        this.error = '';
+
+        if (!(await ensurePermission(handle, { prompt: true }))) {
+            this.error = m.welcome_permission_denied();
+            return;
+        }
+
+        // Permission can be granted for a folder that is no longer there, and
+        // every read below this swallows its own errors, so ask the folder
+        // directly before committing to it. Nothing is recoverable from a handle
+        // that can't resolve: let it go and send the user back to the picker
+        // rather than leaving them on a card that will never work.
+        if (!(await folderIsReachable(handle))) {
+            await clearDirectoryHandle();
+            this.pending = null;
             this.status = 'needs-folder';
+            this.error = m.welcome_folder_missing();
             return;
         }
 
@@ -95,17 +145,38 @@ class WorkspaceStore implements PreferenceStore {
     }
 
     // Show the directory picker. Must be called from a user gesture.
-    async chooseFolder(): Promise<void> {
+    //
+    // `subfolder` is what makes the welcome screen's "start a new folder" card
+    // work: the picker cannot be pointed at a path, so we open it at Documents
+    // and create the folder inside whatever the user actually picks.
+    async chooseFolder({
+        subfolder
+    }: { subfolder?: string } = {}): Promise<void> {
+        this.error = '';
+
         try {
-            const handle = await window.showDirectoryPicker({
+            const picked = await window.showDirectoryPicker({
                 id: 'dyslexicwriter',
                 mode: 'readwrite',
                 startIn: 'documents'
             });
 
-            if (!(await ensurePermission(handle, { prompt: true }))) {
+            if (!(await ensurePermission(picked, { prompt: true }))) {
                 this.error = m.welcome_permission_denied();
                 return;
+            }
+
+            let handle = picked;
+            if (subfolder) {
+                try {
+                    handle = await ensureSubfolder(picked, subfolder);
+                } catch {
+                    // A read-only volume, or a file already sitting there under
+                    // that name. Either way the folder they picked is fine — it
+                    // is only the one inside it we couldn't make.
+                    this.error = m.welcome_folder_create_error();
+                    return;
+                }
             }
 
             await saveDirectoryHandle(handle);
@@ -132,6 +203,8 @@ class WorkspaceStore implements PreferenceStore {
 
     async #adopt(handle: FileSystemDirectoryHandle): Promise<void> {
         this.root = handle;
+        // Whatever we were waiting to be let into, we are past it now.
+        this.pending = null;
         // A different folder has a different tree; carrying the old one's open
         // and collapsed paths over would apply them to unrelated directories.
         this.tree = null;
