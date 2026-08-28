@@ -164,7 +164,16 @@ class DocumentStore {
     // there is nothing pending.
     async flush(): Promise<void> {
         this.#clearTimers();
-        if (!this.#dirty) return;
+
+        // Not dirty does not mean nothing is in flight: the debounce or the
+        // max-wait ceiling may already have claimed this edit and be part-way
+        // through writing it. Returning here would tell `pagehide` the document
+        // is on disk while the writable is still open — the dropped last edit
+        // this whole lifecycle exists to prevent.
+        if (!this.#dirty) {
+            await this.#writing;
+            return;
+        }
 
         const root = workspace.root;
         const content = this.contentJson;
