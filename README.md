@@ -160,24 +160,6 @@ Within each, related items sit next to each other.
 
 - [ ] Read-aloud: karaoke-style auto-scroll to keep the spoken word in view as playback
       advances (the sentence highlight is in place; scrolling to follow it is not)
-- [ ] Improve the welcome / first-run experience — replace the single "choose folder"
-      button with two large graphical cards, both of which open the directory picker:
-    - **Suggested** — ends up at `Documents/DyslexicWriter`. The picker cannot be
-      pointed at a path, so this opens with `startIn: 'documents'` and then creates
-      the folder inside whatever the user picks, via
-      `getDirectoryHandle('DyslexicWriter', { create: true })`. Say plainly on the
-      card where the writing will end up
-    - **Choose your own** — the same picker, no subfolder created. It cannot start at
-      the home directory: Chromium refuses the home folder, Downloads and system
-      directories outright (see the existing `welcome_folder_hint` copy), so start at
-      Documents or Desktop
-    - Returning visits already work — `workspace.restore()` reads the stored handle
-      from IndexedDB (a directory handle has no string form, so it can never be
-      localStorage) and falls back to the welcome screen. What's missing is the middle
-      case: when `queryPermission` is not yet `granted`, restore drops silently to
-      first-run. Instead remember the folder's name and offer a "Reopen <name>" card,
-      which supplies the user gesture `requestPermission` needs. Chromium's "allow on
-      every visit" grant makes this silent thereafter
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
 - [ ] Settle the last Storybook a11y failure, then enforce the checks.

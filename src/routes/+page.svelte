@@ -11,8 +11,13 @@
     import * as FileTree from '$lib/components/FileTree';
     import Icon from '$lib/components/Icon/Icon.svelte';
     import Button from '$lib/components/ui/button/button.svelte';
+    import * as Welcome from '$lib/components/Welcome';
 
-    import { deleteDocument, isFileSystemAccessSupported } from '$lib/fs';
+    import {
+        deleteDocument,
+        isFileSystemAccessSupported,
+        SUGGESTED_FOLDER_NAME
+    } from '$lib/fs';
     import type { DocumentIndexEntry } from '$lib/models/config.model';
     import { documentPath } from '$lib/models/document.model';
     import * as m from '$lib/paraglide/messages';
@@ -85,37 +90,18 @@
     <div class="text-muted-foreground flex flex-1 items-center justify-center">
         <p>{m.welcome_loading()}</p>
     </div>
-{:else if workspace.status === 'needs-folder'}
-    <div class="mx-auto flex max-w-xl flex-1 items-center px-6">
-        <EmptyState
-            description={m.welcome_description()}
-            icon={FolderOpenIcon}
-            title={m.welcome_title()}
-        >
-            {#snippet action()}
-                <div class="flex flex-col items-center gap-3">
-                    <Button onclick={() => workspace.chooseFolder()}>
-                        <Icon icon={FolderOpenIcon} />
-                        {m.welcome_choose_folder()}
-                    </Button>
-                    <!-- The browser blocks Downloads, the home folder and system
-                         folders outright. Say so before the picker does, so the
-                         refusal doesn't read as the app being broken. -->
-                    <p
-                        class="text-muted-foreground max-w-sm text-center text-xs"
-                    >
-                        {m.welcome_folder_hint()}
-                    </p>
-                    {#if workspace.error}
-                        <p
-                            class="text-destructive max-w-sm text-center text-sm"
-                        >
-                            {workspace.error}
-                        </p>
-                    {/if}
-                </div>
-            {/snippet}
-        </EmptyState>
+{:else if workspace.status === 'needs-folder' || workspace.status === 'needs-permission'}
+    <div class="mx-auto flex max-w-2xl flex-1 items-center px-6">
+        <!-- `pendingName` is empty in the first-run case, which is what picks
+             the "start a new folder" card over "reopen". -->
+        <Welcome.Root
+            error={workspace.error}
+            folderName={workspace.pendingName}
+            onChoose={() => workspace.chooseFolder()}
+            onReopen={() => workspace.reopen()}
+            onSuggested={() =>
+                workspace.chooseFolder({ subfolder: SUGGESTED_FOLDER_NAME })}
+        />
     </div>
 {:else}
     <div class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-10">

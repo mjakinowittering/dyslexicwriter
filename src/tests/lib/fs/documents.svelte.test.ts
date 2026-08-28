@@ -4,11 +4,14 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
     deleteDocument,
     DocumentError,
+    ensureSubfolder,
     flattenDocuments,
     folderExists,
+    folderIsReachable,
     readDocument,
     renameDocument,
     scanFolder,
+    SUGGESTED_FOLDER_NAME,
     suggestUntitledName,
     writeDocument,
     writeImage,
@@ -444,6 +447,51 @@ describe('suggestUntitledName', () => {
 
         await writeDocument(root, folderDoc('Untitled 2'), fromMarkdown('x'));
         expect(await suggestUntitledName(root)).toBe('Untitled 3');
+    });
+});
+
+// The welcome screen's "start a new folder" card. The picker cannot be pointed
+// at a path, so the folder is made inside whatever the user picks.
+describe('ensureSubfolder', () => {
+    it('creates the folder when it is not there', async () => {
+        expect(await folderExists(root, SUGGESTED_FOLDER_NAME)).toBe(false);
+
+        const handle = await ensureSubfolder(root, SUGGESTED_FOLDER_NAME);
+
+        expect(handle.name).toBe(SUGGESTED_FOLDER_NAME);
+        expect(await folderExists(root, SUGGESTED_FOLDER_NAME)).toBe(true);
+    });
+
+    // A second run has to land back in the user's writing, not beside it.
+    it('reuses an existing folder without touching what is in it', async () => {
+        await writeRaw(SUGGESTED_FOLDER_NAME, 'Chapter.md', '# Chapter');
+
+        await ensureSubfolder(root, SUGGESTED_FOLDER_NAME);
+
+        expect(await fileExists(SUGGESTED_FOLDER_NAME, 'Chapter.md')).toBe(
+            true
+        );
+        expect(await readFile(SUGGESTED_FOLDER_NAME, 'Chapter.md')).toBe(
+            '# Chapter'
+        );
+    });
+});
+
+// A stored handle outlives the folder it names, and the browser will grant
+// permission for something that is no longer there — so the welcome screen's
+// "reopen" card has to ask the folder itself before committing to it.
+describe('folderIsReachable', () => {
+    it('is true for a folder that is still there', async () => {
+        const handle = await ensureSubfolder(root, 'Writing');
+
+        expect(await folderIsReachable(handle)).toBe(true);
+    });
+
+    it('is false once the folder has gone', async () => {
+        const handle = await ensureSubfolder(root, 'Writing');
+        await root.removeEntry('Writing', { recursive: true });
+
+        expect(await folderIsReachable(handle)).toBe(false);
     });
 });
 

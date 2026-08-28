@@ -590,6 +590,39 @@ export async function folderExists(
     }
 }
 
+// Does this handle still point at a directory that is actually there?
+//
+// A stored handle outlives the folder it names — renamed, moved, or on a drive
+// that has since been unplugged — and the browser will happily grant permission
+// for something that no longer exists, so the only honest check is to touch it.
+// Reading one entry is enough and costs nothing on a large folder.
+export async function folderIsReachable(
+    handle: FileSystemDirectoryHandle
+): Promise<boolean> {
+    try {
+        await handle.keys().next();
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+// The folder the welcome screen offers to make for a user who has no opinion
+// about where their writing should live. The directory picker cannot be pointed
+// at a path, so "Documents/DyslexicWriter" is reached by opening the picker at
+// Documents and creating this inside whatever the user actually picks.
+export const SUGGESTED_FOLDER_NAME = 'DyslexicWriter';
+
+// Get a subfolder of the chosen directory, making it only if it isn't there.
+// Reusing an existing folder is the point: a second run must land back in the
+// user's writing rather than beside it in a `DyslexicWriter 2`.
+export async function ensureSubfolder(
+    parent: FileSystemDirectoryHandle,
+    name: string
+): Promise<FileSystemDirectoryHandle> {
+    return parent.getDirectoryHandle(name, { create: true });
+}
+
 // Write a dropped or pasted image into the document's own directory and return
 // the relative name to reference it by. Never a shared images folder and never a
 // base64 data URI: a document folder must stay self-contained and portable.
