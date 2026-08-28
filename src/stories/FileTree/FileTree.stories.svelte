@@ -148,10 +148,16 @@
     name="Interactive"
     args={{ node: tree, ...handlers }}
     play={async ({ canvas }) => {
-        await userEvent.click(canvas.getByRole('button', { name: /Archive/ }));
         // An expanded folder with nothing in it says so rather than showing a
         // blank gap.
         await expect(canvas.getByText('Nothing in here')).toBeInTheDocument();
+
+        // Driven by the story's own state, a folder shuts and opens again.
+        const archive = canvas.getByRole('button', { name: /Archive/ });
+        await userEvent.click(archive);
+        await expect(archive).toHaveAttribute('aria-expanded', 'false');
+        await userEvent.click(archive);
+        await expect(archive).toHaveAttribute('aria-expanded', 'true');
     }}
 >
     {#snippet template(args)}
