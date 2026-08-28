@@ -29,7 +29,7 @@
     const isDark = $derived(store.theme === 'dark');
 
     // One switch for both phases, so they can never drift apart and reduced
-    // motion collapses the whole reveal rather than half of it. Canvas.svelte
+    // motion collapses the whole reveal rather than half of it. Page.svelte
     // gates its squeeze tween on the same signal so the sheet stays in step.
     const duration = $derived(
         prefersReducedMotion.current ? 0 : motionDuration
