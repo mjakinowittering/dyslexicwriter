@@ -146,6 +146,15 @@ Within each, related items sit next to each other.
       `min-width` in `layout.css`, plus the ProseMirror table internals — `.tableWrapper`
       (horizontal overflow) and `.selectedCell` (cell-selection tint). Column resizing is
       off by design, so `.column-resize-handle` is not needed
+- [ ] Ship a real `og:image`. `static/og-image.png` is a 0-byte placeholder, but
+      `src/app.html:36` and `:52` already point at it and declare it 1200x630, so
+      every link preview of the deployed site resolves to an empty image. The rest
+      of the GitHub Pages work is done: the `404.html` fallback
+      (`svelte.config.js:21`), `static/.nojekyll`, the base path from `BASE_PATH`
+      via `actions/configure-pages`, the deploy workflow
+      (`.github/workflows/build-and-deploy.yml`) and the full head metadata
+      including the `<noscript>` prose. Add a real 1200x630 PNG under `static/`;
+      the absolute URL and alt text are already correct
 
 ### Features
 
@@ -171,47 +180,6 @@ Within each, related items sit next to each other.
       every visit" grant makes this silent thereafter
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
-- [ ] Deploy to GitHub Pages as a static SPA, and add the site-level SEO /
-      OpenGraph metadata that goes with it. The build shape is already right —
-      `adapter-static` is configured (`svelte.config.js:17`) and the app is
-      client-only (`ssr = false`, `prerender = false`, `+layout.ts`). What is
-      missing is everything Pages specifically needs, plus every meta tag beyond
-      `charset` / `viewport` / `text-scale` (`src/app.html`). SSR is not the answer
-      and is not coming back: with no server tier the tags are static in
-      `app.html`, which the SPA fallback then serves on every route.
-    - **`fallback: 'index.html'` breaks deep links on Pages.** Pages has no SPA
-      rewrite — it serves `404.html` for any path that is not a real file, so
-      reloading `/edit` would 404. Change the fallback to `404.html`, which makes
-      Pages hand the SPA to every unknown path
-    - **Add `static/.nojekyll`.** Pages runs Jekyll by default, which strips
-      directories beginning with an underscore — that is SvelteKit's entire
-      `_app/` bundle. Without the file the deployed site loads nothing
-    - **The base path is `/dyslexicwriter`.** This is settled: the repo is now
-      `mjakinowittering/dyslexicwriter` and `package.json` already declares the
-      matching `homepage`. A project site serves from
-      `https://<user>.github.io/<repo>/`, so `kit.paths.base` has to be set and
-      every asset URL routed through it — a user site or a custom domain would
-      serve from `/` and need none of it. CLAUDE.md rules out environment
-      configuration, so the base belongs in `svelte.config.js` as a literal, not
-      a build flag
-    - **There is no `.github/workflows/` at all** — add a deploy job on `master`
-      using `actions/upload-pages-artifact` + `actions/deploy-pages` over `build/`
-    - **The metadata is site-level, not per-route.** The public surface is one
-      screen, the welcome page; `/edit` only ever shows the user's own local
-      documents, so there is nothing per-document to describe and no dynamic
-      OpenGraph to generate. Put `description`, `og:*`, `twitter:*`, `theme-color`
-      and a canonical URL directly in `app.html`, and add a static preview image
-      under `static/` — the favicon is a bundled asset
-      (`$lib/assets/favicon.svg`, content-hashed at build) and cannot serve as an
-      `og:image`, which needs a stable absolute URL. These tags sit outside the
-      Svelte tree, so they stay literal rather than going through Paraglide
-    - **Know the limit of a JS-only shell.** With `ssr = false` the served HTML
-      body is empty. Google executes JS and will see the app, but many crawlers
-      and LLM fetchers do not and read the head alone. If that matters, the fix is
-      a little real prose in `app.html` — a `<noscript>` block describing the app —
-      not reinstating SSR
-    - `static/robots.txt` already allows everything. A `sitemap.xml` is only worth
-      adding once the base path decision produces a stable public URL
 - [ ] Settle the last Storybook a11y failure, then enforce the checks.
       `@storybook/addon-a11y` is wired (`.storybook/main.ts`) but still runs as
       `test: 'todo'` (`.storybook/preview.ts:26`), so violations surface in the
