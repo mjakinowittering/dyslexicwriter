@@ -4,6 +4,8 @@
     import * as Tooltip from '$lib/components/Tooltip';
     import * as ToggleGroup from '$lib/components/ui/toggle-group';
 
+    import { formatShortcut } from '$lib/utils/shortcut';
+
     let {
         ariaLabel,
         children,
@@ -21,6 +23,9 @@
         tooltip: string;
         value: string;
     } = $props();
+
+    // `Mod` becomes ⌘ or Ctrl depending on the platform the writer is on.
+    const shortcutLabel = $derived(shortcut ? formatShortcut(shortcut) : null);
 </script>
 
 <Tooltip.Root>
@@ -39,8 +44,8 @@
     </Tooltip.Trigger>
     <Tooltip.Content side="bottom">
         <span>{tooltip}</span>
-        {#if shortcut}
-            <span class="text-background/60">{shortcut.join('+')}</span>
+        {#if shortcutLabel}
+            <span class="text-background/60">{shortcutLabel}</span>
         {/if}
     </Tooltip.Content>
 </Tooltip.Root>

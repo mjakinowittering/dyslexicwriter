@@ -47,7 +47,7 @@
         onClick: fn(),
         tooltip: 'Bold',
         value: 'bold',
-        shortcut: ['Ctrl', 'B']
+        shortcut: ['Mod', 'B']
     }}
     play={async ({ args, canvas }) => {
         await userEvent.click(canvas.getByRole('button', { name: 'Bold' }));

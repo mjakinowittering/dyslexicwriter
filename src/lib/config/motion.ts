@@ -7,6 +7,11 @@ import { quintOut } from 'svelte/easing';
 export const motionDuration = 700; // ms
 export const motionEasing = quintOut;
 
+// Opening and closing a folder on the Files screen. Much shorter than a panel
+// slide: a disclosure row is a small, frequent, local movement, and at
+// `motionDuration` it feels like the app is thinking rather than responding.
+export const disclosureDuration = 180; // ms
+
 // Route crossfade (entering/leaving /content). Longer than a single slide phase so the
 // page dissolve eases out a few beats behind the nav rail. See the `animations` skill.
 export const crossfadeDuration = 1000; // ms

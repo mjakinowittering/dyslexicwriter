@@ -4,6 +4,8 @@
     import * as Tooltip from '$lib/components/Tooltip';
     import Button from '$lib/components/ui/button/button.svelte';
 
+    import { formatShortcut } from '$lib/utils/shortcut';
+
     let {
         ariaLabel,
         children,
@@ -19,6 +21,9 @@
         shortcut?: string[];
         tooltip: string;
     } = $props();
+
+    // `Mod` becomes ⌘ or Ctrl depending on the platform the writer is on.
+    const shortcutLabel = $derived(shortcut ? formatShortcut(shortcut) : null);
 </script>
 
 <!-- The insert half of the toolbar: one-shot actions, so a plain button rather
@@ -43,8 +48,8 @@
     </Tooltip.Trigger>
     <Tooltip.Content side="bottom">
         <span>{tooltip}</span>
-        {#if shortcut}
-            <span class="text-background/60">{shortcut.join('+')}</span>
+        {#if shortcutLabel}
+            <span class="text-background/60">{shortcutLabel}</span>
         {/if}
     </Tooltip.Content>
 </Tooltip.Root>

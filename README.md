@@ -132,25 +132,6 @@ Within each, related items sit next to each other.
 
 ### Bugs
 
-- [ ] Fix the empty read-aloud voice picker — `SpeechController.loadVoices()`
-      (`speech-controller.svelte.ts:98`) is never called from anywhere, so `speech.voices`
-      stays empty and the picker always shows its no-voices state. Call it on editor mount
-      (and remove the `voiceschanged` listener on teardown)
-- [ ] Fix read-aloud sentence splitting breaking on a `.` inside a word — "Open
-      diagram.png to see it." is read and highlighted as two sentences, "Open
-      diagram." then "png to see it.". `splitSentences` (`text-map.ts:121`) matches
-      `/[^.!?\n]*[.!?]+|[^.!?\n]+/g`, which ends a sentence on any `.` whatever
-      follows it, so filenames (`notes.md`), decimals (`1.5`) and version numbers all
-      split mid-word. Nothing downstream is at fault: the offset→position map is
-      faithfully highlighting the wrong range. It is also not highlight-only —
-      `chunkUtterance` builds the playback queue from these same ranges, so each
-      fragment becomes its own `SpeechSynthesisUtterance` and the reading gains an
-      audible pause in the middle of a word. The fix is to require a terminator to be
-      followed by whitespace or end-of-text, allowing a closing quote or bracket in
-      between, before it ends a sentence; verified to leave the three existing
-      `splitSentences` cases green. Abbreviations (`e.g.`, `Mr.`) still split and are
-      out of scope — that needs a word list, not a regex. Add cases to
-      `src/tests/lib/tts/text-map.test.ts:119`
 - [ ] Make inserted images actually display — insertion is already a proper TipTap image
       node (`setImage` in `FormatInsertImage.svelte`), but its `src` is a path relative to
       the document folder (`diagram.png`), which the browser resolves against the app URL
@@ -165,27 +146,11 @@ Within each, related items sit next to each other.
       `min-width` in `layout.css`, plus the ProseMirror table internals — `.tableWrapper`
       (horizontal overflow) and `.selectedCell` (cell-selection tint). Column resizing is
       off by design, so `.column-resize-handle` is not needed
-- [ ] Add support for Apple Mac keyboard shortcuts in toolbar tooltips — map `Ctrl`→`⌘`,
-      `Alt`→`⌥` based on platform (currently hardcoded to `Ctrl`/`Alt`)
 
 ### Features
 
 - [ ] Read-aloud: karaoke-style auto-scroll to keep the spoken word in view as playback
       advances (the sentence highlight is in place; scrolling to follow it is not)
-- [ ] Reconsider the read-aloud speed control — a slider may be the wrong shape
-      for it. Preset buttons (0.5×, 1×, 1.5×, 2×) would likely serve better: this
-      is not a setting that gets adjusted often, and a coarse choice is easier to
-      hit than a drag. Two things follow from it, neither of them the reason to
-      do it. A button carries its own accessible name from its text, where the
-      slider needed one threaded onto bits-ui's thumb — the element that actually
-      holds `role="slider"` — via a `thumbProps` passthrough added to
-      `src/lib/components/ui/slider/slider.svelte`, the one hand-edit in an
-      otherwise CLI-written shadcn file. Dropping the slider would let that file
-      go back to stock. Scope: the speed control in
-      `ToolbarVoiceSettings.svelte:137` only — the voice `<Select>` above it
-      stays as it is. `TTS_RATE_MIN`/`TTS_RATE_MAX` and the stored `tts.rate` in
-      `config.json` are unaffected either way; presets would just stop offering
-      the values in between. A decision to make, not a commitment
 - [ ] Improve the welcome / first-run experience — replace the single "choose folder"
       button with two large graphical cards, both of which open the directory picker:
     - **Suggested** — ends up at `Documents/DyslexicWriter`. The picker cannot be
@@ -206,6 +171,47 @@ Within each, related items sit next to each other.
       every visit" grant makes this silent thereafter
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
+- [ ] Deploy to GitHub Pages as a static SPA, and add the site-level SEO /
+      OpenGraph metadata that goes with it. The build shape is already right —
+      `adapter-static` is configured (`svelte.config.js:17`) and the app is
+      client-only (`ssr = false`, `prerender = false`, `+layout.ts`). What is
+      missing is everything Pages specifically needs, plus every meta tag beyond
+      `charset` / `viewport` / `text-scale` (`src/app.html`). SSR is not the answer
+      and is not coming back: with no server tier the tags are static in
+      `app.html`, which the SPA fallback then serves on every route.
+    - **`fallback: 'index.html'` breaks deep links on Pages.** Pages has no SPA
+      rewrite — it serves `404.html` for any path that is not a real file, so
+      reloading `/edit` would 404. Change the fallback to `404.html`, which makes
+      Pages hand the SPA to every unknown path
+    - **Add `static/.nojekyll`.** Pages runs Jekyll by default, which strips
+      directories beginning with an underscore — that is SvelteKit's entire
+      `_app/` bundle. Without the file the deployed site loads nothing
+    - **The base path is `/dyslexicwriter`.** This is settled: the repo is now
+      `mjakinowittering/dyslexicwriter` and `package.json` already declares the
+      matching `homepage`. A project site serves from
+      `https://<user>.github.io/<repo>/`, so `kit.paths.base` has to be set and
+      every asset URL routed through it — a user site or a custom domain would
+      serve from `/` and need none of it. CLAUDE.md rules out environment
+      configuration, so the base belongs in `svelte.config.js` as a literal, not
+      a build flag
+    - **There is no `.github/workflows/` at all** — add a deploy job on `master`
+      using `actions/upload-pages-artifact` + `actions/deploy-pages` over `build/`
+    - **The metadata is site-level, not per-route.** The public surface is one
+      screen, the welcome page; `/edit` only ever shows the user's own local
+      documents, so there is nothing per-document to describe and no dynamic
+      OpenGraph to generate. Put `description`, `og:*`, `twitter:*`, `theme-color`
+      and a canonical URL directly in `app.html`, and add a static preview image
+      under `static/` — the favicon is a bundled asset
+      (`$lib/assets/favicon.svg`, content-hashed at build) and cannot serve as an
+      `og:image`, which needs a stable absolute URL. These tags sit outside the
+      Svelte tree, so they stay literal rather than going through Paraglide
+    - **Know the limit of a JS-only shell.** With `ssr = false` the served HTML
+      body is empty. Google executes JS and will see the app, but many crawlers
+      and LLM fetchers do not and read the head alone. If that matters, the fix is
+      a little real prose in `app.html` — a `<noscript>` block describing the app —
+      not reinstating SSR
+    - `static/robots.txt` already allows everything. A `sitemap.xml` is only worth
+      adding once the base path decision produces a stable public URL
 - [ ] Settle the last Storybook a11y failure, then enforce the checks.
       `@storybook/addon-a11y` is wired (`.storybook/main.ts`) but still runs as
       `test: 'todo'` (`.storybook/preview.ts:26`), so violations surface in the

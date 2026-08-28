@@ -154,7 +154,9 @@ describe('scanFolder', () => {
         await writeRaw('', 'notes.md', 'loose');
         await writeRaw('Book/Chapters', 'One.md', 'one');
 
-        expect(await paths()).toEqual(['Book/Chapters/One.md', 'notes.md']);
+        // Book/Chapters holds nothing but One.md, so it shows at the root
+        // alongside notes.md rather than behind two disclosures.
+        expect(await paths()).toEqual(['notes.md', 'Book/Chapters/One.md']);
     });
 
     it('marks a document that owns its folder, and one that does not', async () => {
@@ -168,6 +170,57 @@ describe('scanFolder', () => {
         // Two markdown files in one folder means neither owns it — deleting
         // either must not take the other with it.
         expect(owning).toEqual(['My Chapter/My Chapter.md']);
+    });
+
+    it('shows a folder holding one document as that document', async () => {
+        await writeRaw('My Chapter', 'My Chapter.md', 'a');
+
+        const tree = await scanFolder(root);
+
+        // The folder is real on disk, but as a row it only repeats the name of
+        // the one file inside it.
+        expect(tree.folders).toHaveLength(0);
+        expect(tree.documents.map(documentPath)).toEqual([
+            'My Chapter/My Chapter.md'
+        ]);
+        expect(tree.documents[0]?.ownsFolder).toBe(true);
+    });
+
+    it('keeps a folder holding more than one document', async () => {
+        await writeRaw('Shared', 'Shared.md', 'a');
+        await writeRaw('Shared', 'Aside.md', 'b');
+
+        const tree = await scanFolder(root);
+
+        expect(folderNamed(tree, 'Shared')?.documents).toHaveLength(2);
+        expect(tree.documents).toEqual([]);
+    });
+
+    it('collapses each level of a chain that is one document deep', async () => {
+        await writeRaw('Book/Chapters', 'One.md', 'one');
+
+        // Book holds only Chapters, which holds only One.md — three rows for
+        // one document. Chapters gives way to One, then Book to what is left.
+        const tree = await scanFolder(root);
+
+        expect(tree.folders).toHaveLength(0);
+        expect(tree.documents.map(documentPath)).toEqual([
+            'Book/Chapters/One.md'
+        ]);
+    });
+
+    it('sorts a lifted document among the documents beside it', async () => {
+        await writeRaw('', 'Beta.md', 'b');
+        await writeRaw('Alpha', 'Alpha.md', 'a');
+        await writeRaw('Zeta', 'Zeta.md', 'z');
+
+        const tree = await scanFolder(root);
+
+        expect(tree.documents.map((d) => d.title)).toEqual([
+            'Alpha',
+            'Beta',
+            'Zeta'
+        ]);
     });
 
     it('does not let a folder with a subdirectory be owned', async () => {

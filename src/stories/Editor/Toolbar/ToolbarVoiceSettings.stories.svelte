@@ -22,7 +22,7 @@
             docs: {
                 description: {
                     component:
-                        'Voice/speed settings control — a gear toggle opening a popover with a voice `Select` and a speed `Slider`. Reads voices and rate from the TTS controller and calls the debounced `persist` on change, which writes them to config.json. `controller` defaults to the app’s controller; these stories pass a stand-in, since a browser under test has whatever voices it happens to have.'
+                        'Voice/speed settings control — a gear toggle opening a popover with a voice `Select` and four speed presets. Reads voices and rate from the TTS controller and calls the debounced `persist` on change, which writes them to config.json. `controller` defaults to the app’s controller; these stories pass a stand-in, since a browser under test has whatever voices it happens to have.'
                 }
             }
         }
@@ -35,7 +35,7 @@
     const customised = makeTts({
         voices: FAKE_VOICES,
         voiceUri: 'Daniel',
-        rate: 1.4
+        rate: 1.5
     });
 </script>
 

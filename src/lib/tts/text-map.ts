@@ -116,9 +116,16 @@ export function rangeToPos(
 // Split text into sentence ranges (char offsets). A sentence runs up to and
 // including its terminating punctuation (. ! ?); newlines also end a sentence.
 // Leading/trailing whitespace is trimmed so a highlight starts and ends on a word.
+//
+// A terminator only ends a sentence when whitespace or the end of the text follows
+// it — optionally through a closing quote or bracket. Ending on any `.` at all
+// split filenames (`diagram.png`), decimals (`1.5`) and version numbers mid-word,
+// which is audible as well as visible: chunkUtterance builds the playback queue
+// from these ranges, so each fragment became its own utterance. Abbreviations
+// (`e.g.`, `Mr.`) still split — that needs a word list, not a regex.
 export function splitSentences(text: string): SentenceRange[] {
     const ranges: SentenceRange[] = [];
-    const re = /[^.!?\n]*[.!?]+|[^.!?\n]+/g;
+    const re = /[^\n]*?[.!?]+["'”’)\]}]*(?=\s|$)|[^\n]+/g;
     let match: RegExpExecArray | null;
     while ((match = re.exec(text)) !== null) {
         const raw = match[0];

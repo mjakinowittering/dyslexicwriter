@@ -20,7 +20,7 @@
     {disabled}
     onClick={() =>
         editor && toggleWithWordBoundary(editor, (c) => c.toggleBold())}
-    shortcut={['Ctrl', 'B']}
+    shortcut={['Mod', 'B']}
     tooltip={m.content_format_bold_hint()}
     value="bold"
 >

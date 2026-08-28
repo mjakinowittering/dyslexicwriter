@@ -22,7 +22,7 @@
     ariaLabel={m.content_format_blockquote()}
     {disabled}
     {onClick}
-    shortcut={['Ctrl', 'Shift', 'B']}
+    shortcut={['Mod', 'Shift', 'B']}
     tooltip={m.content_format_blockquote_hint()}
     value="blockquote"
 >

@@ -1,24 +1,23 @@
 <script lang="ts">
     import {
-        Delete02Icon,
         File01Icon,
         FileAddIcon,
-        FolderOpenIcon,
-        PencilEdit01Icon
+        FolderOpenIcon
     } from '@hugeicons/core-free-icons';
     import { goto } from '$app/navigation';
     import { onMount } from 'svelte';
 
     import EmptyState from '$lib/components/EmptyState/EmptyState.svelte';
+    import * as FileTree from '$lib/components/FileTree';
     import Icon from '$lib/components/Icon/Icon.svelte';
     import Button from '$lib/components/ui/button/button.svelte';
 
     import { deleteDocument, isFileSystemAccessSupported } from '$lib/fs';
     import type { DocumentIndexEntry } from '$lib/models/config.model';
+    import { documentPath } from '$lib/models/document.model';
     import * as m from '$lib/paraglide/messages';
     import { doc } from '$lib/stores/document.svelte';
     import { workspace } from '$lib/stores/workspace.svelte';
-    import { relativeTime } from '$lib/utils/relative-time';
 
     // The Files screen. Deliberately plain: a utility list, not a marketing
     // surface. Its final layout is still open, so nothing here is precious.
@@ -36,7 +35,7 @@
     }
 
     async function onOpen(entry: DocumentIndexEntry) {
-        await goto(`/edit?doc=${encodeURIComponent(entry.folder)}`);
+        await goto(`/edit?doc=${encodeURIComponent(documentPath(entry))}`);
     }
 
     async function onRename(entry: DocumentIndexEntry) {
@@ -46,21 +45,26 @@
         );
         if (next === null) return;
 
-        await doc.open(entry.folder);
+        await doc.open(documentPath(entry));
         await doc.rename(next);
         await doc.close();
         await workspace.refresh();
     }
 
     async function onDelete(entry: DocumentIndexEntry) {
-        // Removing a real folder from the user's disk, with no trash to recover
-        // it from — always confirm, and say exactly what goes.
-        if (!window.confirm(m.files_delete_confirm({ title: entry.title }))) {
-            return;
-        }
+        // Removing something from the user's disk, with no trash to recover it
+        // from — always confirm, and be honest about which it is: a document that
+        // owns its folder takes the folder and its images with it, a markdown
+        // file sitting among the user's other files takes only itself.
+        const confirmed = window.confirm(
+            entry.ownsFolder
+                ? m.files_delete_confirm({ title: entry.title })
+                : m.files_delete_file_confirm({ title: entry.title })
+        );
+        if (!confirmed) return;
         if (!workspace.root) return;
 
-        await deleteDocument(workspace.root, entry.folder);
+        await deleteDocument(workspace.root, entry);
         await workspace.refresh();
     }
 </script>
@@ -149,44 +153,15 @@
                     </Button>
                 {/snippet}
             </EmptyState>
-        {:else}
-            <ul class="divide-border divide-y">
-                {#each workspace.documents as entry (entry.folder)}
-                    <li class="flex items-center gap-3 py-3">
-                        <button
-                            class="flex min-w-0 flex-1 flex-col items-start text-left"
-                            onclick={() => onOpen(entry)}
-                            type="button"
-                        >
-                            <span class="w-full truncate font-medium">
-                                {entry.title}
-                            </span>
-                            <span class="text-muted-foreground text-sm">
-                                {m.files_modified({
-                                    when: relativeTime(entry.lastModified)
-                                })}
-                            </span>
-                        </button>
-
-                        <Button
-                            aria-label={m.files_rename()}
-                            onclick={() => onRename(entry)}
-                            size="icon"
-                            variant="ghost"
-                        >
-                            <Icon icon={PencilEdit01Icon} />
-                        </Button>
-                        <Button
-                            aria-label={m.files_delete()}
-                            onclick={() => onDelete(entry)}
-                            size="icon"
-                            variant="ghost"
-                        >
-                            <Icon icon={Delete02Icon} />
-                        </Button>
-                    </li>
-                {/each}
-            </ul>
+        {:else if workspace.tree}
+            <FileTree.Root
+                isExpanded={(node) => workspace.isExpanded(node)}
+                node={workspace.tree}
+                {onDelete}
+                {onOpen}
+                {onRename}
+                onToggle={(node) => workspace.toggle(node)}
+            />
         {/if}
     </div>
 {/if}

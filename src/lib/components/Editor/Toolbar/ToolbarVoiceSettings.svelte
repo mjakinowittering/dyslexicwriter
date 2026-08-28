@@ -7,7 +7,6 @@
     import { Label } from '$lib/components/ui/label';
     import * as Popover from '$lib/components/ui/popover';
     import * as Select from '$lib/components/ui/select';
-    import { Slider } from '$lib/components/ui/slider';
     import * as ToggleGroup from '$lib/components/ui/toggle-group';
 
     import { defaultPreferences } from '$lib/models/config.model';
@@ -17,9 +16,10 @@
     import { speech } from '$lib/tts/speech-controller.svelte';
     import type { TtsTransport } from '$lib/tts/speech-controller.svelte';
 
-    // Persist the current preferences to the profile. Debounced below so dragging
-    // the speed slider doesn't fire a command per tick. `open` is bindable so the
-    // enclosing toggle group can light the trigger while the popover is showing.
+    // Persist the current preferences to the profile. Debounced below so trying a
+    // couple of speeds in a row doesn't write config.json each time. `open` is
+    // bindable so the enclosing toggle group can light the trigger while the
+    // popover is showing.
     // `controller` defaults to the app's one controller — it is a prop only so a
     // story or a test can supply a voice list and a chosen speed.
     let {
@@ -36,6 +36,12 @@
     // the same value the controller resets to, so the button can't offer itself
     // while already at the default.
     const defaultRate = defaultPreferences().tts.rate;
+
+    // Speed is a coarse choice, not something adjusted often, so it is four
+    // buttons rather than a drag. The ends are the stored rate's own validation
+    // bounds; the presets simply stop offering the values in between, which a
+    // hand-edited config.json may still hold.
+    const SPEED_PRESETS = [TTS_RATE_MIN, 1, 1.5, TTS_RATE_MAX] as const;
 
     let timer: ReturnType<typeof setTimeout> | undefined;
     function persistDebounced(): void {
@@ -55,8 +61,12 @@
         persistDebounced();
     }
 
-    function onSpeedChange(value: number): void {
-        controller.rate = value;
+    // A single-select toggle group clears itself when you press the item already
+    // pressed. There is no "no speed", so an empty value leaves the rate alone
+    // rather than reaching Number('') and storing NaN.
+    function onSpeedChange(value: string): void {
+        if (value === '') return;
+        controller.rate = Number(value);
         persistDebounced();
     }
 
@@ -131,18 +141,30 @@
                         >{controller.rate.toFixed(1)}×</span
                     >
                 </Label>
-                <!-- The name has to go on the thumb: it is the element with
-                     role="slider", and the <Label> above cannot reach it — `for`
-                     names form controls, not a span. -->
-                <Slider
-                    thumbProps={{ 'aria-label': m.content_tts_speed() }}
+                <!-- Each button names itself from its own text; the group needs
+                     the label, since `for` names form controls, not a group. The
+                     `×` is announced inconsistently, so the readable name is
+                     spelled out rather than left to the glyph. -->
+                <ToggleGroup.Root
                     type="single"
-                    value={controller.rate}
-                    min={TTS_RATE_MIN}
-                    max={TTS_RATE_MAX}
-                    step={0.1}
+                    variant="outline"
+                    class="w-full"
+                    aria-label={m.content_tts_speed()}
+                    value={String(controller.rate)}
                     onValueChange={onSpeedChange}
-                />
+                >
+                    {#each SPEED_PRESETS as rate (rate)}
+                        <ToggleGroup.Item
+                            value={String(rate)}
+                            aria-label={m.content_tts_speed_option_label({
+                                rate
+                            })}
+                            class="flex-1"
+                        >
+                            {m.content_tts_speed_option({ rate })}
+                        </ToggleGroup.Item>
+                    {/each}
+                </ToggleGroup.Root>
             </div>
 
             <Button

@@ -79,7 +79,7 @@
                     // unlabelled text box. The placeholder is the empty-state
                     // prompt, not a name, so it cannot stand in for it.
                     'aria-label': m.content_editor_label(),
-                    class: 'prose dark:prose-invert prose-sm sm:prose lg:prose-lg prose-headings:font-semibold prose-li:my-1 [&_li_p]:my-1.5 prose-h1:text-xl sm:prose-h1:text-2xl lg:prose-h1:text-3xl prose-h2:text-lg sm:prose-h2:text-xl lg:prose-h2:text-2xl prose-h3:text-base sm:prose-h3:text-lg lg:prose-h3:text-xl prose-h4:text-sm sm:prose-h4:text-base lg:prose-h4:text-lg focus:rounded-xl focus:outline-none grow prose-img:rounded-md prose-table:text-sm'
+                    class: 'prose dark:prose-invert prose-sm sm:prose lg:prose-lg prose-headings:font-semibold prose-li:my-1 [&_li_p]:my-1.5 prose-h1:text-xl sm:prose-h1:text-2xl lg:prose-h1:text-3xl prose-h2:text-lg sm:prose-h2:text-xl lg:prose-h2:text-2xl prose-h3:text-base sm:prose-h3:text-lg lg:prose-h3:text-xl prose-h4:text-sm sm:prose-h4:text-base lg:prose-h4:text-lg 2xl:prose-xl 2xl:prose-h1:text-4xl 2xl:prose-h2:text-3xl 2xl:prose-h3:text-2xl 2xl:prose-h4:text-xl 3xl:prose-2xl 3xl:prose-h1:text-5xl 3xl:prose-h2:text-4xl 3xl:prose-h3:text-3xl 3xl:prose-h4:text-2xl focus:rounded-xl focus:outline-none grow prose-img:rounded-md prose-table:text-sm'
                 },
                 handleDrop: (view, event) => {
                     const files = event.dataTransfer?.files;
