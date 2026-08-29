@@ -213,30 +213,13 @@ Within each, related items sit next to each other.
       motion is native Svelte off `$lib/config/motion.ts` and all copy goes through
       Paraglide. Overlaps the palette item above: whichever lands second authors its
       window chrome against the palette that landed first
-- [ ] Give the welcome and Files screens a shared header, so there is somewhere for
-      the logo, a menu and a theme toggle to live. Neither screen has app chrome
-      today: the root layout is a bare flex column (`src/routes/+layout.svelte:24`),
-      the welcome branch renders straight into a centred column
-      (`src/routes/+page.svelte:94-105`), and the `<header>` at
-      `src/routes/+page.svelte:108` is the Files list's own title row inside the
-      content column rather than a page landmark — it would fold into the new one.
-      The mark already exists but is editor-only and deliberately inert
-      (`ToolbarLogo.svelte`: "no button, no tooltip").
-    - **Settle the theme toggle's persistence first.** Theme lives in `config.json`
-      and nowhere else, and `workspace.#persist`
-      (`src/lib/stores/workspace.svelte.ts:368-369`) returns early when there is no
-      root — so on the welcome screen, before a folder is chosen, a toggle would
-      change `<html>` and be forgotten by the next launch. Either accept that and
-      adopt the choice into `config.json` once the folder is picked, or hide the
-      toggle until there is one. `localStorage` is not an option
-    - **Decide what the menu holds** before building it. The editor toolbar's capped
-      control set is a decision about the toolbar and does not bind here, but the
-      same instinct does: default to "no"
 - [ ] Give the welcome and Files screens a shared footer, for licence information,
       a link back to GitHub and a short note from the author — contents still to be
-      decided. Same absence as the header above: there is no chrome around either
-      screen. The repository and homepage URLs are already in `package.json:7-11`,
-      so the GitHub link can read from those rather than hardcode a string.
+      decided. The shared header now exists (`src/lib/components/AppHeader/`,
+      rendered above every state of `/`), so the footer is the other half of that
+      chrome and should sit as its sibling in `src/routes/+page.svelte`. The
+      repository and homepage URLs are already in `package.json:7-11`, so the
+      GitHub link can read from those rather than hardcode a string.
     - **There is no licence to point at yet.** No `LICENSE` file, no `license` field
       in `package.json` (it is `private: true`) and no `## License` section in this
       README, so a licence has to be chosen before the footer can name one — for the
