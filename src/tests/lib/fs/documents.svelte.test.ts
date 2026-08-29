@@ -270,6 +270,66 @@ describe('scanFolder', () => {
     });
 });
 
+// A folder showing no documents is two very different situations, and the Files
+// screen has to tell them apart: one is empty, the other is full of the user's
+// work in formats this app cannot open. Saying "nothing here yet" about the
+// second reads as if the app threw it away.
+describe('scanFolder — hasOtherEntries', () => {
+    it('is false for a genuinely empty folder', async () => {
+        expect((await scanFolder(root)).hasOtherEntries).toBe(false);
+    });
+
+    it('is false for a folder holding nothing but config.json', async () => {
+        // The app wrote it, so it is not content the user put there.
+        await writeRaw('', 'config.json', '{}');
+
+        expect((await scanFolder(root)).hasOtherEntries).toBe(false);
+    });
+
+    it('is true for a folder of files the app cannot open', async () => {
+        await writeRaw('', 'Chapter One.docx', 'x');
+        await writeRaw('', 'cover.png', 'y');
+
+        const tree = await scanFolder(root);
+
+        expect(flattenDocuments(tree)).toEqual([]);
+        expect(tree.hasOtherEntries).toBe(true);
+    });
+
+    it('carries up from a subfolder dropped for holding no writing', async () => {
+        await writeRaw('Scans', 'page-one.jpg', 'x');
+
+        const tree = await scanFolder(root);
+
+        // `Scans` is dropped from the tree, but it is still something sitting in
+        // the user's folder, and the empty state has to know that.
+        expect(tree.folders).toHaveLength(0);
+        expect(tree.hasOtherEntries).toBe(true);
+    });
+
+    it('is false when everything present is a document', async () => {
+        await writeRaw('', 'notes.md', 'a');
+        await writeRaw('Book/Chapters', 'One.md', 'b');
+
+        expect((await scanFolder(root)).hasOtherEntries).toBe(false);
+    });
+
+    it('is false for an unloaded folder, which has not been looked at', async () => {
+        await writeRaw('a/b/c/d', 'Deep.md', 'deep');
+
+        const tree = await scanFolder(root);
+        const a = folderNamed(tree, 'a');
+        const b = a && folderNamed(a, 'b');
+        const c = b && folderNamed(b, 'c');
+        const d = c && folderNamed(c, 'd');
+
+        // Nothing has been looked at inside `d`, so nothing there is known to be
+        // unshowable — and the folder is shown either way.
+        expect(d?.loaded).toBe(false);
+        expect(d?.hasOtherEntries).toBe(false);
+    });
+});
+
 describe('renameDocument', () => {
     it('moves the folder AND the markdown file inside it', async () => {
         await writeDocument(

@@ -11,8 +11,10 @@
 
     import { disclosureDuration, motionEasing } from '$lib/config/motion';
     import type { FolderNode } from '$lib/fs';
-    import type { DocumentIndexEntry } from '$lib/models/config.model';
-    import { documentPath } from '$lib/models/document.model';
+    import {
+        documentPath,
+        type DocumentIndexEntry
+    } from '$lib/models/document.model';
     import * as m from '$lib/paraglide/messages';
 
     import FileTree from './FileTree.svelte';

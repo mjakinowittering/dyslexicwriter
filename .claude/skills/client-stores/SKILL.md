@@ -1,6 +1,6 @@
 ---
 name: client-stores
-description: The three runes stores — workspace (folder, config, document index), document (the open document, autosave and flush), and the theme/tooltip helpers. Load when editing anything in `src/lib/stores/`, wiring a new persisted setting, or changing the autosave lifecycle.
+description: The three runes stores — workspace (folder, config, document tree), document (the open document, autosave and flush), and the theme/tooltip helpers. Load when editing anything in `src/lib/stores/`, wiring a new persisted setting, or changing the autosave lifecycle.
 ---
 
 # Client stores
@@ -9,12 +9,12 @@ Plain Svelte 5 runes classes exported as singletons. There is no server, so ther
 is no fetching layer, no cache invalidation, and no conflict resolution — a store
 here is just reactive state over the filesystem.
 
-| Store                   | Owns                                                               |
-| ----------------------- | ------------------------------------------------------------------ |
-| `workspace.svelte.ts`   | The directory handle, the parsed `config.json`, the document index |
-| `document.svelte.ts`    | The open document: content, title, word count, autosave and flush  |
-| `theme.store.svelte.ts` | A thin wrapper over mode-watcher                                   |
-| `tooltips.svelte.ts`    | The tooltip-suppression registry (see `[[animations]]`)            |
+| Store                   | Owns                                                              |
+| ----------------------- | ----------------------------------------------------------------- |
+| `workspace.svelte.ts`   | The directory handle, the parsed `config.json`, the document tree |
+| `document.svelte.ts`    | The open document: content, title, word count, autosave and flush |
+| `theme.store.svelte.ts` | A thin wrapper over mode-watcher                                  |
+| `tooltips.svelte.ts`    | The tooltip-suppression registry (see `[[animations]]`)           |
 
 ## Conventions
 
@@ -54,9 +54,22 @@ picker button in the `needs-folder` state is that gesture.
 
 Full detail, including the rename ordering, is in `[[filesystem-storage]]`.
 
+## The document tree is state, not a cache
+
+`workspace.tree` is the **only** copy of the list of documents. It is scanned from
+the folder on adopt, on the Files screen's mount, and on window focus, and it is
+written nowhere — not to `config.json`, not to browser storage. `touch()` moves a
+row's mtime in memory after each autosave and that is the whole job; anything that
+reaches for the disk here puts a round trip behind every keystroke that lands.
+
+Read `isEmpty` and `hasUnopenableFiles` rather than counting documents — see
+`[[filesystem-storage]]` for why the distinction matters.
+
 ## Adding a persisted setting
 
-Every persisted preference lives in `config.json` — no exceptions.
+Every persisted preference lives in `config.json` — no exceptions. `config.json`
+holds preferences and nothing else; state that can be scanned back off the folder
+does not belong in it.
 
 1. add the field to `preferencesSchema` in `models/config.model.ts` (it flows into
    `configSchema` from there) and teach `layerPreferences()` to `pick` it, so a

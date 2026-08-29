@@ -9,7 +9,7 @@ import {
 //
 // This is the only settings store in the app. Because it lives in the user's own
 // folder rather than in browser storage, moving that folder to another machine or
-// browser brings preferences and the document index along with the writing.
+// browser brings the preferences along with the writing.
 
 export async function readConfig(
     root: FileSystemDirectoryHandle
