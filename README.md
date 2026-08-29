@@ -18,8 +18,7 @@ way to work on it, not a place it gets locked up.
 - **A plain Files screen** — list your documents, create, open, rename, delete.
 - **Word count and reading time** — always visible in the status bar, never in the way.
 - **Two typefaces** — a standard sans-serif, or OpenDyslexic.
-- **Two themes** — a warm light/sepia (not stark white) and a soft muted dark (not
-  bright-on-black).
+- **Two themes** — a neutral light (a hair off stark white) and a neutral dark.
 
 ## How your documents are stored
 
@@ -162,36 +161,6 @@ Within each, related items sit next to each other.
       advances (the sentence highlight is in place; scrolling to follow it is not)
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
-- [ ] Neutralise the colour palette — roll both themes back towards shadcn-svelte's
-      default neutral greys. Nothing is broken here: the tokens do what they were
-      specified to do, and it is the specification that is changing. Every value in
-      both blocks of `src/routes/layout.css` carries chroma on a warm hue —
-      `oklch(0.965 0.014 85)` for the light background, `oklch(0.245 0.008 62)` for
-      the dark — and it is that chroma across the whole set, not any single token,
-      that makes the dark theme read as brown. Set chroma to `0` throughout and
-      re-pitch the lightness steps against shadcn-svelte's neutral palette. The dark
-      theme goes all the way to the reference: a near-black page, ~`oklch(0.26 0 0)`
-      chrome, mid-grey active states, near-white ink. The light theme stays a hair
-      off pure white (~`oklch(0.98 0 0)` rather than shadcn's `oklch(1 0 0)`) — the
-      one deliberate departure from the defaults. The `--canvas`/`--sheet`
-      relationship survives untouched: the writing surface already steps towards
-      mid-grey from the chrome in both themes, and only the hue and the size of the
-      step change
-    - **The docs move in the same commit.** "Light is warm sepia … dark is muted"
-      (`CLAUDE.md:443`), the two-themes bullet (`README.md:21`) and the
-      `project-structure` skill's "warm sepia `:root`, muted `.dark`"
-      (`.claude/skills/project-structure/SKILL.md:112`) all assert the palette being
-      removed. The `never #fff` half of that invariant survives — an off-white light
-      background keeps it true — so only the warmth is struck out
-    - **The read-aloud highlight is the one colour that stays.** The yellow sentence
-      and word tints in `PageEditor.svelte:208-222` are the only hardcoded colours
-      outside `layout.css`. They are functional signal rather than theme, and a grey
-      highlight on a grey page would not read at all; leave them, but re-check them
-      against the new backgrounds
-    - **Scope: colour tokens only.** The reference image also shows a segmented,
-      grouped toolbar — the toolbar's shape and its capped control set are not in
-      question here. Note the overlap with the table-styling bug above: whichever
-      lands second authors its borders against the palette that landed first
 - [ ] Show a preview of the editor on the welcome screen, below the two cards, so it
       is obvious what the app does before a folder is picked. Nothing like it exists
       today: `Welcome.svelte` ends at the folder hint and the error line

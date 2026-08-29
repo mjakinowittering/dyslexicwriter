@@ -15,44 +15,50 @@
 @plugin '@tailwindcss/typography';
 
 :root {
-    /* Light theme — warm sepia, never stark white. A bright #fff page is the
-       single most common complaint from writers with dyslexia and visual stress:
-       the contrast glares and text appears to shimmer. Everything here is a warm
-       off-white with a soft brown-grey ink, and contrast is kept comfortably
-       readable rather than maximal. */
-    --background: oklch(0.965 0.014 85);
-    --foreground: oklch(0.315 0.019 55);
-    --card: oklch(0.981 0.012 88);
-    --card-foreground: oklch(0.315 0.019 55);
-    --popover: oklch(0.981 0.012 88);
-    --popover-foreground: oklch(0.315 0.019 55);
-    --primary: oklch(0.47 0.058 55);
-    --primary-foreground: oklch(0.981 0.012 88);
-    --secondary: oklch(0.925 0.019 84);
-    --secondary-foreground: oklch(0.355 0.026 55);
-    --muted: oklch(0.925 0.019 84);
-    --muted-foreground: oklch(0.525 0.026 60);
-    --accent: oklch(0.902 0.028 82);
-    --accent-foreground: oklch(0.335 0.026 55);
-    --destructive: oklch(0.545 0.155 27);
-    --border: oklch(0.877 0.023 80);
-    --input: oklch(0.877 0.023 80);
-    --ring: oklch(0.63 0.048 62);
-    --chart-1: oklch(0.63 0.048 62);
-    --chart-2: oklch(0.55 0.042 60);
-    --chart-3: oklch(0.47 0.036 58);
-    --chart-4: oklch(0.39 0.03 56);
-    --chart-5: oklch(0.33 0.024 54);
+    /* Light theme — neutral grey, a hair off pure white. A bright #fff page is
+       the single most common complaint from writers with dyslexia and visual
+       stress: the contrast glares and text appears to shimmer, so the page stops
+       just short of it. Otherwise this is shadcn-svelte's neutral palette — every
+       token chroma 0 — with the ramp shifted down ~0.02 so its step sizes still
+       read against a 0.98 page rather than the reference's 1.0 one. */
+    --background: oklch(0.98 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(0.99 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(0.99 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.95 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.95 0 0);
+    /* Darker than the reference's 0.556 for the same reason the ramp is shifted:
+       shadcn pitches this to clear 4.5:1 against a 1.0 page and it lands at 4.46
+       against ours. 0.53 clears it on the page, the sheet and --muted alike. */
+    --muted-foreground: oklch(0.53 0 0);
+    --accent: oklch(0.92 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    /* Not neutralised: the one colour left in either theme is a signal, not
+       furniture. A grey delete confirmation says nothing. Darkened a step off
+       shadcn's red (0.577/0.245), which is another 4.49 against a 0.98 page. */
+    --destructive: oklch(0.555 0.225 27.325);
+    --border: oklch(0.9 0 0);
+    --input: oklch(0.9 0 0);
+    --ring: oklch(0.708 0 0);
+    --chart-1: oklch(0.708 0 0);
+    --chart-2: oklch(0.62 0 0);
+    --chart-3: oklch(0.53 0 0);
+    --chart-4: oklch(0.44 0 0);
+    --chart-5: oklch(0.35 0 0);
     --radius: 0.625rem;
     /* The document sheet in the editor (Page.svelte). The canvas is a shade
        darker than the chrome and the sheet a shade lighter, so the writing sits
-       on paper in a shallow well rather than on the app background. Both stay
-       warm; the shadow is warm ink at low alpha, never black. */
-    --canvas: oklch(0.938 0.016 84);
-    --sheet: oklch(0.985 0.011 88);
+       on paper in a shallow well rather than on the app background. The paper is
+       the brightest surface in the app and still not #fff. */
+    --canvas: oklch(0.955 0 0);
+    --sheet: oklch(0.99 0 0);
     --sheet-shadow:
-        0 1px 2px oklch(0.315 0.019 55 / 0.05),
-        0 8px 24px oklch(0.315 0.019 55 / 0.06);
+        0 1px 2px oklch(0.145 0 0 / 0.05), 0 8px 24px oklch(0.145 0 0 / 0.06);
     /* Max width of the *text* in the editor (Page.svelte) — the sheet is this
        plus its two inner margins. Narrower than a typical app container: a
        shorter line length is easier to track across, which is the whole point of
@@ -71,59 +77,65 @@
        window isn't mostly margin, and stops growing once the page is A4-shaped. The
        cap moves with the measure at each step, so the proportion survives them. */
     --doc-sheet-padding: clamp(2rem, 8vw, 7.3rem);
-    --sidebar: oklch(0.945 0.018 84);
-    --sidebar-foreground: oklch(0.315 0.019 55);
-    --sidebar-primary: oklch(0.47 0.058 55);
-    --sidebar-primary-foreground: oklch(0.981 0.012 88);
-    --sidebar-accent: oklch(0.902 0.028 82);
-    --sidebar-accent-foreground: oklch(0.335 0.026 55);
-    --sidebar-border: oklch(0.877 0.023 80);
-    --sidebar-ring: oklch(0.63 0.048 62);
+    --sidebar: oklch(0.965 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.92 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.9 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
 }
 
 .dark {
-    /* Dark theme — muted and low-contrast, never #000 with bright white text.
-       Maximum contrast in the dark causes halation (letters bleeding into the
-       background) for many dyslexic readers. This is a soft warm charcoal with
-       a dimmed off-white ink. */
-    --background: oklch(0.245 0.008 62);
-    --foreground: oklch(0.868 0.014 80);
-    --card: oklch(0.283 0.009 62);
-    --card-foreground: oklch(0.868 0.014 80);
-    --popover: oklch(0.283 0.009 62);
-    --popover-foreground: oklch(0.868 0.014 80);
-    --primary: oklch(0.815 0.021 80);
-    --primary-foreground: oklch(0.245 0.008 62);
-    --secondary: oklch(0.338 0.012 62);
-    --secondary-foreground: oklch(0.868 0.014 80);
-    --muted: oklch(0.338 0.012 62);
-    --muted-foreground: oklch(0.688 0.016 74);
-    --accent: oklch(0.382 0.015 64);
-    --accent-foreground: oklch(0.888 0.014 80);
-    --destructive: oklch(0.638 0.135 25);
-    /* Same relationship as light: the well recedes below the chrome, the sheet
-       lifts above it. Kept small — a hard step would be its own glare. */
-    --canvas: oklch(0.215 0.007 62);
-    --sheet: oklch(0.278 0.009 62);
+    /* Dark theme — shadcn-svelte's neutral dark, taken at full strength: a
+       near-black page climbing through mid-grey surfaces to near-white ink.
+
+       This block used to argue the opposite — a warm charcoal with dimmed ink,
+       on the grounds that maximum dark contrast causes halation for many
+       dyslexic readers. That was overruled deliberately: the muting read as
+       brown rather than neutral, and the reference palette is what the app now
+       follows. The ladder below is the design — canvas, page, chrome, paper,
+       states, ink — and every step in it is achromatic. */
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.371 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    /* See the light block: the danger signal keeps its hue. */
+    --destructive: oklch(0.704 0.191 22.216);
+    /* Same relationship as light: the well recedes below the page, the paper
+       lifts above it. The step is larger here than in light — a near-black page
+       needs a real difference before paper reads as paper. */
+    --canvas: oklch(0.12 0 0);
+    --sheet: oklch(0.26 0 0);
     --sheet-shadow:
-        0 1px 2px oklch(0.16 0.006 62 / 0.5),
-        0 8px 24px oklch(0.16 0.006 62 / 0.45);
-    --border: oklch(0.868 0.014 80 / 14%);
-    --input: oklch(0.868 0.014 80 / 18%);
-    --ring: oklch(0.575 0.021 70);
-    --chart-1: oklch(0.815 0.021 80);
-    --chart-2: oklch(0.715 0.019 76);
-    --chart-3: oklch(0.615 0.017 72);
-    --chart-4: oklch(0.515 0.015 68);
-    --chart-5: oklch(0.415 0.013 64);
-    --sidebar: oklch(0.283 0.009 62);
-    --sidebar-foreground: oklch(0.868 0.014 80);
-    --sidebar-primary: oklch(0.815 0.021 80);
-    --sidebar-primary-foreground: oklch(0.245 0.008 62);
-    --sidebar-accent: oklch(0.382 0.015 64);
-    --sidebar-accent-foreground: oklch(0.888 0.014 80);
-    --sidebar-border: oklch(0.868 0.014 80 / 14%);
-    --sidebar-ring: oklch(0.575 0.021 70);
+        0 1px 2px oklch(0 0 0 / 0.5), 0 8px 24px oklch(0 0 0 / 0.45);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.922 0 0);
+    --chart-2: oklch(0.82 0 0);
+    --chart-3: oklch(0.72 0 0);
+    --chart-4: oklch(0.62 0 0);
+    --chart-5: oklch(0.52 0 0);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.922 0 0);
+    --sidebar-primary-foreground: oklch(0.205 0 0);
+    --sidebar-accent: oklch(0.371 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
 }
 
 @theme inline {

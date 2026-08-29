@@ -66,8 +66,8 @@ is the _how_.
   lists, blockquote, horizontal rule, tables, images. Nothing more.
 - **Read aloud** — Web Speech API playback of the selection or whole document, with
   exact sentence highlighting, so the writer can catch by ear what the eye misses
-- **Accessibility as the product** — OpenDyslexic as a first-class font choice, a warm
-  light theme and a muted dark theme, generous reading measure
+- **Accessibility as the product** — OpenDyslexic as a first-class font choice, a
+  neutral light theme and a neutral dark theme, generous reading measure
 - **Word count + reading time** always visible, never intrusive
 - **Honest browser support** — feature-detect the File System Access API and say plainly
   when a browser can't run the app, rather than degrading into something half-working
@@ -441,8 +441,9 @@ project has no environment configuration.
   `cubic-bezier` for state-driven motion, never a third-party animation lib; shared
   durations/easing come from `$lib/config/motion.ts`
 - Theme colours are **Tailwind CSS variables in `src/routes/layout.css`** — never
-  hardcode a colour in a component. Light is warm sepia (never `#fff`); dark is muted
-  (never `#000` with bright text)
+  hardcode a colour in a component. Both themes are shadcn-svelte's neutral greys, every
+  token chroma `0`: light is near-white but never `#fff`; dark is near-black with
+  near-white ink
 - Fonts are **self-hosted** under `static/fonts/` — never load a webfont from a CDN
 - Storybook stories live in `src/stories/` and mirror the `src/lib/components/` tree —
   never co-locate stories inside `src/lib/components/`
