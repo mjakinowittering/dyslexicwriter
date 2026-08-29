@@ -3,12 +3,12 @@
         File01Icon,
         FileAddIcon,
         FolderOpenIcon,
-        FolderRemoveIcon,
         RefreshIcon
     } from '@hugeicons/core-free-icons';
     import { goto } from '$app/navigation';
     import { onMount } from 'svelte';
 
+    import * as AppHeader from '$lib/components/AppHeader';
     import ConfirmDialog from '$lib/components/ConfirmDialog/ConfirmDialog.svelte';
     import EmptyState from '$lib/components/EmptyState/EmptyState.svelte';
     import * as FileTree from '$lib/components/FileTree';
@@ -125,6 +125,28 @@
      the moment to do it. -->
 <svelte:window onfocus={rescan} />
 
+<!-- The app chrome, above every state of this route. The mark is there from the
+     first paint; the theme toggle and the menu wait for a folder, because a
+     theme has nowhere to save to without one and both menu actions are about
+     the folder itself. -->
+<AppHeader.Root
+    hasFolder={workspace.status === 'ready'}
+    onChangeFolder={() => workspace.chooseFolder()}
+    onLeaveFolder={() => (leaveOpen = true)}
+/>
+
+<!-- Sits with the header rather than inside the branch below, so the control
+     that opens it and the dialog itself aren't split across the {#if}. Not
+     destructive: nothing on disk is touched. The only cost of a mistake is
+     another trip through the picker. -->
+<ConfirmDialog
+    bind:open={leaveOpen}
+    confirmLabel={m.files_leave()}
+    description={m.files_leave_description()}
+    onConfirm={confirmLeaveFolder}
+    title={m.files_leave_title({ name: workspace.root?.name ?? '' })}
+/>
+
 {#if workspace.status === 'unsupported'}
     <div class="mx-auto flex max-w-xl flex-1 items-center px-6">
         <EmptyState
@@ -152,7 +174,11 @@
     </div>
 {:else}
     <div class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-10">
-        <header class="flex items-center justify-between gap-4">
+        <!-- The list's own title row, not a landmark: the two folder actions
+             that used to sit here have moved up into the app header's menu, and
+             the page's one <header> is that. Refresh stays — it is about this
+             list rather than about which folder is open. -->
+        <div class="flex items-center justify-between gap-4">
             <h1 class="text-xl font-semibold">{m.files_title()}</h1>
             <div class="flex items-center gap-2">
                 <!-- The automatic rescans cover most of it; this is for the
@@ -166,23 +192,12 @@
                     <Icon icon={RefreshIcon} />
                     {m.files_refresh()}
                 </Button>
-                <Button onclick={() => (leaveOpen = true)} variant="ghost">
-                    <Icon icon={FolderRemoveIcon} />
-                    {m.files_leave()}
-                </Button>
-                <Button
-                    onclick={() => workspace.chooseFolder()}
-                    variant="ghost"
-                >
-                    <Icon icon={FolderOpenIcon} />
-                    {m.files_change_folder()}
-                </Button>
                 <Button onclick={onCreate}>
                     <Icon icon={FileAddIcon} />
                     {m.files_new()}
                 </Button>
             </div>
-        </header>
+        </div>
 
         {#if workspace.error}
             <p class="text-destructive text-sm">{workspace.error}</p>
@@ -218,9 +233,9 @@
             />
         {/if}
 
-        <!-- Both dialogs portal to <body>, so where they sit in the markup is
-             immaterial; keeping them at the end of the branch that owns their
-             state is just the easiest place to find them. -->
+        <!-- Portals to <body>, so where it sits in the markup is immaterial;
+             keeping it at the end of the branch that owns the list it deletes
+             from is just the easiest place to find it. -->
         <ConfirmDialog
             bind:open={deleteOpen}
             confirmLabel={m.files_delete()}
@@ -228,16 +243,6 @@
             destructive
             onConfirm={confirmDelete}
             title={m.files_delete_title({ title: deleteTarget?.title ?? '' })}
-        />
-
-        <!-- Not destructive: nothing on disk is touched. The only cost of a
-             mistake is another trip through the picker. -->
-        <ConfirmDialog
-            bind:open={leaveOpen}
-            confirmLabel={m.files_leave()}
-            description={m.files_leave_description()}
-            onConfirm={confirmLeaveFolder}
-            title={m.files_leave_title({ name: workspace.root?.name ?? '' })}
         />
     </div>
 {/if}
