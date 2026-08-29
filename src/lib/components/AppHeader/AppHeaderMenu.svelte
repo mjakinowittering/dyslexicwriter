@@ -56,7 +56,9 @@
         {/snippet}
     </DropdownMenu.Trigger>
 
-    <DropdownMenu.Content align="end">
+    <!-- w-auto because nova's menu content is pinned to its anchor's width, and
+         this anchor is a 36px icon button — the labels would wrap at min-w-32. -->
+    <DropdownMenu.Content align="end" class="w-auto">
         <DropdownMenu.Item onSelect={onChangeFolder}>
             <Icon icon={FolderOpenIcon} />
             {m.files_change_folder()}
