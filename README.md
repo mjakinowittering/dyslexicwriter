@@ -203,32 +203,6 @@ Within each, related items sit next to each other.
     - **Decide what the menu holds** before building it. The editor toolbar's capped
       control set is a decision about the toolbar and does not bind here, but the
       same instinct does: default to "no"
-- [ ] Add a way to leave the current folder from the Files screen — clear every trace
-      of it and land back on the welcome screen. Nothing does this today:
-      `clearDirectoryHandle()` exists (`src/lib/fs/handle-store.ts:34`) but its only
-      caller is `reopen()`'s unreachable-folder path
-      (`src/lib/stores/workspace.svelte.ts:137`), and the Files header offers only
-      "Change folder" (`src/routes/+page.svelte:111-117`), which swaps one folder for
-      another and never returns to the first-run screen. Add a `workspace.signOut()`
-      that runs `#adopt()` (`workspace.svelte.ts:204-218`) in reverse — delete the
-      stored handle, null `root`, `pending` and `tree`, clear `collapsed` and
-      `#opened`, reset `config` to `defaultConfig()`, set `status` to `needs-folder`
-      and clear `error` — and the control that calls it.
-    - **Flush before anything is dropped.** `await doc.close()`
-      (`document.svelte.ts:301-303`) flushes then resets, so it must run first; drop
-      the handle while a debounced edit is still pending and the last sentence is
-      lost, which is the one failure this app exists to avoid
-    - **Don't call it signing out.** There is no account to leave, so the copy has to
-      say what actually happens: the browser forgets the folder, the files stay on
-      disk untouched. Confirm first — nothing is deleted, but getting the folder back
-      means another trip through the picker
-    - **Resetting `config` resets the theme.** Every preference lives in the folder's
-      `config.json`, so leaving it necessarily falls back to the default theme
-      through `applyTheme()`. Same tension as the shared-header item's theme-toggle
-      sub-bullet above; whichever lands second follows the answer the first gave
-    - **Where the control lives depends on the header item above.** Until there is
-      app chrome it sits in the Files header beside "Change folder"; once there is a
-      menu it belongs in that, not as a third button in the title row
 - [ ] Give the welcome and Files screens a shared footer, for licence information,
       a link back to GitHub and a short note from the author — contents still to be
       decided. Same absence as the header above: there is no chrome around either

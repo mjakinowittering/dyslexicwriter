@@ -217,6 +217,43 @@ class WorkspaceStore implements PreferenceStore {
         await this.refresh();
     }
 
+    // Let the working folder go: `#adopt()` in reverse.
+    //
+    // Nothing on disk is touched. All this does is make the browser forget the
+    // folder, so the next launch starts at the picker rather than reopening it.
+    //
+    // CALLERS MUST FLUSH THE OPEN DOCUMENT FIRST — `await doc.close()` before
+    // this, as the Files screen does. Dropping the handle while a debounced edit
+    // is still pending loses that edit, which is the one failure this app exists
+    // to avoid. The flush is not done here because this store must not import the
+    // document store: that store already imports this one.
+    async leaveFolder(): Promise<void> {
+        // Before anything is reset, because this is the part that can fail. A
+        // half-done exit that resets the screen but leaves the handle in
+        // IndexedDB would quietly reopen the folder on the next launch — worse
+        // than not leaving at all, so say so and stay put.
+        try {
+            await clearDirectoryHandle();
+        } catch {
+            this.error = m.files_leave_error();
+            return;
+        }
+
+        this.root = null;
+        this.pending = null;
+        this.tree = null;
+        this.collapsed.clear();
+        this.#opened.clear();
+        this.config = defaultConfig();
+        this.status = 'needs-folder';
+        this.error = '';
+        // Deliberately no `applyTheme()`. Every preference lives in the folder's
+        // config.json, so there is nothing to persist a theme to once we have let
+        // it go — and flipping the page to the shipped default on the way out
+        // reads as a fault rather than a consequence. <html> keeps what the user
+        // was looking at until the next folder is adopted and its config decides.
+    }
+
     // Push the stored theme onto <html>.
     //
     // Deliberately imperative rather than an $effect in the root layout: an

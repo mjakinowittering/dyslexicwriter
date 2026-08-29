@@ -40,8 +40,14 @@
     --accent-foreground: oklch(0.205 0 0);
     /* Not neutralised: the one colour left in either theme is a signal, not
        furniture. A grey delete confirmation says nothing. Darkened a step off
-       shadcn's red (0.577/0.245), which is another 4.49 against a 0.98 page. */
-    --destructive: oklch(0.555 0.225 27.325);
+       shadcn's red (0.577/0.245), which is another 4.49 against a 0.98 page.
+
+       Darkened again, 0.555 -> 0.53, for the destructive *button*: that variant
+       paints the same colour on a `bg-destructive/10` wash of itself, and text
+       on its own 10% tint is a far tighter test than text on the page. 0.555
+       reached only 4.34 there and Storybook's enforced axe run failed it. 0.53
+       clears the tint at 4.67 and the page at 5.45. */
+    --destructive: oklch(0.53 0.225 27.325);
     --border: oklch(0.9 0 0);
     --input: oklch(0.9 0 0);
     --ring: oklch(0.708 0 0);
