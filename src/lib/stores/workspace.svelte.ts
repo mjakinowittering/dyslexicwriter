@@ -6,7 +6,6 @@ import {
     ensurePermission,
     ensureSubfolder,
     findDocument,
-    flattenDocuments,
     folderIsReachable,
     loadDirectoryHandle,
     readConfig,
@@ -18,18 +17,19 @@ import {
 import {
     defaultConfig,
     type Config,
-    type DocumentIndexEntry,
     type Font,
     type Theme
 } from '$lib/models/config.model';
+import type { DocumentIndexEntry } from '$lib/models/document.model';
 import * as m from '$lib/paraglide/messages';
 
 // The user's chosen working folder, the settings read from it, and the document
-// index shown on the Files screen.
+// tree shown on the Files screen.
 //
 // Everything here is derived from two things on the user's machine: the directory
 // handle (in IndexedDB) and config.json (in the folder itself). Nothing is cached
-// anywhere else.
+// anywhere else — the tree in particular is scanned from the folder and held only
+// in memory, because the folder is the only authority there has ever been for it.
 
 export type WorkspaceStatus =
     | 'loading' // checking IndexedDB for a previously chosen folder
@@ -65,15 +65,35 @@ class WorkspaceStore implements PreferenceStore {
     // to be open is not a preference worth writing to the user's disk.
     collapsed = new SvelteSet<string>();
     error = $state('');
+    // A folder walk is in flight. The Files screen disables its refresh control
+    // while this is true, and its automatic triggers stand down rather than
+    // stacking a second walk on top of the first.
+    scanning = $state(false);
 
     // Folders the depth cap stopped at that the user has since expanded. Replayed
     // after each refresh so a rescan doesn't fold the tree back up.
     #opened = new Set<string>();
 
-    // Flat view of the tree, for the config.json index and the empty state.
-    documents: DocumentIndexEntry[] = $derived(
-        this.tree ? flattenDocuments(this.tree) : []
-    );
+    // Is the working folder showing nothing at all?
+    //
+    // Read off the root of the tree rather than a flattened document count: the
+    // scan keeps any folder with writing below it, and lifts a folder holding one
+    // document up into this level, so no documents AND no folders here means there
+    // is genuinely nothing to show. Counting documents alone would hide the folder
+    // rows the depth cap left unloaded — the one control that would find writing
+    // sitting deeper than the scan reached.
+    get isEmpty(): boolean {
+        return (
+            !this.tree ||
+            (this.tree.documents.length === 0 && this.tree.folders.length === 0)
+        );
+    }
+
+    // Did the scan see anything it cannot open? What separates a folder that is
+    // empty from one holding a pile of .docx files.
+    get hasUnopenableFiles(): boolean {
+        return this.tree?.hasOtherEntries ?? false;
+    }
 
     // The stored folder's name, for the "Reopen …" card. A handle carries its
     // name whether or not we have permission to open it, so there is nothing to
@@ -271,18 +291,26 @@ class WorkspaceStore implements PreferenceStore {
         setMode(this.config.theme);
     }
 
-    // Reconcile the config index against what is actually on disk. The folder
-    // wins: files may have been added, renamed or deleted outside the app.
+    // Re-walk the working folder. Files may have been added, renamed or deleted
+    // outside the app since the last look, and the API offers no notification when
+    // they are — so this is what the Files screen calls to catch up.
+    //
+    // Deliberately not guarded by `scanning`: `touch()` and the screen's own
+    // refresh control must always do their work. It is the automatic triggers that
+    // stand down, because they are the ones that can fire in bursts.
     async refresh(): Promise<void> {
         if (!this.root) return;
+
+        this.scanning = true;
 
         try {
             const tree = await scanFolder(this.root);
             await this.#replayOpened(tree);
             this.tree = tree;
-            await this.#syncIndex();
         } catch {
             this.error = m.files_read_error();
+        } finally {
+            this.scanning = false;
         }
     }
 
@@ -309,9 +337,9 @@ class WorkspaceStore implements PreferenceStore {
             node.folders = loaded.folders;
             node.documents = loaded.documents;
             node.loaded = true;
+            node.hasOtherEntries = loaded.hasOtherEntries;
             this.#opened.add(node.path);
             this.collapsed.delete(node.path);
-            await this.#syncIndex();
         } catch {
             this.error = m.files_read_error();
         }
@@ -323,6 +351,10 @@ class WorkspaceStore implements PreferenceStore {
     // every markdown file it finds is far too much work to repeat on a 600ms
     // debounce. A document the tree has never seen — the first save of a new one —
     // falls back to a full refresh, because there is a folder to discover.
+    //
+    // The tree is the only copy of this list, so moving the row here is the whole
+    // job: nothing is written to disk, and the folder itself already has the mtime
+    // we are catching up to.
     async touch(entry: DocumentIndexEntry): Promise<void> {
         const known = this.tree && findDocument(this.tree, entry);
 
@@ -332,7 +364,6 @@ class WorkspaceStore implements PreferenceStore {
         }
 
         known.lastModified = entry.lastModified;
-        await this.#syncIndex();
     }
 
     // Re-open the folders the user had expanded past the depth cap. Each pass
@@ -359,27 +390,9 @@ class WorkspaceStore implements PreferenceStore {
                 node.folders = loaded.folders;
                 node.documents = loaded.documents;
                 node.loaded = true;
+                node.hasOtherEntries = loaded.hasOtherEntries;
             }
         }
-    }
-
-    // Write the index back to config.json when it no longer matches the tree. It
-    // is only a cache for the Files screen, so there is nothing to salvage from a
-    // stale one — it is replaced whole or left alone.
-    async #syncIndex(): Promise<void> {
-        const found = $state.snapshot(this.documents);
-        const cached = this.config.documents;
-
-        const changed =
-            found.length !== cached.length ||
-            found.some(
-                (d, i) =>
-                    d.folder !== cached[i]?.folder ||
-                    d.file !== cached[i]?.file ||
-                    d.lastModified !== cached[i]?.lastModified
-            );
-
-        if (changed) await this.#persist({ documents: found });
     }
 
     async setTheme(theme: Theme): Promise<void> {

@@ -57,9 +57,9 @@ is the _how_.
 - **Durable folder handle** — the `FileSystemDirectoryHandle` persisted through
   IndexedDB (it is not serializable to a string) and re-permissioned silently on return
   visits, so the user picks their folder once, not every launch
-- **`config.json` as the only settings store** — theme, font, read-aloud voice/speed and
-  the document index, all in one file in the user's folder so preferences travel with
-  the writing
+- **`config.json` as the only settings store** — theme, font and read-aloud voice/speed,
+  all in one file in the user's folder so preferences travel with the writing. Settings
+  only: the list of documents is scanned from the folder, never cached here
 - **A lossless-enough markdown round-trip** — TipTap `JSONContent` is the editing model;
   markdown is what lands on disk and what is parsed back on open
 - **Distraction-free editing** — a deliberately capped toolbar: headings, bold/italic,
@@ -117,6 +117,23 @@ interface Doc {
 }
 ```
 
+The Files screen's list is the other in-memory representation — a `FolderNode` tree of
+`DocumentIndexEntry` rows, scanned from the folder into the workspace store and held
+nowhere else:
+
+```ts
+interface DocumentIndexEntry {
+    title: string; // the markdown file's basename
+    folder: string; // '/'-joined, relative to the working folder; '' is the root
+    file: string; // file name within that folder, .md included
+    ownsFolder: boolean; // folder-document or file-document — see below
+    lastModified: number; // epoch ms, shown against the row
+}
+```
+
+A plain interface rather than a Valibot schema: every entry is built by `scanFolder` from
+a real file handle, so there is no untrusted input to validate.
+
 ### On disk
 
 The app **creates** one folder per document. It **finds** whatever is actually there —
@@ -125,7 +142,7 @@ levels down, and all of it is theirs to open.
 
 ```
 <working folder>/            <- chosen once via showDirectoryPicker()
-├── config.json              <- ALL preferences + the document index
+├── config.json              <- ALL preferences, and nothing else
 ├── My Chapter/              <- a folder-document: what the app creates
 │   ├── My Chapter.md        <- the document; markdown is what persists
 │   └── diagram.png          <- images belong to the document that uses them
@@ -162,23 +179,24 @@ slow enough to read as broken. Dot-directories and `node_modules` are skipped.
     version: number,
     theme: 'light' | 'dark',
     font: 'sans' | 'dyslexic',
-    tts: { voiceUri: string | null, rate: number },
-    documents: [{ title, folder, file, ownsFolder, lastModified }]
+    tts: { voiceUri: string | null, rate: number }
 }
 ```
 
-`folder` is a `/`-joined path relative to the working folder, and `''` is the working
-folder itself — where a loose `notes.md` lives. `title` is the markdown file's
-basename. `ownsFolder` is optional on read so an index written by an older version
-still parses.
+**Preferences only.** There is no document index here. The folder on disk is the only
+source for that list: `scanFolder` walks it into the workspace store on load, every
+screen renders from that `$state`, and it is scanned again rather than remembered. A
+copy in `config.json` would be written after every autosave and read by nobody. Older
+files still carrying a `documents` key parse fine — it is ignored, and dropped the next
+time anything writes the file.
 
 Validated with Valibot on read, **key by key**: a hand-edited mistake in one setting
 costs the user that setting alone, not every other preference they have chosen. A
 corrupt or unreadable file falls back to defaults rather than crashing the app.
 
 The first-run value of every preference lives in `src/lib/config/defaults.json` —
-`theme`, `font` and `tts` only. `version` and `documents` are structural rather than
-configurable, so the code owns them. `defaults.json` is a checked-in seed, never
+`theme`, `font` and `tts` only. `version` is structural rather than configurable, so
+the code owns it. `defaults.json` is a checked-in seed, never
 written to at runtime; it is validated through the same schemas and falls back to
 in-code constants when malformed.
 
@@ -217,8 +235,10 @@ in-code constants when malformed.
 - **Every persisted preference lives in `config.json`** — no exceptions. If a new setting
   appears, it goes there too. Never reach for `localStorage`, IndexedDB or a URL param
   to remember a preference.
-- The document index in `config.json` is a **cache for the Files screen**, not an
-  authority. The folder on disk wins; a scan reconciles the index when they disagree.
+- **The document list is scanned, never cached.** It lives in the workspace store's
+  `$state` for as long as the app is open and nowhere else — not in `config.json`, not
+  anywhere on disk. The Files screen rescans on mount and on window focus, because the
+  File System Access API has no way to tell us a file changed.
 
 ---
 
@@ -390,7 +410,7 @@ project has no environment configuration.
 - Every preference in `config.json` has a sibling in `src/lib/config/defaults.json`
   giving its first-run value, and a new setting adds **both in the same commit** — the
   pairing `toMarkdown`/`fromMarkdown` already follows. `defaults.json` holds preferences
-  only; `version` and `documents` stay owned by the code
+  only; `version` is structural and stays owned by the code
 - Renames establish the **new name first** and remove the **old one last**, whichever
   kind of document it is — Chromium's `move()` is not reliable for directories, and
   deleting last means a failure leaves a duplicate, never a loss. A folder-document
@@ -402,8 +422,8 @@ project has no environment configuration.
 - Paths are `/`-joined and relative to the working folder, `''` being the working
   folder itself. `sanitiseTitle` owns each **segment** as it is created; a path is
   never parsed out of user input, and the resolver refuses `.` and `..` regardless
-- `ownsFolder` is **recomputed by every scan**, never trusted from the config index —
-  it decides whether delete removes a folder recursively or a single file
+- `ownsFolder` is **recomputed by every scan** — it decides whether delete removes a
+  folder recursively or a single file
 - New documents stay **in memory until first save**, named `Untitled`, `Untitled 2`, …
   by probing for an existing folder of that name
 - Any node or mark added to the editor must be taught to **both** `toMarkdown` **and**

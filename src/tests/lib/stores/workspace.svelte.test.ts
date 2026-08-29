@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     clearDirectoryHandle,
     loadDirectoryHandle,
-    saveDirectoryHandle
+    saveDirectoryHandle,
+    updateConfig,
+    type FolderNode
 } from '$lib/fs';
 import { defaultConfig } from '$lib/models/config.model';
 import * as m from '$lib/paraglide/messages';
@@ -18,12 +20,14 @@ import { workspace } from '$lib/stores/workspace.svelte';
 // folder the next launch will silently reopen.
 //
 // `$lib/fs` is mocked through to the real module so `clearDirectoryHandle` can be
-// made to reject on demand; every other export is the genuine one.
+// made to reject on demand and `updateConfig` can be watched; every other export
+// is the genuine one.
 vi.mock('$lib/fs', async (importOriginal) => {
     const actual = await importOriginal<typeof import('$lib/fs')>();
     return {
         ...actual,
-        clearDirectoryHandle: vi.fn(actual.clearDirectoryHandle)
+        clearDirectoryHandle: vi.fn(actual.clearDirectoryHandle),
+        updateConfig: vi.fn(actual.updateConfig)
     };
 });
 
@@ -39,20 +43,29 @@ beforeEach(async () => {
     await saveDirectoryHandle(root);
     workspace.root = root;
     workspace.pending = null;
-    workspace.tree = {
-        name: '',
-        path: '',
-        folders: [],
-        documents: [],
-        loaded: true
-    };
+    workspace.tree = node();
     workspace.collapsed.add('Book');
     workspace.status = 'ready';
     workspace.error = '';
 });
 
+// A folder node with nothing in it, for the tests that only care about the shape
+// of the tree rather than what is on disk.
+function node(contents: Partial<FolderNode> = {}): FolderNode {
+    return {
+        name: '',
+        path: '',
+        folders: [],
+        documents: [],
+        loaded: true,
+        hasOtherEntries: false,
+        ...contents
+    };
+}
+
 afterEach(async () => {
     vi.mocked(clearDirectoryHandle).mockClear();
+    vi.mocked(updateConfig).mockClear();
     vi.restoreAllMocks();
     // A handle left in IndexedDB would outlive this suite entirely.
     await clearDirectoryHandle();
@@ -108,5 +121,64 @@ describe('leaveFolder', () => {
             root,
             error: m.files_leave_error()
         });
+    });
+});
+
+// What the Files screen shows when the tree holds no documents. Read off the root
+// of the tree rather than a flat document count, because the two disagree in the
+// case that matters: a folder the depth cap stopped at holds no documents yet and
+// is exactly the row the user needs in order to find their writing.
+describe('isEmpty', () => {
+    it('is true when the working folder holds nothing at all', () => {
+        workspace.tree = node();
+
+        expect(workspace.isEmpty).toBe(true);
+    });
+
+    it('is true before the first scan resolves', () => {
+        workspace.tree = null;
+
+        expect(workspace.isEmpty).toBe(true);
+    });
+
+    it('is false when a folder row is waiting, even with no documents', () => {
+        // The depth cap stopped here. Counting documents alone would replace this
+        // row with "Nothing here yet" and hide the only way to reach what is
+        // inside it.
+        workspace.tree = node({
+            folders: [node({ name: 'Book', path: 'Book', loaded: false })]
+        });
+
+        expect(workspace.isEmpty).toBe(false);
+    });
+
+    it('reports whether the scan saw anything it cannot open', () => {
+        workspace.tree = node({ hasOtherEntries: true });
+
+        expect(workspace.hasUnopenableFiles).toBe(true);
+    });
+});
+
+describe('touch', () => {
+    const entry = {
+        title: 'Notes',
+        folder: '',
+        file: 'notes.md',
+        ownsFolder: false,
+        lastModified: 1_700_000_000_000
+    };
+
+    // The tree is the only copy of this list. Autosave calls touch() after every
+    // single write, so a config.json read-and-write here would put an extra round
+    // trip to the user's disk behind every keystroke that lands.
+    it('moves the row in memory without writing to disk', async () => {
+        workspace.tree = node({ documents: [{ ...entry }] });
+
+        await workspace.touch({ ...entry, lastModified: 1_700_000_009_999 });
+
+        expect(workspace.tree?.documents[0]?.lastModified).toBe(
+            1_700_000_009_999
+        );
+        expect(updateConfig).not.toHaveBeenCalled();
     });
 });
