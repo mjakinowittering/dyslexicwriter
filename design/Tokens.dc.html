@@ -1,0 +1,146 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+  <style>
+    /* src/routes/layout.css :root — verbatim */
+    :root{
+      --background:oklch(0.98 0 0);--foreground:oklch(0.145 0 0);
+      --card:oklch(0.99 0 0);--popover:oklch(0.99 0 0);
+      --primary:oklch(0.205 0 0);--primary-foreground:oklch(0.985 0 0);
+      --secondary:oklch(0.95 0 0);--muted:oklch(0.95 0 0);
+      --muted-foreground:oklch(0.53 0 0);--accent:oklch(0.92 0 0);
+      --destructive:oklch(0.53 0.225 27.325);
+      --border:oklch(0.9 0 0);--input:oklch(0.9 0 0);--ring:oklch(0.708 0 0);
+      --canvas:oklch(0.955 0 0);--sheet:oklch(0.99 0 0);
+      --sheet-shadow:0 1px 2px oklch(0.145 0 0 / 0.05),0 8px 24px oklch(0.145 0 0 / 0.06);
+    }
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;background:var(--background);color:var(--foreground);font-family:'Geist',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;-webkit-font-smoothing:antialiased}
+    a{color:var(--foreground);text-decoration:underline;text-underline-offset:4px}
+    a:hover{color:var(--muted-foreground)}
+    svg{display:block;fill:none}
+    /* shadcn-svelte toggle-group, spacing=0, variant=outline — joined segments */
+    .tg{display:flex;align-items:center;border-radius:10px}
+    .tgi{height:32px;min-width:32px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--input);border-left-width:0;background:transparent;color:var(--foreground);font-size:14px;font-weight:500}
+    .tg .tgi:first-child{border-left-width:1px;border-top-left-radius:10px;border-bottom-left-radius:10px}
+    .tg .tgi:last-child{border-top-right-radius:10px;border-bottom-right-radius:10px}
+    .tgi[data-on]{background:var(--muted)}
+    .tgi[data-off]{opacity:.5}
+    /* shadcn-svelte button */
+    .btn{height:32px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid transparent;border-radius:10px;font-size:14px;font-weight:500;background:transparent;color:var(--foreground);white-space:nowrap}
+    .btn-icon{width:32px;height:32px;padding:0}
+    .btn-primary{background:var(--primary);color:var(--primary-foreground)}
+    .btn-outline{border-color:var(--border);background:var(--background)}
+    .btn-muted{background:var(--muted)}
+    /* Tailwind Typography — the app sets no custom prose colours, so these are its defaults */
+    .prose{font-size:18px;line-height:1.7778;color:#374151}
+    .prose h1{font-size:30px;font-weight:600;line-height:1.2;color:#111827;margin:0 0 24px}
+    .prose h2{font-size:24px;font-weight:600;line-height:1.3;color:#111827;margin:32px 0 16px}
+    .prose h3{font-size:20px;font-weight:600;line-height:1.4;color:#111827;margin:28px 0 12px}
+    .prose p{margin:0 0 24px}
+    .prose strong{color:#111827;font-weight:600}
+    .prose ul{margin:0 0 24px;padding-left:26px}
+    .prose li{margin:4px 0}
+    .prose blockquote{margin:24px 0;padding-left:20px;border-left:4px solid #e5e7eb;font-style:italic;color:#111827}
+    /* Read-aloud decorations — tiptap-tts-highlight.ts */
+    .tts-sentence{background-color:rgb(250 204 21 / 0.18);border-radius:0.15rem}
+    .tts-word{background-color:rgb(250 204 21 / 0.45);border-radius:0.15rem;box-shadow:0 0 0 1px rgb(202 138 4 / 0.35)}
+    /* The reading font — OpenDyslexic, self-hosted in the app; the canvas falls back */
+    .reading-font{font-family:'OpenDyslexic','Comic Sans MS',sans-serif;letter-spacing:-0.01em}
+    .reading-font .tts-sentence,.reading-font .tts-word{background-color:transparent;background-image:linear-gradient(rgb(250 204 21 / 0.18),rgb(250 204 21 / 0.18));background-position:0 0.35em;background-repeat:no-repeat;background-size:100% 1.3em;-webkit-box-decoration-break:clone;box-decoration-break:clone;box-shadow:none}
+  </style>
+</helmet>
+<div style="width:1200px;min-height:1500px;background:var(--background);color:var(--foreground);padding:56px 64px;display:flex;flex-direction:column;gap:48px">
+
+  <header style="display:flex;flex-direction:column;gap:8px">
+    <h1 style="margin:0;font-size:28px;font-weight:600;letter-spacing:-0.02em">Foundations</h1>
+    <p style="margin:0;max-width:640px;font-size:14px;line-height:1.625;color:var(--muted-foreground)">Every value below is read from <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px">src/routes/layout.css</span>. Both themes are shadcn-svelte neutrals at chroma 0; the one colour left in either is the destructive signal.</p>
+  </header>
+
+  <section style="display:flex;flex-direction:column;gap:16px">
+    <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted-foreground)">Light</h2>
+    <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px">
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid var(--border);background:oklch(0.98 0 0)"></div><span style="font-size:13px;font-weight:500">background</span><span style="font-size:12px;color:var(--muted-foreground)">0.98 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid var(--border);background:oklch(0.955 0 0)"></div><span style="font-size:13px;font-weight:500">canvas</span><span style="font-size:12px;color:var(--muted-foreground)">0.955 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid var(--border);background:oklch(0.99 0 0)"></div><span style="font-size:13px;font-weight:500">sheet / card</span><span style="font-size:12px;color:var(--muted-foreground)">0.99 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid var(--border);background:oklch(0.95 0 0)"></div><span style="font-size:13px;font-weight:500">muted</span><span style="font-size:12px;color:var(--muted-foreground)">0.95 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid var(--border);background:oklch(0.92 0 0)"></div><span style="font-size:13px;font-weight:500">accent</span><span style="font-size:12px;color:var(--muted-foreground)">0.92 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid var(--border);background:oklch(0.9 0 0)"></div><span style="font-size:13px;font-weight:500">border / input</span><span style="font-size:12px;color:var(--muted-foreground)">0.9 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid var(--border);background:oklch(0.708 0 0)"></div><span style="font-size:13px;font-weight:500">ring</span><span style="font-size:12px;color:var(--muted-foreground)">0.708 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid var(--border);background:oklch(0.53 0 0)"></div><span style="font-size:13px;font-weight:500">muted-foreground</span><span style="font-size:12px;color:var(--muted-foreground)">0.53 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid var(--border);background:oklch(0.205 0 0)"></div><span style="font-size:13px;font-weight:500">primary</span><span style="font-size:12px;color:var(--muted-foreground)">0.205 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid var(--border);background:oklch(0.145 0 0)"></div><span style="font-size:13px;font-weight:500">foreground</span><span style="font-size:12px;color:var(--muted-foreground)">0.145 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid var(--border);background:oklch(0.53 0.225 27.325)"></div><span style="font-size:13px;font-weight:500">destructive</span><span style="font-size:12px;color:var(--muted-foreground)">0.53 0.225 27.3</span></div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:16px">
+    <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted-foreground)">Dark</h2>
+    <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;border-radius:14px;background:oklch(0.145 0 0);padding:20px;color:oklch(0.985 0 0)">
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid oklch(1 0 0 / 10%);background:oklch(0.145 0 0)"></div><span style="font-size:13px;font-weight:500">background</span><span style="font-size:12px;color:oklch(0.708 0 0)">0.145 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid oklch(1 0 0 / 10%);background:oklch(0.12 0 0)"></div><span style="font-size:13px;font-weight:500">canvas</span><span style="font-size:12px;color:oklch(0.708 0 0)">0.12 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid oklch(1 0 0 / 10%);background:oklch(0.26 0 0)"></div><span style="font-size:13px;font-weight:500">sheet</span><span style="font-size:12px;color:oklch(0.708 0 0)">0.26 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid oklch(1 0 0 / 10%);background:oklch(0.205 0 0)"></div><span style="font-size:13px;font-weight:500">card</span><span style="font-size:12px;color:oklch(0.708 0 0)">0.205 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid oklch(1 0 0 / 10%);background:oklch(0.269 0 0)"></div><span style="font-size:13px;font-weight:500">muted</span><span style="font-size:12px;color:oklch(0.708 0 0)">0.269 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid oklch(1 0 0 / 10%);background:oklch(0.371 0 0)"></div><span style="font-size:13px;font-weight:500">accent</span><span style="font-size:12px;color:oklch(0.708 0 0)">0.371 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid oklch(1 0 0 / 10%);background:oklch(0.556 0 0)"></div><span style="font-size:13px;font-weight:500">ring</span><span style="font-size:12px;color:oklch(0.708 0 0)">0.556 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid oklch(1 0 0 / 10%);background:oklch(0.708 0 0)"></div><span style="font-size:13px;font-weight:500">muted-foreground</span><span style="font-size:12px;color:oklch(0.708 0 0)">0.708 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid oklch(1 0 0 / 10%);background:oklch(0.922 0 0)"></div><span style="font-size:13px;font-weight:500">primary</span><span style="font-size:12px;color:oklch(0.708 0 0)">0.922 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid oklch(1 0 0 / 10%);background:oklch(0.985 0 0)"></div><span style="font-size:13px;font-weight:500">foreground</span><span style="font-size:12px;color:oklch(0.708 0 0)">0.985 0 0</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;border-radius:10px;border:1px solid oklch(1 0 0 / 10%);background:oklch(0.704 0.191 22.216)"></div><span style="font-size:13px;font-weight:500">destructive</span><span style="font-size:12px;color:oklch(0.708 0 0)">0.704 0.191 22.2</span></div>
+    </div>
+  </section>
+
+  <section style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:48px">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted-foreground)">Interface type — Geist</h2>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:baseline;gap:16px"><span style="width:120px;flex-shrink:0;font-size:12px;color:var(--muted-foreground)">20 / 600</span><span style="font-size:20px;font-weight:600">Your documents</span></div>
+        <div style="display:flex;align-items:baseline;gap:16px"><span style="width:120px;flex-shrink:0;font-size:12px;color:var(--muted-foreground)">16 / 500</span><span style="font-size:16px;font-weight:500">The Lantern Room</span></div>
+        <div style="display:flex;align-items:baseline;gap:16px"><span style="width:120px;flex-shrink:0;font-size:12px;color:var(--muted-foreground)">14 / 500</span><span style="font-size:14px;font-weight:500">Buttons, labels, title field</span></div>
+        <div style="display:flex;align-items:baseline;gap:16px"><span style="width:120px;flex-shrink:0;font-size:12px;color:var(--muted-foreground)">14 / 400</span><span style="font-size:14px;color:var(--muted-foreground)">Edited 2 hours ago</span></div>
+        <div style="display:flex;align-items:baseline;gap:16px"><span style="width:120px;flex-shrink:0;font-size:12px;color:var(--muted-foreground)">12 / 600 caps</span><span style="font-size:12px;font-weight:600;letter-spacing:0.025em;text-transform:uppercase;color:var(--muted-foreground)">Settings section</span></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted-foreground)">Document type — prose-lg at 1440</h2>
+      <div class="prose" style="display:flex;flex-direction:column;gap:4px">
+        <h1 style="margin:0">Heading 1 &mdash; 30px</h1>
+        <h2 style="margin:8px 0 0">Heading 2 &mdash; 24px</h2>
+        <h3 style="margin:8px 0 0">Heading 3 &mdash; 20px</h3>
+        <p style="margin:8px 0 0">Body &mdash; 18px on 1.78. The measure is 46rem, and the sheet is that plus two 7.2rem margins, so the page keeps A4's proportion.</p>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:48px">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted-foreground)">Radius &mdash; base 0.625rem</h2>
+      <div style="display:flex;align-items:flex-end;gap:16px">
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;width:64px;border-radius:6px;border:1px solid var(--border);background:var(--muted)"></div><span style="font-size:12px;color:var(--muted-foreground)">sm 6px</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;width:64px;border-radius:8px;border:1px solid var(--border);background:var(--muted)"></div><span style="font-size:12px;color:var(--muted-foreground)">md 8px</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;width:64px;border-radius:10px;border:1px solid var(--border);background:var(--muted)"></div><span style="font-size:12px;color:var(--muted-foreground)">lg 10px</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;width:64px;border-radius:14px;border:1px solid var(--border);background:var(--muted)"></div><span style="font-size:12px;color:var(--muted-foreground)">xl 14px</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:64px;width:64px;border-radius:18px;border:1px solid var(--border);background:var(--muted)"></div><span style="font-size:12px;color:var(--muted-foreground)">2xl 18px</span></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted-foreground)">The well and the paper</h2>
+      <div style="border-radius:14px;background:var(--canvas);padding:24px">
+        <div style="border:1px solid var(--border);border-radius:14px;background:var(--sheet);box-shadow:var(--sheet-shadow);padding:24px;font-size:14px;color:var(--muted-foreground)">Canvas is a shade darker than the chrome, the sheet a shade lighter, so the writing sits on paper in a shallow well.</div>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+</body>
+</html>

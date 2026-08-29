@@ -1,0 +1,144 @@
+{
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "App screens"
+    },
+    {
+      "id": "page-2",
+      "name": "Foundations"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "page": "page-1",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Editor"
+    },
+    {
+      "file": "FilenameField.dc.html",
+      "page": "page-1",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Editor — filename as an input group"
+    },
+    {
+      "file": "NoLogo.dc.html",
+      "page": "page-1",
+      "x": 3120,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Editor — no logo mark"
+    },
+    {
+      "file": "EditorSettings.dc.html",
+      "page": "page-1",
+      "x": 4680,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Editor — settings open"
+    },
+    {
+      "file": "EditorReadAloud.dc.html",
+      "page": "page-1",
+      "x": 6240,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Editor — dark, reading aloud"
+    },
+    {
+      "file": "EditorReadingFont.dc.html",
+      "page": "page-1",
+      "x": 7800,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Editor — reading font, voice settings"
+    },
+    {
+      "file": "Files.dc.html",
+      "page": "page-1",
+      "x": 0,
+      "y": 1080,
+      "w": 1440,
+      "h": 900,
+      "title": "Files"
+    },
+    {
+      "file": "FilesDelete.dc.html",
+      "page": "page-1",
+      "x": 1560,
+      "y": 1080,
+      "w": 1440,
+      "h": 900,
+      "title": "Files — delete confirm"
+    },
+    {
+      "file": "FilesEmpty.dc.html",
+      "page": "page-1",
+      "x": 3120,
+      "y": 1080,
+      "w": 1440,
+      "h": 900,
+      "title": "Files — empty"
+    },
+    {
+      "file": "Welcome.dc.html",
+      "page": "page-1",
+      "x": 0,
+      "y": 2160,
+      "w": 1440,
+      "h": 900,
+      "title": "Welcome — first run"
+    },
+    {
+      "file": "WelcomeBack.dc.html",
+      "page": "page-1",
+      "x": 1560,
+      "y": 2160,
+      "w": 1440,
+      "h": 900,
+      "title": "Welcome back — permission"
+    },
+    {
+      "file": "Unsupported.dc.html",
+      "page": "page-1",
+      "x": 3120,
+      "y": 2160,
+      "w": 1440,
+      "h": 900,
+      "title": "Unsupported browser"
+    },
+    {
+      "file": "Tokens.dc.html",
+      "page": "page-2",
+      "x": 0,
+      "y": 0,
+      "w": 1200,
+      "h": 1560,
+      "title": "Tokens"
+    },
+    {
+      "file": "Components.dc.html",
+      "page": "page-2",
+      "x": 1320,
+      "y": 0,
+      "w": 1200,
+      "h": 1300,
+      "title": "Components"
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-1"
+  }
+}

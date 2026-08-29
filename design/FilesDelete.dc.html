@@ -1,0 +1,178 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+  <style>
+    /* src/routes/layout.css :root — verbatim */
+    :root{
+      --background:oklch(0.98 0 0);--foreground:oklch(0.145 0 0);
+      --card:oklch(0.99 0 0);--popover:oklch(0.99 0 0);
+      --primary:oklch(0.205 0 0);--primary-foreground:oklch(0.985 0 0);
+      --secondary:oklch(0.95 0 0);--muted:oklch(0.95 0 0);
+      --muted-foreground:oklch(0.53 0 0);--accent:oklch(0.92 0 0);
+      --destructive:oklch(0.53 0.225 27.325);
+      --border:oklch(0.9 0 0);--input:oklch(0.9 0 0);--ring:oklch(0.708 0 0);
+      --canvas:oklch(0.955 0 0);--sheet:oklch(0.99 0 0);
+      --sheet-shadow:0 1px 2px oklch(0.145 0 0 / 0.05),0 8px 24px oklch(0.145 0 0 / 0.06);
+    }
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;background:var(--background);color:var(--foreground);font-family:'Geist',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;-webkit-font-smoothing:antialiased}
+    a{color:var(--foreground);text-decoration:underline;text-underline-offset:4px}
+    a:hover{color:var(--muted-foreground)}
+    svg{display:block;fill:none}
+    /* shadcn-svelte toggle-group, spacing=0, variant=outline — joined segments */
+    .tg{display:flex;align-items:center;border-radius:10px}
+    .tgi{height:32px;min-width:32px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--input);border-left-width:0;background:transparent;color:var(--foreground);font-size:14px;font-weight:500}
+    .tg .tgi:first-child{border-left-width:1px;border-top-left-radius:10px;border-bottom-left-radius:10px}
+    .tg .tgi:last-child{border-top-right-radius:10px;border-bottom-right-radius:10px}
+    .tgi[data-on]{background:var(--muted)}
+    .tgi[data-off]{opacity:.5}
+    /* shadcn-svelte button */
+    .btn{height:32px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid transparent;border-radius:10px;font-size:14px;font-weight:500;background:transparent;color:var(--foreground);white-space:nowrap}
+    .btn-icon{width:32px;height:32px;padding:0}
+    .btn-primary{background:var(--primary);color:var(--primary-foreground)}
+    .btn-outline{border-color:var(--border);background:var(--background)}
+    .btn-muted{background:var(--muted)}
+    /* Tailwind Typography — the app sets no custom prose colours, so these are its defaults */
+    .prose{font-size:18px;line-height:1.7778;color:#374151}
+    .prose h1{font-size:30px;font-weight:600;line-height:1.2;color:#111827;margin:0 0 24px}
+    .prose h2{font-size:24px;font-weight:600;line-height:1.3;color:#111827;margin:32px 0 16px}
+    .prose h3{font-size:20px;font-weight:600;line-height:1.4;color:#111827;margin:28px 0 12px}
+    .prose p{margin:0 0 24px}
+    .prose strong{color:#111827;font-weight:600}
+    .prose ul{margin:0 0 24px;padding-left:26px}
+    .prose li{margin:4px 0}
+    .prose blockquote{margin:24px 0;padding-left:20px;border-left:4px solid #e5e7eb;font-style:italic;color:#111827}
+    /* Read-aloud decorations — tiptap-tts-highlight.ts */
+    .tts-sentence{background-color:rgb(250 204 21 / 0.18);border-radius:0.15rem}
+    .tts-word{background-color:rgb(250 204 21 / 0.45);border-radius:0.15rem;box-shadow:0 0 0 1px rgb(202 138 4 / 0.35)}
+    /* The reading font — OpenDyslexic, self-hosted in the app; the canvas falls back */
+    .reading-font{font-family:'OpenDyslexic','Comic Sans MS',sans-serif;letter-spacing:-0.01em}
+    .reading-font .tts-sentence,.reading-font .tts-word{background-color:transparent;background-image:linear-gradient(rgb(250 204 21 / 0.18),rgb(250 204 21 / 0.18));background-position:0 0.35em;background-repeat:no-repeat;background-size:100% 1.3em;-webkit-box-decoration-break:clone;box-decoration-break:clone;box-shadow:none}
+  </style>
+</helmet>
+<div style="position:relative;width:1440px;height:900px;display:flex;flex-direction:column;overflow:hidden;background:var(--background)">
+  <div style="margin:0 auto;display:flex;width:100%;max-width:768px;flex:1;flex-direction:column;gap:24px;padding:40px 24px">
+
+    <header style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+      <h1 style="margin:0;font-size:20px;font-weight:600">Your documents</h1>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M13 21H12C7.28595 21 4.92893 21 3.46447 19.5355C2 18.0711 2 15.714 2 11V7.94427C2 6.1278 2 5.21956 2.38032 4.53806C2.65142 4.05227 3.05227 3.65142 3.53806 3.38032C4.21956 3 5.1278 3 6.94427 3C8.10802 3 8.6899 3 9.19926 3.19101C10.3622 3.62712 10.8418 4.68358 11.3666 5.73313L12 7M8 7H16.75C18.8567 7 19.91 7 20.6667 7.50559C20.9943 7.72447 21.2755 8.00572 21.4944 8.33329C21.9796 9.05942 21.9992 10.0588 22 12" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M22 15L16 21M22 21L16 15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>Forget this folder</button>
+        <button class="btn"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M2.5 20V8.87695C2.5 7.58945 2.5 6.9457 2.78533 6.47048C2.9541 6.18939 3.18939 5.9541 3.47048 5.78533C3.9457 5.5 4.59449 5.5 5.89206 5.5C6.52339 5.5 6.83906 5.5 7.12612 5.58819C7.31759 5.64702 7.49914 5.73428 7.66469 5.84705C7.91289 6.01611 8.10859 6.26074 8.5 6.75C8.89141 7.23926 9.08711 7.48389 9.33531 7.65295C9.50086 7.76572 9.68241 7.85298 9.87388 7.91181C10.1609 8 10.4742 8 11.1008 8H15C16.4045 8 17.1067 8 17.6111 8.33706C17.8295 8.48298 18.017 8.67048 18.1629 8.88886C18.5 9.39331 18.5 10.0955 18.5 11.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M4.42028 14.0144L3.63368 16.0144C2.65618 18.4998 2.16743 19.7425 2.7524 20.6213C3.33737 21.5 4.65337 21.5 7.28537 21.5H15.1903C16.4249 21.5 17.0422 21.5 17.5295 21.1795C18.0169 20.859 18.2702 20.2865 18.7769 19.1415L19.6618 17.1415C20.7866 14.5992 21.349 13.3281 20.7679 12.4141C20.1868 11.5 18.8163 11.5 16.0752 11.5H8.07196C6.78232 11.5 6.1375 11.5 5.63811 11.8439C5.13872 12.1877 4.89924 12.7966 4.42028 14.0144Z" stroke="currentColor" stroke-width="1.5"/><path d="M11.5 4.51456C12.4151 3.28409 13.6662 2.55594 15.5125 2.50161C16.1155 2.48386 16.7152 2.61395 17.2682 2.85544C18.5748 3.42601 19.4185 4.15644 20 5.5L21.5 3" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>Change folder</button>
+        <button class="btn btn-primary"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12.0005L4 14.5446C4 17.7896 4 19.4122 4.88607 20.5111C5.06508 20.7331 5.26731 20.9354 5.48933 21.1144C6.58831 22.0005 8.21082 22.0005 11.4558 22.0005C12.1614 22.0005 12.5141 22.0005 12.8372 21.8865C12.9044 21.8627 12.9702 21.8355 13.0345 21.8047C13.3436 21.6569 13.593 21.4075 14.0919 20.9086L18.8284 16.172C19.4065 15.594 19.6955 15.3049 19.8478 14.9374C20 14.5699 20 14.1611 20 13.3436V10.0005C20 6.22922 20 4.34361 18.8284 3.17203C17.7693 2.11287 16.1265 2.01125 13.0345 2.0015M13 21.5005V21.0005C13 18.172 13 16.7578 13.8787 15.8791C14.7574 15.0005 16.1716 15.0005 19 15.0005H19.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M12 5.99954H4M8 1.99954V9.99954" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>New document</button>
+      </div>
+    </header>
+
+    <ul style="display:flex;flex-direction:column;margin:0;padding:0;list-style:none">
+      <li>
+        <button style="display:flex;width:100%;min-width:0;align-items:center;gap:8px;border:0;border-radius:8px;background:transparent;color:inherit;padding:8px;text-align:left;font:inherit">
+          <svg viewBox="0 0 24 24" width="16" height="16" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M18 9.00005C18 9.00005 13.5811 15 12 15C10.4188 15 6 9 6 9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+          <svg viewBox="0 0 24 24" width="16" height="16" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M8 7H16.75C18.8567 7 19.91 7 20.6667 7.50559C20.9943 7.72447 21.2755 8.00572 21.4944 8.33329C22 9.08996 22 10.1433 22 12.25C22 15.7612 22 17.5167 21.1573 18.7779C20.7926 19.3238 20.3238 19.7926 19.7779 20.1573C18.5167 21 16.7612 21 13.25 21H12C7.28595 21 4.92893 21 3.46447 19.5355C2 18.0711 2 15.714 2 11V7.94427C2 6.1278 2 5.21956 2.38032 4.53806C2.65142 4.05227 3.05227 3.65142 3.53806 3.38032C4.21956 3 5.1278 3 6.94427 3C8.10802 3 8.6899 3 9.19926 3.19101C10.3622 3.62712 10.8418 4.68358 11.3666 5.73313L12 7" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg>
+          <span style="font-weight:500">Book</span>
+        </button>
+        <div style="margin-left:19px;border-left:1px solid var(--border);padding-left:8px">
+          <ul style="display:flex;flex-direction:column;margin:0;padding:0;list-style:none">
+            <li>
+              <button style="display:flex;width:100%;min-width:0;align-items:center;gap:8px;border:0;border-radius:8px;background:transparent;color:inherit;padding:8px;text-align:left;font:inherit">
+                <svg viewBox="0 0 24 24" width="16" height="16" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M18 9.00005C18 9.00005 13.5811 15 12 15C10.4188 15 6 9 6 9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+                <svg viewBox="0 0 24 24" width="16" height="16" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M8 7H16.75C18.8567 7 19.91 7 20.6667 7.50559C20.9943 7.72447 21.2755 8.00572 21.4944 8.33329C22 9.08996 22 10.1433 22 12.25C22 15.7612 22 17.5167 21.1573 18.7779C20.7926 19.3238 20.3238 19.7926 19.7779 20.1573C18.5167 21 16.7612 21 13.25 21H12C7.28595 21 4.92893 21 3.46447 19.5355C2 18.0711 2 15.714 2 11V7.94427C2 6.1278 2 5.21956 2.38032 4.53806C2.65142 4.05227 3.05227 3.65142 3.53806 3.38032C4.21956 3 5.1278 3 6.94427 3C8.10802 3 8.6899 3 9.19926 3.19101C10.3622 3.62712 10.8418 4.68358 11.3666 5.73313L12 7" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg>
+                <span style="font-weight:500">Chapters</span>
+              </button>
+              <div style="margin-left:19px;border-left:1px solid var(--border);padding-left:8px">
+                <ul style="display:flex;flex-direction:column;margin:0;padding:0;list-style:none">
+                  <li style="display:flex;align-items:center;gap:8px">
+                    <button style="display:flex;min-width:0;flex:1;align-items:center;gap:8px;border:0;border-radius:8px;background:transparent;color:inherit;padding:8px;text-align:left;font:inherit">
+                      <svg viewBox="0 0 24 24" width="16" height="16" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M8 7L16 7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M8 11L12 11" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M13 21.5V21C13 18.1716 13 16.7574 13.8787 15.8787C14.7574 15 16.1716 15 19 15H19.5M20 13.3431V10C20 6.22876 20 4.34315 18.8284 3.17157C17.6569 2 15.7712 2 12 2C8.22877 2 6.34315 2 5.17157 3.17157C4 4.34314 4 6.22876 4 10L4 14.5442C4 17.7892 4 19.4117 4.88607 20.5107C5.06508 20.7327 5.26731 20.9349 5.48933 21.1139C6.58831 22 8.21082 22 11.4558 22C12.1614 22 12.5141 22 12.8372 21.886C12.9044 21.8623 12.9702 21.835 13.0345 21.8043C13.3436 21.6564 13.593 21.407 14.0919 20.9081L18.8284 16.1716C19.4065 15.5935 19.6955 15.3045 19.8478 14.9369C20 14.5694 20 14.1606 20 13.3431Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+                      <span style="display:flex;min-width:0;flex-direction:column">
+                        <span style="font-weight:500">One</span>
+                        <span style="font-size:14px;color:var(--muted-foreground)">Edited 2 hours ago</span>
+                      </span>
+                    </button>
+                    <button class="btn btn-icon" aria-label="Rename"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M15.2141 5.98239L16.6158 4.58063C17.39 3.80646 18.6452 3.80646 19.4194 4.58063C20.1935 5.3548 20.1935 6.60998 19.4194 7.38415L18.0176 8.78591M15.2141 5.98239L6.98023 14.2163C5.93493 15.2616 5.41226 15.7842 5.05637 16.4211C4.70047 17.058 4.3424 18.5619 4 20C5.43809 19.6576 6.94199 19.2995 7.57889 18.9436C8.21579 18.5877 8.73844 18.0651 9.78375 17.0198L18.0176 8.78591M15.2141 5.98239L18.0176 8.78591" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M11 20H17" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg></button>
+                    <button class="btn btn-icon" aria-label="Delete"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M19.5 5.5L18.8803 15.5251C18.7219 18.0864 18.6428 19.3671 18.0008 20.2879C17.6833 20.7431 17.2747 21.1273 16.8007 21.416C15.8421 22 14.559 22 11.9927 22C9.42312 22 8.1383 22 7.17905 21.4149C6.7048 21.1257 6.296 20.7408 5.97868 20.2848C5.33688 19.3626 5.25945 18.0801 5.10461 15.5152L4.5 5.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M3 5.5H21M16.0557 5.5L15.3731 4.09173C14.9196 3.15626 14.6928 2.68852 14.3017 2.39681C14.215 2.3321 14.1231 2.27454 14.027 2.2247C13.5939 2 13.0741 2 12.0345 2C10.9688 2 10.436 2 9.99568 2.23412C9.8981 2.28601 9.80498 2.3459 9.71729 2.41317C9.32164 2.7167 9.10063 3.20155 8.65861 4.17126L8.05292 5.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M9.5 16.5L9.5 10.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M14.5 16.5L14.5 10.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg></button>
+                  </li>
+                  <li style="display:flex;align-items:center;gap:8px">
+                    <button style="display:flex;min-width:0;flex:1;align-items:center;gap:8px;border:0;border-radius:8px;background:transparent;color:inherit;padding:8px;text-align:left;font:inherit">
+                      <svg viewBox="0 0 24 24" width="16" height="16" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M8 7L16 7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M8 11L12 11" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M13 21.5V21C13 18.1716 13 16.7574 13.8787 15.8787C14.7574 15 16.1716 15 19 15H19.5M20 13.3431V10C20 6.22876 20 4.34315 18.8284 3.17157C17.6569 2 15.7712 2 12 2C8.22877 2 6.34315 2 5.17157 3.17157C4 4.34314 4 6.22876 4 10L4 14.5442C4 17.7892 4 19.4117 4.88607 20.5107C5.06508 20.7327 5.26731 20.9349 5.48933 21.1139C6.58831 22 8.21082 22 11.4558 22C12.1614 22 12.5141 22 12.8372 21.886C12.9044 21.8623 12.9702 21.835 13.0345 21.8043C13.3436 21.6564 13.593 21.407 14.0919 20.9081L18.8284 16.1716C19.4065 15.5935 19.6955 15.3045 19.8478 14.9369C20 14.5694 20 14.1606 20 13.3431Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+                      <span style="display:flex;min-width:0;flex-direction:column">
+                        <span style="font-weight:500">Two</span>
+                        <span style="font-size:14px;color:var(--muted-foreground)">Edited 6 days ago</span>
+                      </span>
+                    </button>
+                    <button class="btn btn-icon" aria-label="Rename"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M15.2141 5.98239L16.6158 4.58063C17.39 3.80646 18.6452 3.80646 19.4194 4.58063C20.1935 5.3548 20.1935 6.60998 19.4194 7.38415L18.0176 8.78591M15.2141 5.98239L6.98023 14.2163C5.93493 15.2616 5.41226 15.7842 5.05637 16.4211C4.70047 17.058 4.3424 18.5619 4 20C5.43809 19.6576 6.94199 19.2995 7.57889 18.9436C8.21579 18.5877 8.73844 18.0651 9.78375 17.0198L18.0176 8.78591M15.2141 5.98239L18.0176 8.78591" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M11 20H17" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg></button>
+                    <button class="btn btn-icon" aria-label="Delete"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M19.5 5.5L18.8803 15.5251C18.7219 18.0864 18.6428 19.3671 18.0008 20.2879C17.6833 20.7431 17.2747 21.1273 16.8007 21.416C15.8421 22 14.559 22 11.9927 22C9.42312 22 8.1383 22 7.17905 21.4149C6.7048 21.1257 6.296 20.7408 5.97868 20.2848C5.33688 19.3626 5.25945 18.0801 5.10461 15.5152L4.5 5.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M3 5.5H21M16.0557 5.5L15.3731 4.09173C14.9196 3.15626 14.6928 2.68852 14.3017 2.39681C14.215 2.3321 14.1231 2.27454 14.027 2.2247C13.5939 2 13.0741 2 12.0345 2C10.9688 2 10.436 2 9.99568 2.23412C9.8981 2.28601 9.80498 2.3459 9.71729 2.41317C9.32164 2.7167 9.10063 3.20155 8.65861 4.17126L8.05292 5.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M9.5 16.5L9.5 10.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M14.5 16.5L14.5 10.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg></button>
+                  </li>
+                </ul>
+              </div>
+            </li>
+            <li style="display:flex;align-items:center;gap:8px">
+              <button style="display:flex;min-width:0;flex:1;align-items:center;gap:8px;border:0;border-radius:8px;background:transparent;color:inherit;padding:8px;text-align:left;font:inherit">
+                <svg viewBox="0 0 24 24" width="16" height="16" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M8 7L16 7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M8 11L12 11" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M13 21.5V21C13 18.1716 13 16.7574 13.8787 15.8787C14.7574 15 16.1716 15 19 15H19.5M20 13.3431V10C20 6.22876 20 4.34315 18.8284 3.17157C17.6569 2 15.7712 2 12 2C8.22877 2 6.34315 2 5.17157 3.17157C4 4.34314 4 6.22876 4 10L4 14.5442C4 17.7892 4 19.4117 4.88607 20.5107C5.06508 20.7327 5.26731 20.9349 5.48933 21.1139C6.58831 22 8.21082 22 11.4558 22C12.1614 22 12.5141 22 12.8372 21.886C12.9044 21.8623 12.9702 21.835 13.0345 21.8043C13.3436 21.6564 13.593 21.407 14.0919 20.9081L18.8284 16.1716C19.4065 15.5935 19.6955 15.3045 19.8478 14.9369C20 14.5694 20 14.1606 20 13.3431Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+                <span style="display:flex;min-width:0;flex-direction:column">
+                  <span style="font-weight:500">Notes on the tower</span>
+                  <span style="font-size:14px;color:var(--muted-foreground)">Edited 12 days ago</span>
+                </span>
+              </button>
+              <button class="btn btn-icon" aria-label="Rename"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M15.2141 5.98239L16.6158 4.58063C17.39 3.80646 18.6452 3.80646 19.4194 4.58063C20.1935 5.3548 20.1935 6.60998 19.4194 7.38415L18.0176 8.78591M15.2141 5.98239L6.98023 14.2163C5.93493 15.2616 5.41226 15.7842 5.05637 16.4211C4.70047 17.058 4.3424 18.5619 4 20C5.43809 19.6576 6.94199 19.2995 7.57889 18.9436C8.21579 18.5877 8.73844 18.0651 9.78375 17.0198L18.0176 8.78591M15.2141 5.98239L18.0176 8.78591" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M11 20H17" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg></button>
+              <button class="btn btn-icon" aria-label="Delete"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M19.5 5.5L18.8803 15.5251C18.7219 18.0864 18.6428 19.3671 18.0008 20.2879C17.6833 20.7431 17.2747 21.1273 16.8007 21.416C15.8421 22 14.559 22 11.9927 22C9.42312 22 8.1383 22 7.17905 21.4149C6.7048 21.1257 6.296 20.7408 5.97868 20.2848C5.33688 19.3626 5.25945 18.0801 5.10461 15.5152L4.5 5.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M3 5.5H21M16.0557 5.5L15.3731 4.09173C14.9196 3.15626 14.6928 2.68852 14.3017 2.39681C14.215 2.3321 14.1231 2.27454 14.027 2.2247C13.5939 2 13.0741 2 12.0345 2C10.9688 2 10.436 2 9.99568 2.23412C9.8981 2.28601 9.80498 2.3459 9.71729 2.41317C9.32164 2.7167 9.10063 3.20155 8.65861 4.17126L8.05292 5.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M9.5 16.5L9.5 10.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M14.5 16.5L14.5 10.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg></button>
+            </li>
+          </ul>
+        </div>
+      </li>
+
+      <li>
+        <button style="display:flex;width:100%;min-width:0;align-items:center;gap:8px;border:0;border-radius:8px;background:transparent;color:inherit;padding:8px;text-align:left;font:inherit">
+          <svg viewBox="0 0 24 24" width="16" height="16" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M9.00005 6C9.00005 6 15 10.4189 15 12C15 13.5812 9 18 9 18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+          <svg viewBox="0 0 24 24" width="16" height="16" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M8 7H16.75C18.8567 7 19.91 7 20.6667 7.50559C20.9943 7.72447 21.2755 8.00572 21.4944 8.33329C22 9.08996 22 10.1433 22 12.25C22 15.7612 22 17.5167 21.1573 18.7779C20.7926 19.3238 20.3238 19.7926 19.7779 20.1573C18.5167 21 16.7612 21 13.25 21H12C7.28595 21 4.92893 21 3.46447 19.5355C2 18.0711 2 15.714 2 11V7.94427C2 6.1278 2 5.21956 2.38032 4.53806C2.65142 4.05227 3.05227 3.65142 3.53806 3.38032C4.21956 3 5.1278 3 6.94427 3C8.10802 3 8.6899 3 9.19926 3.19101C10.3622 3.62712 10.8418 4.68358 11.3666 5.73313L12 7" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg>
+          <span style="font-weight:500">Research</span>
+        </button>
+      </li>
+
+      <li style="display:flex;align-items:center;gap:8px">
+        <button style="display:flex;min-width:0;flex:1;align-items:center;gap:8px;border:0;border-radius:8px;background:transparent;color:inherit;padding:8px;text-align:left;font:inherit">
+          <svg viewBox="0 0 24 24" width="16" height="16" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M8 7L16 7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M8 11L12 11" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M13 21.5V21C13 18.1716 13 16.7574 13.8787 15.8787C14.7574 15 16.1716 15 19 15H19.5M20 13.3431V10C20 6.22876 20 4.34315 18.8284 3.17157C17.6569 2 15.7712 2 12 2C8.22877 2 6.34315 2 5.17157 3.17157C4 4.34314 4 6.22876 4 10L4 14.5442C4 17.7892 4 19.4117 4.88607 20.5107C5.06508 20.7327 5.26731 20.9349 5.48933 21.1139C6.58831 22 8.21082 22 11.4558 22C12.1614 22 12.5141 22 12.8372 21.886C12.9044 21.8623 12.9702 21.835 13.0345 21.8043C13.3436 21.6564 13.593 21.407 14.0919 20.9081L18.8284 16.1716C19.4065 15.5935 19.6955 15.3045 19.8478 14.9369C20 14.5694 20 14.1606 20 13.3431Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+          <span style="display:flex;min-width:0;flex-direction:column">
+            <span style="font-weight:500">notes</span>
+            <span style="font-size:14px;color:var(--muted-foreground)">Edited 3 minutes ago</span>
+          </span>
+        </button>
+        <button class="btn btn-icon" aria-label="Rename"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M15.2141 5.98239L16.6158 4.58063C17.39 3.80646 18.6452 3.80646 19.4194 4.58063C20.1935 5.3548 20.1935 6.60998 19.4194 7.38415L18.0176 8.78591M15.2141 5.98239L6.98023 14.2163C5.93493 15.2616 5.41226 15.7842 5.05637 16.4211C4.70047 17.058 4.3424 18.5619 4 20C5.43809 19.6576 6.94199 19.2995 7.57889 18.9436C8.21579 18.5877 8.73844 18.0651 9.78375 17.0198L18.0176 8.78591M15.2141 5.98239L18.0176 8.78591" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M11 20H17" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg></button>
+        <button class="btn btn-icon" aria-label="Delete"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M19.5 5.5L18.8803 15.5251C18.7219 18.0864 18.6428 19.3671 18.0008 20.2879C17.6833 20.7431 17.2747 21.1273 16.8007 21.416C15.8421 22 14.559 22 11.9927 22C9.42312 22 8.1383 22 7.17905 21.4149C6.7048 21.1257 6.296 20.7408 5.97868 20.2848C5.33688 19.3626 5.25945 18.0801 5.10461 15.5152L4.5 5.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M3 5.5H21M16.0557 5.5L15.3731 4.09173C14.9196 3.15626 14.6928 2.68852 14.3017 2.39681C14.215 2.3321 14.1231 2.27454 14.027 2.2247C13.5939 2 13.0741 2 12.0345 2C10.9688 2 10.436 2 9.99568 2.23412C9.8981 2.28601 9.80498 2.3459 9.71729 2.41317C9.32164 2.7167 9.10063 3.20155 8.65861 4.17126L8.05292 5.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M9.5 16.5L9.5 10.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M14.5 16.5L14.5 10.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg></button>
+      </li>
+
+      <li style="display:flex;align-items:center;gap:8px">
+        <button style="display:flex;min-width:0;flex:1;align-items:center;gap:8px;border:0;border-radius:8px;background:transparent;color:inherit;padding:8px;text-align:left;font:inherit">
+          <svg viewBox="0 0 24 24" width="16" height="16" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M8 7L16 7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M8 11L12 11" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M13 21.5V21C13 18.1716 13 16.7574 13.8787 15.8787C14.7574 15 16.1716 15 19 15H19.5M20 13.3431V10C20 6.22876 20 4.34315 18.8284 3.17157C17.6569 2 15.7712 2 12 2C8.22877 2 6.34315 2 5.17157 3.17157C4 4.34314 4 6.22876 4 10L4 14.5442C4 17.7892 4 19.4117 4.88607 20.5107C5.06508 20.7327 5.26731 20.9349 5.48933 21.1139C6.58831 22 8.21082 22 11.4558 22C12.1614 22 12.5141 22 12.8372 21.886C12.9044 21.8623 12.9702 21.835 13.0345 21.8043C13.3436 21.6564 13.593 21.407 14.0919 20.9081L18.8284 16.1716C19.4065 15.5935 19.6955 15.3045 19.8478 14.9369C20 14.5694 20 14.1606 20 13.3431Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+          <span style="display:flex;min-width:0;flex-direction:column">
+            <span style="font-weight:500">The Lantern Room</span>
+            <span style="font-size:14px;color:var(--muted-foreground)">Edited 4 minutes ago</span>
+          </span>
+        </button>
+        <button class="btn btn-icon" aria-label="Rename"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M15.2141 5.98239L16.6158 4.58063C17.39 3.80646 18.6452 3.80646 19.4194 4.58063C20.1935 5.3548 20.1935 6.60998 19.4194 7.38415L18.0176 8.78591M15.2141 5.98239L6.98023 14.2163C5.93493 15.2616 5.41226 15.7842 5.05637 16.4211C4.70047 17.058 4.3424 18.5619 4 20C5.43809 19.6576 6.94199 19.2995 7.57889 18.9436C8.21579 18.5877 8.73844 18.0651 9.78375 17.0198L18.0176 8.78591M15.2141 5.98239L18.0176 8.78591" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M11 20H17" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg></button>
+        <button class="btn btn-icon" aria-label="Delete"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M19.5 5.5L18.8803 15.5251C18.7219 18.0864 18.6428 19.3671 18.0008 20.2879C17.6833 20.7431 17.2747 21.1273 16.8007 21.416C15.8421 22 14.559 22 11.9927 22C9.42312 22 8.1383 22 7.17905 21.4149C6.7048 21.1257 6.296 20.7408 5.97868 20.2848C5.33688 19.3626 5.25945 18.0801 5.10461 15.5152L4.5 5.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M3 5.5H21M16.0557 5.5L15.3731 4.09173C14.9196 3.15626 14.6928 2.68852 14.3017 2.39681C14.215 2.3321 14.1231 2.27454 14.027 2.2247C13.5939 2 13.0741 2 12.0345 2C10.9688 2 10.436 2 9.99568 2.23412C9.8981 2.28601 9.80498 2.3459 9.71729 2.41317C9.32164 2.7167 9.10063 3.20155 8.65861 4.17126L8.05292 5.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M9.5 16.5L9.5 10.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M14.5 16.5L14.5 10.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg></button>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ConfirmDialog, destructive — AlertDialog overlay is bg-black/10 with a backdrop blur -->
+  <div style="position:absolute;inset:0;z-index:50;background:rgb(0 0 0 / 0.1);backdrop-filter:blur(2px)"></div>
+  <div style="position:absolute;top:50%;left:50%;z-index:50;display:grid;width:100%;max-width:384px;transform:translate(-50%,-50%);gap:16px;border-radius:14px;padding:16px;background:var(--popover);color:var(--foreground);box-shadow:0 0 0 1px oklch(0.145 0 0 / 0.1)">
+    <div style="display:grid;gap:6px;text-align:left">
+      <div style="font-size:16px;font-weight:500">Delete "The Lantern Room"?</div>
+      <div style="font-size:14px;color:var(--muted-foreground)">This removes the folder and everything in it from your disk, and cannot be undone.</div>
+    </div>
+    <div style="margin:0 -16px -16px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--border);border-radius:0 0 14px 14px;padding:16px;background:color-mix(in oklch,var(--muted) 50%,transparent)">
+      <button class="btn btn-outline">Cancel</button>
+      <button class="btn" style="background:color-mix(in oklch,var(--destructive) 10%,transparent);color:var(--destructive)">Delete</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
