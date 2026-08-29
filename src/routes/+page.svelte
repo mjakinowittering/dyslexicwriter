@@ -2,11 +2,13 @@
     import {
         File01Icon,
         FileAddIcon,
-        FolderOpenIcon
+        FolderOpenIcon,
+        FolderRemoveIcon
     } from '@hugeicons/core-free-icons';
     import { goto } from '$app/navigation';
     import { onMount } from 'svelte';
 
+    import ConfirmDialog from '$lib/components/ConfirmDialog/ConfirmDialog.svelte';
     import EmptyState from '$lib/components/EmptyState/EmptyState.svelte';
     import * as FileTree from '$lib/components/FileTree';
     import Icon from '$lib/components/Icon/Icon.svelte';
@@ -26,6 +28,23 @@
 
     // The Files screen. Deliberately plain: a utility list, not a marketing
     // surface. Its final layout is still open, so nothing here is precious.
+    //
+    // Both irreversible actions here ask first, through ConfirmDialog. The
+    // handler the list calls only opens the dialog; the work itself waits for the
+    // confirm callback.
+    let leaveOpen = $state(false);
+    let deleteOpen = $state(false);
+    let deleteTarget = $state<DocumentIndexEntry | null>(null);
+
+    // Be honest about which delete this is: a document that owns its folder takes
+    // the folder and its images with it, a markdown file sitting among the user's
+    // own files takes only itself.
+    const deleteDescription = $derived(
+        deleteTarget?.ownsFolder
+            ? m.files_delete_description()
+            : m.files_delete_file_description()
+    );
+
     onMount(async () => {
         if (!isFileSystemAccessSupported()) {
             workspace.status = 'unsupported';
@@ -56,21 +75,26 @@
         await workspace.refresh();
     }
 
-    async function onDelete(entry: DocumentIndexEntry) {
-        // Removing something from the user's disk, with no trash to recover it
-        // from — always confirm, and be honest about which it is: a document that
-        // owns its folder takes the folder and its images with it, a markdown
-        // file sitting among the user's other files takes only itself.
-        const confirmed = window.confirm(
-            entry.ownsFolder
-                ? m.files_delete_confirm({ title: entry.title })
-                : m.files_delete_file_confirm({ title: entry.title })
-        );
-        if (!confirmed) return;
-        if (!workspace.root) return;
+    // Removing something from the user's disk, with no trash to recover it from.
+    function onDelete(entry: DocumentIndexEntry) {
+        deleteTarget = entry;
+        deleteOpen = true;
+    }
+
+    async function confirmDelete() {
+        const entry = deleteTarget;
+        if (!entry || !workspace.root) return;
 
         await deleteDocument(workspace.root, entry);
         await workspace.refresh();
+    }
+
+    async function confirmLeaveFolder() {
+        // Flush before the handle is dropped. Reaching this screen normally means
+        // the editor already closed the document, but a pending write must never
+        // be outlived by the folder it was going to.
+        await doc.close();
+        await workspace.leaveFolder();
     }
 </script>
 
@@ -108,6 +132,10 @@
         <header class="flex items-center justify-between gap-4">
             <h1 class="text-xl font-semibold">{m.files_title()}</h1>
             <div class="flex items-center gap-2">
+                <Button onclick={() => (leaveOpen = true)} variant="ghost">
+                    <Icon icon={FolderRemoveIcon} />
+                    {m.files_leave()}
+                </Button>
                 <Button
                     onclick={() => workspace.chooseFolder()}
                     variant="ghost"
@@ -149,5 +177,27 @@
                 onToggle={(node) => workspace.toggle(node)}
             />
         {/if}
+
+        <!-- Both dialogs portal to <body>, so where they sit in the markup is
+             immaterial; keeping them at the end of the branch that owns their
+             state is just the easiest place to find them. -->
+        <ConfirmDialog
+            bind:open={deleteOpen}
+            confirmLabel={m.files_delete()}
+            description={deleteDescription}
+            destructive
+            onConfirm={confirmDelete}
+            title={m.files_delete_title({ title: deleteTarget?.title ?? '' })}
+        />
+
+        <!-- Not destructive: nothing on disk is touched. The only cost of a
+             mistake is another trip through the picker. -->
+        <ConfirmDialog
+            bind:open={leaveOpen}
+            confirmLabel={m.files_leave()}
+            description={m.files_leave_description()}
+            onConfirm={confirmLeaveFolder}
+            title={m.files_leave_title({ name: workspace.root?.name ?? '' })}
+        />
     </div>
 {/if}
