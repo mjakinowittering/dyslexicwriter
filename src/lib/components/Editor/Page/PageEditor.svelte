@@ -159,13 +159,23 @@
     });
 
     // Editable: seed the editor once when the initial document arrives after mount.
-    // emitUpdate: false keeps this server load from marking the page dirty; the
-    // `loaded` guard stops a later server echo from overwriting in-progress typing.
+    // emitUpdate: false keeps this load from marking the page dirty; the `loaded`
+    // guard stops a later echo from overwriting in-progress typing.
+    //
+    // addToHistory: false is the one that matters. setContent only sets the
+    // `preventUpdate` meta, so without this the document's own arrival is an
+    // undoable step — Mod+Z on a freshly opened document would replace it with
+    // the empty doc the editor was constructed with, and autosave would write
+    // that to disk.
     $effect(() => {
         if (!editable || !editor || loaded || content === null) return;
         const incoming = content;
         untrack(() => {
-            editor?.commands.setContent(incoming, { emitUpdate: false });
+            editor
+                ?.chain()
+                .setMeta('addToHistory', false)
+                .setContent(incoming, { emitUpdate: false })
+                .run();
             if (editor) wordCount = wordsOf(editor);
             loaded = true;
         });
@@ -181,7 +191,11 @@
         const sig = JSON.stringify(incoming);
         if (sig === appliedSig) return;
         untrack(() => {
-            editor?.commands.setContent(incoming, { emitUpdate: false });
+            editor
+                ?.chain()
+                .setMeta('addToHistory', false)
+                .setContent(incoming, { emitUpdate: false })
+                .run();
             if (editor) wordCount = wordsOf(editor);
             appliedSig = sig;
         });

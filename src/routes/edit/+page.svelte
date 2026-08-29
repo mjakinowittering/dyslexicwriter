@@ -8,14 +8,17 @@
     import * as Page from '$lib/components/Editor/Page';
     import * as Statusbar from '$lib/components/Editor/Statusbar';
     import * as Toolbar from '$lib/components/Editor/Toolbar';
-    import Logo from '$lib/components/Editor/Toolbar/ToolbarLogo.svelte';
     import Rail from '$lib/components/Editor/Toolbar/ToolbarRail.svelte';
     import Settings from '$lib/components/Editor/Toolbar/ToolbarSettings.svelte';
     import * as SettingsPanel from '$lib/components/Settings';
-    import Input from '$lib/components/ui/input/input.svelte';
+    import * as InputGroup from '$lib/components/ui/input-group';
 
     import { isFileSystemAccessSupported } from '$lib/fs';
-    import { TITLE_MAX_LENGTH } from '$lib/models/document.model';
+    import {
+        extensionFromFileName,
+        MARKDOWN_EXTENSION,
+        TITLE_MAX_LENGTH
+    } from '$lib/models/document.model';
     import type { TtsPreferences } from '$lib/models/tts.model';
     import * as m from '$lib/paraglide/messages';
     import { doc } from '$lib/stores/document.svelte';
@@ -25,6 +28,13 @@
     let editor = $state<TipTapEditor>();
     let settingsOpen = $state(false);
     let title = $state('');
+
+    // Whether there is anything to undo or redo. `editor.can()` reads ProseMirror
+    // state, which is not a signal, so these are refreshed from the editor's own
+    // transaction callback — the same seam `doc.formatting` rides. Both start
+    // false, which is exactly what a writer sees the moment a document opens.
+    let canUndo = $state(false);
+    let canRedo = $state(false);
 
     // The markdown file's path relative to the working folder — `notes.md`,
     // `Chapters/One.md`. A bare folder name from an older link still resolves.
@@ -85,6 +95,16 @@
 
     const wordCount = $derived(doc.wordCount);
     const disabled = $derived(!editor);
+
+    // The title field's addon: the document's own extension, read from the file
+    // it was opened as rather than assumed, so a file the scan ever learns to
+    // accept beyond `.md` keeps its own. An unsaved document has no file yet, and
+    // shows the extension its first save is going to give it.
+    const extension = $derived(
+        doc.location
+            ? extensionFromFileName(doc.location.file)
+            : MARKDOWN_EXTENSION
+    );
 </script>
 
 <svelte:head>
@@ -101,22 +121,30 @@
         <!-- Rail spans the full height of the title row AND the toolbar row. -->
         <div class="border-border flex shrink-0 gap-3 border-b">
             <Rail {onBack} />
-            <Logo />
             <div class="flex min-w-0 flex-1 flex-col">
                 <div class="flex h-14 items-center gap-2 px-3">
-                    <!-- Quiet at rest so the header stays calm; the border
-                         appears on hover and the ring on focus, so the title is
-                         still recognisably a field. -->
+                    <!-- The title IS the filename — the markdown file's basename
+                         — so the extension rides an addon beside it and the two
+                         read as one name. Bordered at rest rather than quiet:
+                         the field is now stating something, not just holding
+                         text. -->
                     <Toolbar.Title>
-                        <Input
-                            aria-label={m.editor_title_label()}
-                            class="hover:border-input h-9 border-transparent bg-transparent text-base font-medium dark:bg-transparent"
-                            maxlength={TITLE_MAX_LENGTH}
-                            onchange={() => doc.rename(title)}
-                            onblur={() => doc.rename(title)}
-                            placeholder={m.content_title_placeholder()}
-                            bind:value={title}
-                        />
+                        <InputGroup.Root>
+                            <InputGroup.Input
+                                aria-label={m.editor_title_label()}
+                                class="font-medium"
+                                maxlength={TITLE_MAX_LENGTH}
+                                onchange={() => doc.rename(title)}
+                                onblur={() => doc.rename(title)}
+                                placeholder={m.content_title_placeholder()}
+                                bind:value={title}
+                            />
+                            {#if extension}
+                                <InputGroup.Addon align="inline-end">
+                                    {extension}
+                                </InputGroup.Addon>
+                            {/if}
+                        </InputGroup.Root>
                     </Toolbar.Title>
                     <div class="ml-auto">
                         <Settings bind:open={settingsOpen} />
@@ -125,6 +153,18 @@
 
                 <div class="flex items-center gap-2 px-3 pb-2">
                     <Format.Root>
+                        <!-- No `formatting`, so a plain button group: undoing is
+                             a one-shot action with no state to report. -->
+                        <Format.Group>
+                            <Format.Undo
+                                disabled={disabled || !canUndo}
+                                {editor}
+                            />
+                            <Format.Redo
+                                disabled={disabled || !canRedo}
+                                {editor}
+                            />
+                        </Format.Group>
                         <Format.Group bind:formatting={doc.formatting}>
                             <Format.Heading {disabled} {editor} level={1} />
                             <Format.Heading {disabled} {editor} level={2} />
@@ -180,6 +220,8 @@
                 onDropImage={(file) => doc.addImage(file)}
                 onTransaction={(e) => {
                     doc.formatting = Format.getFormattingActive(e);
+                    canUndo = e.can().undo();
+                    canRedo = e.can().redo();
                 }}
                 onUpdate={() => {
                     if (editor) doc.applyEdit(editor.getJSON());

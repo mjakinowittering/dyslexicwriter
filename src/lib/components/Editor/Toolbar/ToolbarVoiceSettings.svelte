@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Settings02Icon } from '@hugeicons/core-free-icons';
+    import { PreferenceHorizontalIcon } from '@hugeicons/core-free-icons';
 
     import Icon from '$lib/components/Icon/Icon.svelte';
     import * as Tooltip from '$lib/components/Tooltip';
@@ -89,7 +89,7 @@
                                 aria-label={m.content_tts_settings()}
                                 value="voice"
                             >
-                                <Icon icon={Settings02Icon} />
+                                <Icon icon={PreferenceHorizontalIcon} />
                             </ToggleGroup.Item>
                         {/snippet}
                     </Popover.Trigger>

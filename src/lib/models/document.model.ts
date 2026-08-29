@@ -119,6 +119,15 @@ export function titleFromFileName(file: string): string {
         : file;
 }
 
+// The other half of a file name: `.md` from `My Chapter.md`, so the editor's
+// title field can show the extension it actually has rather than assume one.
+// A leading dot is the whole name and not an extension (`.gitignore`), and a
+// name with no dot at all has none — both give ''.
+export function extensionFromFileName(file: string): string {
+    const dot = file.lastIndexOf('.');
+    return dot > 0 ? file.slice(dot) : '';
+}
+
 // One document as the Files screen knows it: where it lives, which of the two
 // kinds it is, and when it last changed.
 //

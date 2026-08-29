@@ -431,10 +431,10 @@ project has no environment configuration.
   list share one exported array and must never drift
 - The markdown round-trip is covered by tests; a node that cannot survive the round-trip
   does not get added to the editor
-- The toolbar is **capped by product decision**: headings, bold, italic, bullet/ordered
-  list, blockquote, horizontal rule, table, image. No font-family or font-size pickers,
-  no colour pickers, no alignment controls, no bubble/slash menus. Default to "no";
-  when in doubt remove UI rather than add it
+- The toolbar is **capped by product decision**: undo/redo, headings, bold, italic,
+  bullet/ordered list, blockquote, horizontal rule, table, image. No font-family or
+  font-size pickers, no colour pickers, no alignment controls, no bubble/slash menus.
+  Default to "no"; when in doubt remove UI rather than add it
 - Read-aloud highlighting is **ProseMirror decorations only**, never marks or nodes — it
   must never appear in `editor.getJSON()` and never reach the markdown
 - SSR-guard every browser API (`showDirectoryPicker`, `speechSynthesis`, `AudioContext`,
