@@ -6,7 +6,7 @@
     import FileTree from '$lib/components/FileTree/FileTree.svelte';
 
     import type { FolderNode } from '$lib/fs';
-    import type { DocumentIndexEntry } from '$lib/models/config.model';
+    import type { DocumentIndexEntry } from '$lib/models/document.model';
 
     const { Story } = defineMeta({
         title: 'FileTree/FileTree',
@@ -58,6 +58,7 @@
             folders: [],
             documents: [],
             loaded: true,
+            hasOtherEntries: false,
             ...contents
         };
     }

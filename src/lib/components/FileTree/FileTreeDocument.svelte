@@ -8,7 +8,7 @@
     import Icon from '$lib/components/Icon/Icon.svelte';
     import Button from '$lib/components/ui/button/button.svelte';
 
-    import type { DocumentIndexEntry } from '$lib/models/config.model';
+    import type { DocumentIndexEntry } from '$lib/models/document.model';
     import * as m from '$lib/paraglide/messages';
     import { relativeTime } from '$lib/utils/relative-time';
 

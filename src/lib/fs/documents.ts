@@ -7,7 +7,7 @@ import {
     toMarkdown,
     type Frontmatter
 } from '$lib/markdown';
-import { type DocumentIndexEntry } from '$lib/models/config.model';
+import { CONFIG_FILE_NAME } from '$lib/models/config.model';
 import {
     fileNameFor,
     joinPath,
@@ -17,7 +17,8 @@ import {
     parentPath,
     pathSegments,
     sanitiseTitle,
-    titleFromFileName
+    titleFromFileName,
+    type DocumentIndexEntry
 } from '$lib/models/document.model';
 import * as m from '$lib/paraglide/messages';
 
@@ -41,8 +42,9 @@ import * as m from '$lib/paraglide/messages';
 //   file-document    a markdown file sitting among others. Renaming renames the
 //                    file alone, deleting removes only it, images go beside it.
 //
-// The folder on disk is the authority. `config.json`'s document list is only a
-// cache for the Files screen, reconciled by scanFolder on load.
+// The folder on disk is the only authority. Nothing caches this list: `scanFolder`
+// walks it into the workspace store on load, every screen renders from there, and
+// it is scanned again rather than remembered.
 
 // How many directory levels below the working folder the initial scan walks. A
 // directory the cap stops at is returned unloaded, and the Files screen scans it
@@ -95,16 +97,25 @@ async function resolveDirectory(
 interface DirectoryListing {
     markdown: FileSystemFileHandle[];
     subdirectories: FileSystemDirectoryHandle[];
+    // Files this screen will never show: a .docx, a .png, a stray .txt. Counted
+    // rather than kept, because the only question they answer is whether a folder
+    // showing no documents is empty or merely full of things we cannot open.
+    others: number;
 }
 
 // One pass over a directory, splitting it into the markdown files we show and the
-// subdirectories we may walk into. `config.json` is excluded by the extension
-// filter, as is every other non-markdown file; dot-entries are skipped outright.
+// subdirectories we may walk into. Every other file is counted and dropped;
+// dot-entries are skipped outright.
+//
+// `config.json` is not counted among them. The app wrote it, so a working folder
+// holding nothing else is empty as far as the user is concerned — saying
+// otherwise would have the app pointing at its own settings file as content.
 async function listDirectory(
     dir: FileSystemDirectoryHandle
 ): Promise<DirectoryListing> {
     const markdown: FileSystemFileHandle[] = [];
     const subdirectories: FileSystemDirectoryHandle[] = [];
+    let others = 0;
 
     for await (const entry of dir.values()) {
         if (entry.name.startsWith('.')) continue;
@@ -113,10 +124,12 @@ async function listDirectory(
             subdirectories.push(entry);
         } else if (entry.name.endsWith(MARKDOWN_EXTENSION)) {
             markdown.push(entry);
+        } else if (entry.name !== CONFIG_FILE_NAME) {
+            others += 1;
         }
     }
 
-    return { markdown, subdirectories };
+    return { markdown, subdirectories, others };
 }
 
 // Does this markdown file own the folder it sits in?
@@ -164,6 +177,15 @@ export interface FolderNode {
     // False when the depth cap stopped the walk here, so the children are not
     // known yet rather than known to be absent.
     loaded: boolean;
+    // True when this directory, or one the scan reached below it, held something
+    // this tree is not showing — a file the app cannot open, a folder dropped for
+    // holding no writing anywhere, or a skipped directory.
+    //
+    // It exists so the Files screen can tell an empty folder from one full of
+    // .docx files. Both show no documents; only one of them is empty, and saying
+    // "nothing here yet" about a folder of somebody's work reads as if the app
+    // threw it away.
+    hasOtherEntries: boolean;
 }
 
 function byName(a: { name: string }, b: { name: string }): number {
@@ -210,9 +232,17 @@ async function walk(
     );
 
     const folders: FolderNode[] = [];
+    // Anything here the tree will not be showing: files we cannot open, and — as
+    // the loop below finds them — folders skipped or dropped for holding no
+    // writing. Carried up from every child so the root alone can answer for the
+    // whole scan.
+    let hasOtherEntries = listing.others > 0;
 
     for (const child of listing.subdirectories) {
-        if (SKIPPED_DIRECTORIES.has(child.name)) continue;
+        if (SKIPPED_DIRECTORIES.has(child.name)) {
+            hasOtherEntries = true;
+            continue;
+        }
 
         const childPath = joinPath(path, child.name);
 
@@ -224,14 +254,22 @@ async function walk(
                       path: childPath,
                       folders: [],
                       documents: [],
-                      loaded: false
+                      loaded: false,
+                      // Nothing has been looked at, so nothing is known to be
+                      // unshowable. The folder itself is shown either way.
+                      hasOtherEntries: false
                   };
+
+        if (node.hasOtherEntries) hasOtherEntries = true;
 
         // A folder that is nothing but one document shows as that document,
         // lifted into this level rather than hidden behind a disclosure.
         const single = onlyDocument(node);
         if (single) documents.push(single);
         else if (worthShowing(node)) folders.push(node);
+        // Dropped for holding no writing anywhere — but it is still something
+        // sitting in the user's folder, and the empty state has to know.
+        else hasOtherEntries = true;
     }
 
     return {
@@ -239,7 +277,8 @@ async function walk(
         path,
         folders: folders.sort(byName),
         documents: documents.sort(byTitle),
-        loaded: true
+        loaded: true,
+        hasOtherEntries
     };
 }
 

@@ -46,19 +46,25 @@ describe('readConfig', () => {
         const config = {
             ...defaultConfig(),
             theme: 'dark' as const,
-            documents: [
-                {
-                    title: 'Notes',
-                    folder: '',
-                    file: 'notes.md',
-                    ownsFolder: false,
-                    lastModified: 1_700_000_000_000
-                }
-            ]
+            font: 'sans' as const,
+            tts: { voiceUri: 'urn:voice:alice', rate: 1.4 }
         };
         await writeConfig(root, config);
 
         expect(await readConfig(root)).toEqual(config);
+    });
+
+    // The index used to live here. Anything still carrying one is a file written
+    // by an older version, and it must not reach the caller.
+    it('ignores a document index left by an older version', async () => {
+        await writeRaw(
+            JSON.stringify({
+                ...defaultConfig(),
+                documents: [{ title: 'One' }]
+            })
+        );
+
+        expect(await readConfig(root)).toEqual(defaultConfig());
     });
 
     it('costs the user only the setting they broke', async () => {
@@ -119,21 +125,30 @@ describe('updateConfig', () => {
         expect(config.version).toBe(CONFIG_VERSION);
     });
 
-    it('keeps the document index a patch does not mention', async () => {
-        const documents = [
-            {
-                title: 'One',
-                folder: 'Book/Chapters',
-                file: 'One.md',
-                ownsFolder: false,
-                lastModified: 1_700_000_000_000
-            }
-        ];
-        await writeConfig(root, { ...defaultConfig(), documents });
-
-        expect((await updateConfig(root, { font: 'sans' })).documents).toEqual(
-            documents
+    // A config.json written before the index was dropped still has one on disk.
+    // The next write clears it out, and the preferences beside it come through
+    // untouched — a stale cache must never cost the user a setting.
+    it('clears a document index left by an older version', async () => {
+        await writeRaw(
+            JSON.stringify({
+                ...defaultConfig(),
+                font: 'sans',
+                documents: [
+                    {
+                        title: 'One',
+                        folder: 'Book/Chapters',
+                        file: 'One.md',
+                        ownsFolder: false,
+                        lastModified: 1_700_000_000_000
+                    }
+                ]
+            })
         );
+
+        const config = await updateConfig(root, { theme: 'dark' });
+
+        expect(config.font).toBe('sans');
+        expect(JSON.parse(await readRaw())).not.toHaveProperty('documents');
     });
 
     it('reads the file rather than the caller when merging, so a hand edit is not clobbered', async () => {

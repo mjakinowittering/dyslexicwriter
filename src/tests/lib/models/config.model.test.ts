@@ -27,8 +27,8 @@ describe('defaults.json', () => {
         expect(defaultConfig().font).toBe('dyslexic');
     });
 
-    // version and documents are structural, owned by the code — a default for
-    // them has no meaning and must not creep into the file.
+    // version is structural, owned by the code — a default for it has no meaning
+    // and must not creep into the file.
     it('holds preferences only', () => {
         expect(Object.keys(shippedDefaults).sort()).toEqual([
             'font',
@@ -42,21 +42,14 @@ describe('defaultConfig', () => {
     it('seeds a fresh config from the shipped defaults', () => {
         expect(defaultConfig()).toEqual({
             version: CONFIG_VERSION,
-            ...shippedDefaults,
-            documents: []
+            ...shippedDefaults
         });
     });
 
-    it('hands out a fresh documents array each call', () => {
-        const first = defaultConfig();
-        first.documents.push({
-            title: 'Draft',
-            folder: 'Draft',
-            file: 'Draft.md',
-            ownsFolder: true,
-            lastModified: 0
-        });
-        expect(defaultConfig().documents).toEqual([]);
+    // The document list lives in the workspace store, scanned from the folder
+    // itself. A copy here would be written on every save and read by nobody.
+    it('holds no document index', () => {
+        expect(defaultConfig()).not.toHaveProperty('documents');
     });
 });
 
@@ -65,26 +58,17 @@ describe('parseConfig', () => {
         version: CONFIG_VERSION,
         theme: 'dark',
         font: 'sans',
-        tts: { voiceUri: 'urn:moz-tts:sapi:Zira', rate: 1.4 },
-        documents: [
-            {
-                title: 'My Chapter',
-                folder: 'My Chapter',
-                file: 'My Chapter.md',
-                ownsFolder: true,
-                lastModified: 1
-            }
-        ]
+        tts: { voiceUri: 'urn:moz-tts:sapi:Zira', rate: 1.4 }
     };
 
     it('returns a valid config unchanged', () => {
         expect(parseConfig(saved)).toEqual(saved);
     });
 
-    // An index written before documents could live anywhere but a top-level
-    // folder of their own. It still parses; the scan recomputes `ownsFolder`
-    // before anything acts on it.
-    it('defaults ownsFolder on an entry written by an older version', () => {
+    // Every config.json written before the index was dropped still carries one.
+    // Reading it must cost the user nothing: the key is ignored here and gone for
+    // good the next time anything writes the file.
+    it('drops a document index left by an older version', () => {
         const legacy = {
             ...saved,
             documents: [
@@ -92,38 +76,13 @@ describe('parseConfig', () => {
                     title: 'My Chapter',
                     folder: 'My Chapter',
                     file: 'My Chapter.md',
+                    ownsFolder: true,
                     lastModified: 1
                 }
             ]
         };
 
-        expect(parseConfig(legacy).documents[0]?.ownsFolder).toBe(false);
-    });
-
-    // A nested document's folder is a path, and one sitting loose beside
-    // config.json has no folder at all.
-    it('accepts a nested path and a root-level document', () => {
-        const nested = {
-            ...saved,
-            documents: [
-                {
-                    title: 'One',
-                    folder: 'Book/Chapters',
-                    file: 'One.md',
-                    ownsFolder: false,
-                    lastModified: 1
-                },
-                {
-                    title: 'notes',
-                    folder: '',
-                    file: 'notes.md',
-                    ownsFolder: false,
-                    lastModified: 2
-                }
-            ]
-        };
-
-        expect(parseConfig(nested).documents).toEqual(nested.documents);
+        expect(parseConfig(legacy)).toEqual(saved);
     });
 
     // The whole point of parsing per key: a hand-edited mistake in one setting
@@ -134,7 +93,6 @@ describe('parseConfig', () => {
         expect(parsed.theme).toBe(defaultConfig().theme);
         expect(parsed.font).toBe('sans');
         expect(parsed.tts).toEqual(saved.tts);
-        expect(parsed.documents).toEqual(saved.documents);
     });
 
     it('keeps the chosen voice when the rate is out of range', () => {
@@ -145,13 +103,6 @@ describe('parseConfig', () => {
 
         expect(parsed.tts.voiceUri).toBe('urn:moz-tts:sapi:Zira');
         expect(parsed.tts.rate).toBe(defaultConfig().tts.rate);
-    });
-
-    it('replaces a malformed document index without touching preferences', () => {
-        const parsed = parseConfig({ ...saved, documents: 'not an array' });
-
-        expect(parsed.documents).toEqual([]);
-        expect(parsed.theme).toBe('dark');
     });
 
     it('falls back to defaults for a missing key', () => {

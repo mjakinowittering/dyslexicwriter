@@ -3,7 +3,8 @@
         File01Icon,
         FileAddIcon,
         FolderOpenIcon,
-        FolderRemoveIcon
+        FolderRemoveIcon,
+        RefreshIcon
     } from '@hugeicons/core-free-icons';
     import { goto } from '$app/navigation';
     import { onMount } from 'svelte';
@@ -20,8 +21,10 @@
         isFileSystemAccessSupported,
         SUGGESTED_FOLDER_NAME
     } from '$lib/fs';
-    import type { DocumentIndexEntry } from '$lib/models/config.model';
-    import { documentPath } from '$lib/models/document.model';
+    import {
+        documentPath,
+        type DocumentIndexEntry
+    } from '$lib/models/document.model';
     import * as m from '$lib/paraglide/messages';
     import { doc } from '$lib/stores/document.svelte';
     import { workspace } from '$lib/stores/workspace.svelte';
@@ -50,8 +53,23 @@
             workspace.status = 'unsupported';
             return;
         }
+
+        // A first load adopts the folder, and adopting it already scans. Coming
+        // back from the editor re-mounts this component with the folder long since
+        // adopted, and the tree we were handed then may be several edits out of
+        // date — the API has no way to tell us a file changed, so looking again
+        // when the screen appears is the only way this list stays true.
         if (workspace.status === 'loading') await workspace.restore();
+        else await rescan();
     });
+
+    // Catch up with the folder, unless a walk is already under way. Both callers
+    // fire in bursts — a focus event can land on top of a mount — and a second
+    // walk of the same tree would only repeat the first one's work.
+    async function rescan() {
+        if (workspace.status !== 'ready' || workspace.scanning) return;
+        await workspace.refresh();
+    }
 
     async function onCreate() {
         await doc.createNew();
@@ -102,6 +120,11 @@
     <title>{m.files_title()}</title>
 </svelte:head>
 
+<!-- Writing added, renamed or deleted in the file manager while this tab sat in
+     the background is invisible until we look again. Coming back to the tab is
+     the moment to do it. -->
+<svelte:window onfocus={rescan} />
+
 {#if workspace.status === 'unsupported'}
     <div class="mx-auto flex max-w-xl flex-1 items-center px-6">
         <EmptyState
@@ -132,6 +155,17 @@
         <header class="flex items-center justify-between gap-4">
             <h1 class="text-xl font-semibold">{m.files_title()}</h1>
             <div class="flex items-center gap-2">
+                <!-- The automatic rescans cover most of it; this is for the
+                     writer who has just saved something from another app and
+                     wants to see it now rather than wonder. -->
+                <Button
+                    disabled={workspace.scanning}
+                    onclick={() => workspace.refresh()}
+                    variant="ghost"
+                >
+                    <Icon icon={RefreshIcon} />
+                    {m.files_refresh()}
+                </Button>
                 <Button onclick={() => (leaveOpen = true)} variant="ghost">
                     <Icon icon={FolderRemoveIcon} />
                     {m.files_leave()}
@@ -154,11 +188,17 @@
             <p class="text-destructive text-sm">{workspace.error}</p>
         {/if}
 
-        {#if workspace.documents.length === 0}
+        <!-- Two different empty folders, and they must not read alike: one has
+             nothing in it, the other is full of files this app cannot open. -->
+        {#if workspace.isEmpty}
             <EmptyState
-                description={m.files_empty_description()}
+                description={workspace.hasUnopenableFiles
+                    ? m.files_no_writing_description()
+                    : m.files_empty_description()}
                 icon={File01Icon}
-                title={m.files_empty_title()}
+                title={workspace.hasUnopenableFiles
+                    ? m.files_no_writing_title()
+                    : m.files_empty_title()}
             >
                 {#snippet action()}
                     <Button onclick={onCreate}>

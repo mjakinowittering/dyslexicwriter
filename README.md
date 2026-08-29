@@ -26,7 +26,7 @@ You pick one working folder the first time you open the app. Inside it:
 
 ```
 my-writing/                  <- the folder you chose
-├── config.json              <- all your preferences + the document index
+├── config.json              <- all your preferences, and nothing else
 ├── My Chapter/
 │   ├── My Chapter.md        <- the document itself
 │   └── diagram.png          <- images live beside the document that uses them
@@ -39,10 +39,14 @@ you've dropped in. Images are written as real files and referenced with relative
 (`![alt](diagram.png)`) — never embedded as base64 — so a document folder is
 self-contained and can be moved, zipped or shared as a unit.
 
-`config.json` holds **every** preference (theme, font, read-aloud voice and speed) as
-well as the document index. Because it lives in your folder rather than in browser
-storage, moving that folder to another machine or browser brings your settings and your
-Files screen with it.
+`config.json` holds **every** preference (theme, font, read-aloud voice and speed) and
+nothing else. Because it lives in your folder rather than in browser storage, moving
+that folder to another machine or browser brings your settings along with your writing.
+
+Your list of documents is not stored anywhere. The app reads it from the folder each
+time it needs it — when you open the app, when you come back to the Files screen, and
+when you switch back to the tab — so a file you add, rename or delete outside the app
+shows up as soon as you look.
 
 The browser's IndexedDB is used for exactly one thing: remembering the handle to your
 chosen folder so you don't have to re-pick it on every visit. No document content and
@@ -154,35 +158,6 @@ Within each, related items sit next to each other.
       (`.github/workflows/build-and-deploy.yml`) and the full head metadata
       including the `<noscript>` prose. Add a real 1200x630 PNG under `static/`;
       the absolute URL and alt text are already correct
-- [ ] Rescan the working folder when the Files screen is shown, and say plainly
-      when a folder holds no markdown. Opening a folder that already had writing
-      in it can present as empty, which reads as if the app has wiped it. It has
-      not: `ensureSubfolder` (`src/lib/fs/documents.ts:619`) reuses an existing
-      folder rather than replacing it, `#adopt()` always rescans
-      (`src/lib/stores/workspace.svelte.ts:217`), and the scan does find
-      pre-existing documents — verified against real handles. The cached index in
-      `config.json` is not the cause either; it is overwritten by the scan and
-      never trusted. Two separate faults sit behind the symptom:
-    - **The screen never rescans after the first adopt.** `onMount`
-      (`src/routes/+page.svelte:48-53`) only calls `restore()` while `status` is
-      `'loading'`, so returning from the editor re-mounts the component and takes
-      the `'ready'` path instead, reusing the tree from the original adopt. Change
-      files outside the app and nothing notices, and there is no manual refresh
-      control. `workspace.refresh()` (`workspace.svelte.ts:276`) already does the
-      work and is public — nothing calls it on mount
-    - **A folder of non-markdown files looks identical to an empty one.** The scan
-      counts only `.md` (`documents.ts:114`) and `worthShowing()`
-      (`documents.ts:180`) then drops any loaded folder holding no documents
-      anywhere, so a folder of `.docx`, `.txt` and images yields zero documents
-      **and** zero folders. `files_empty_title` ("Nothing here yet") is then the
-      whole story the user gets. Distinguish the two: "nothing here yet" for an
-      empty folder, something like "no markdown files here" when the folder has
-      contents the app does not open
-    - **Scope: making the screen tell the truth about the folder.** Not a file
-      watcher — the File System Access API has no change notification, so this is
-      a rescan at the moments the screen is shown, not a live view. Whether to
-      also rescan on window focus is worth deciding, but the mount case is the one
-      that bites
 
 ### Features
 
@@ -244,27 +219,3 @@ Within each, related items sit next to each other.
       via `@fontsource/opendyslexic` (`src/routes/layout.css:9-12`)
     - The app is a static SPA with no server, so the footer is markup and Paraglide
       copy only — nothing fetched, no analytics, no external assets
-- [ ] Drop the `documents` index from `config.json` and let the store's `$state`
-      be the only copy. The index is already in memory —
-      `tree = $state<FolderNode | null>` (`src/lib/stores/workspace.svelte.ts:61`)
-      with `documents` derived from it (`:74-76`) — and every screen renders from
-      that. The `config.json` copy is read in exactly one place, `#syncIndex`
-      (`:369-370`), and only to decide whether to write it back: nothing renders
-      from it, nothing falls back to it, and it is not even a first-paint cache,
-      because `#adopt()` sets `status = 'ready'` before the scan resolves and the
-      screen renders from a null tree meanwhile. It is write-only data.
-    - **It is not free.** `touch()` runs after every autosave
-      (`src/lib/stores/document.svelte.ts:212`) and `lastModified` has always
-      changed by then, so `#persist` does a full `readConfig` + `writeConfig` of
-      `config.json` on every single save — an extra read and write of the user's
-      disk to maintain a list nothing reads. Removing it deletes `#syncIndex`
-      entirely
-    - **The docs move in the same commit.** `config.json`'s shape is asserted in
-      `CLAUDE.md` (the Data Model section and the General Rules), the "all your
-      preferences + the document index" line in this README, and the
-      `filesystem-storage` and `client-stores` skills. Preferences stay exactly as
-      they are — theme, font and TTS are genuinely read back; only `documents`
-      goes, which makes "the filesystem is the source of truth" literally true
-      rather than true-with-a-redundant-cache
-    - Overlaps the Files-screen rescan bug above: both are about where the list of
-      documents actually lives. Whichever lands second is cheaper for it
