@@ -226,3 +226,117 @@ Within each, related items sit next to each other.
       via `@fontsource/opendyslexic` (`src/routes/layout.css:9-12`)
     - The app is a static SPA with no server, so the footer is markup and Paraglide
       copy only — nothing fetched, no analytics, no external assets
+- [ ] Add folders from the Files screen — a "New folder" button in the list's title
+      row, and an action on every folder row to create one inside it, so writing can be
+      filed into a nested tree. Nothing like it exists today: folder rows in
+      `FileTree.svelte` carry no actions at all, and the only directory the app ever
+      creates is a document's own. The filesystem half is nearly there —
+      `ensureSubfolder` (`src/lib/fs/documents.ts:658`) already creates a directory, and
+      `sanitiseTitle` (`src/lib/models/document.model.ts:55`) already handles a folder
+      segment unchanged. Naming happens inline in the tree at the depth the folder will
+      live at, so the indentation says where it is going. Drawn in
+      `design/FolderEntry.dc.html` and `design/FolderNaming.dc.html`
+    - **An empty folder vanishes on the next scan.** `worthShowing`
+      (`src/lib/fs/documents.ts:202`) keeps a loaded folder only when it holds a
+      document or another folder, and the Files screen rescans on mount and on window
+      focus — so a folder made and left empty is gone the moment the writer looks away.
+      Shipping this means teaching the scan about folders made deliberately
+    - **Touches the same rules as the Files-tree collapse bug above**, which rewrites
+      `onlyDocument` fourteen lines below `worthShowing`. Whichever lands second works
+      against the other's shape, so they are worth doing in one pass
+    - **`ensureSubfolder` reuses an existing directory** rather than refusing
+      (`create: true`), so creating "Chapters" where one already exists silently adopts
+      it. Guard the name before it reaches disk
+- [ ] Let an empty folder be deleted from the Files tree, so one made by mistake — or
+      left behind after its last document went — can be cleared without leaving the
+      app. The browser enforces the safety here rather than the UI: `removeEntry(name)`
+      without `recursive: true` is refused when the directory is not empty, unlike
+      `deleteDocument` (`src/lib/fs/documents.ts:596`) which passes `recursive: true`
+      deliberately at `:609`. The action sits on the folder row beside the add action
+      and only while the folder is empty, mirroring the rename and delete pair a
+      document row already carries. Drawn in `design/FolderDelete.dc.html`
+    - **Drawn without a confirm step**, on the grounds that nothing is lost and the
+      cost of a mistake is making the folder again. That is a deliberate departure from
+      CLAUDE.md's "confirm before any destructive filesystem operation", which is
+      written for deletes that take writing with them — decide which wins before
+      building it
+    - **Pairs with the new-folder item above**: being able to remove an empty folder is
+      what makes keeping empty folders visible in the tree tolerable, so the two answer
+      each other
+- [ ] Create a document inside a chosen folder, naming the file as it is made, rather
+      than only at the top level. "New document" today calls `doc.createNew()` and goes
+      straight to the editor (`src/routes/+page.svelte:74-77`), and the first save
+      always lands a top-level folder-document. Add the same action to every folder row,
+      using the inline naming row from the folder items with the extension on an
+      `InputGroupAddon` — always `.md`, because that is what the app creates, where an
+      opened `.mdx` keeps its own. Drawn in `design/DocumentEntry.dc.html`,
+      `design/DocumentNaming.dc.html` and `design/DocumentExists.dc.html`
+    - **This changes a written invariant.** `CLAUDE.md:221` — "New documents are always
+      created as a top-level folder-document, never into a subfolder" — so the rule
+      changes in the same commit rather than being worked around
+    - **Unlike an empty folder, the file survives.** The scan lists any `.md` regardless
+      of content, so a freshly created empty document appears in the tree and stays —
+      none of the scan work the folder items need applies here
+    - **A duplicate name has to be blocked before the write** — `files_exists_error`
+      already carries the copy
+    - **Folder rows would then carry three actions** — new document, new folder, and
+      delete once empty. `design/DocumentRowMenu.dc.html` draws the alternate: one `+`
+      per row opening a menu with both add actions, which is the version that survives
+      the next action added. Decide before the third one lands
+    - **Decide where Create leaves you** — in the editor, matching what "New document"
+      does today, or on the Files screen with the new row in place, which suits setting
+      up structure
+- [ ] Drop the logo mark from the editor header. `<Logo />`
+      (`src/routes/edit/+page.svelte:104`) draws `Brain02Icon` in its own column beside
+      the back rail; removing it reclaims 56px — the 32px mark, its `pl-3`, and the
+      header's `gap-3` — and the title field starts against the rail's border instead.
+      The mark is not lost: `AppHeader.svelte:46` draws its own copy beside the app name
+      on `/`, deliberately separate from this one (see the comment there), so the
+      editor's is the redundant copy. Decide whether `ToolbarLogo.svelte` and
+      `src/stories/Editor/Toolbar/ToolbarLogo.stories.svelte` go with it or stay
+      unrendered. Drawn in `design/NoLogo.dc.html`
+    - **The corner goes quiet.** The back chevron becomes the only thing in the
+      top-left, which reads more like a panel than an application — the editor carries
+      no other identity, where the Files screen has a heading
+- [ ] Make the document title an input group that shows the file extension. The title
+      _is_ the filename — it is the markdown file's basename — and the field hides that
+      today: a bare `Input` (`src/routes/edit/+page.svelte:111-119`), transparent at
+      rest. shadcn-svelte's `input-group` is already installed
+      (`src/lib/components/ui/input-group/`), so compose `InputGroup` +
+      `InputGroupInput` + `InputGroupAddon align="inline-end"` and put the extension in
+      the addon, so the stem and `.md` read as one filename. Drawn in
+      `design/FilenameField.dc.html`
+    - **The extension is read, never hardcoded.** Take it from `doc.location.file` —
+      `DocumentLocation.file` (`src/lib/fs/documents.ts:67`) carries the name with its
+      extension — so a `.mdx` or `.markdown` file the writer opened keeps its own
+    - **An unsaved document has no file yet.** `doc.location` is `null` until the first
+      write, so decide what the addon shows for a new `Untitled`: the extension it is
+      going to get, or nothing until it has one
+    - **Two departures from the current field.** `InputGroup` is natively `h-8` where
+      the title carries an `h-9` override, and it is always bordered where the title is
+      transparent until hover. The quiet header was deliberate, so making the filename
+      legible is a real trade rather than a free win
+- [ ] Add an Undo control to the editor toolbar, in its own group ahead of the
+      headings. Undo already works — StarterKit's history is enabled
+      (`src/lib/markdown/extensions.ts:26`), so `Mod+Z` undoes today — this is only
+      about surfacing it for a writer who does not know the shortcut.
+      `editor.chain().focus().undo().run()`, drawn with `Undo03Icon` in
+      `design/Main.dc.html`
+    - **It is a one-shot action, so it follows `FormatInsert.svelte`** — an outline
+      `Button` with `bg-transparent` inside a `ButtonGroup`, not a `FormatToggle`: a
+      toggle item can enter a pressed state that undo must never hold
+    - **It needs a disabled state**, gated on `editor.can().undo()` — nothing to undo is
+      what a writer sees the moment a document opens, and it is the one state not yet
+      drawn
+    - **This extends a capped toolbar.** The control list in `CLAUDE.md` and in the
+      `content-editor` skill is a product decision that says no by default, so both have
+      to change in the same commit as the button. Redo is the obvious pair — decide
+      whether it lands at the same time
+    - Needs new Paraglide keys (`content_format_undo`, `content_format_undo_hint`) and a
+      story beside the other Format ones
+- [ ] Swap the read-aloud voice-settings icon from `Settings02Icon` to
+      `PreferenceHorizontalIcon` (`ToolbarVoiceSettings.svelte:2` and `:92`). Two
+      horizontal sliders read as _adjust these values_ rather than _app settings_, so it
+      stops colliding with the `Settings01Icon` gear sitting in the title row directly
+      above it, and it carries the same visual weight as the transport glyphs beside it
+      in the group. Drawn across the editor artboards in `design/`
