@@ -35,6 +35,12 @@ branch must say so and then actually do it once approved. Name the branch **whil
 planning**, write it into the plan so it is approved along with the work, and cut
 it the moment the plan is.
 
+**No plan, no branch.** A branch exists to carry an implementation. An edit that
+isn't one — adding or pruning a `README.md` Todo item, fixing a typo in a doc,
+anything the user asked for directly that touches no app code — stays on the
+current branch and is left uncommitted for the user. Cutting a branch for it
+leaves a stub nobody merges.
+
 ### Naming
 
 `<prefix>/<kebab-cased description>`
@@ -69,7 +75,8 @@ git switch develop && git switch -c <name>
 - **Already on a branch for this work?** Stay on it. Don't stack a second one
 - If the work turns out to need a branch and none was cut — it was a small ask
   that grew, or the plan step was missed — cut it before committing rather than
-  landing on `develop`
+  landing on `develop`. "Work" means changes to the app; a Todo-list or docs edit
+  never grows into one
 
 ---
 

@@ -15,6 +15,12 @@ That structure is the skill's responsibility to maintain. Every mode below leave
 two subsections intact and the grouping still true — a list that drifts back into one
 undifferentiated pile stops being worth reading.
 
+**Only planning branches.** A branch belongs to work that was planned and approved —
+Step 3a, and there only, as its first step after approval. **Add** and **prune** edit
+`README.md` on whatever branch is checked out and leave the change uncommitted for the
+user: a one-file edit to the backlog is not work in flight, and a branch per todo item
+leaves a trail of stubs behind.
+
 ## Step 1 — read the list
 
 Read `README.md` and take the `## Todo` section only.
@@ -283,6 +289,12 @@ Placing an item may show that an existing one is really its neighbour two groups
 Moving that one too is fine and often right, but it is an edit the user didn't ask for —
 propose it, don't fold it in silently.
 
+**No branch, no commit.** Edit `README.md` where you stand. Don't load
+`branch-and-commit`, don't `git switch -c`, don't stage or commit — being on `develop`
+is fine here. This is the user's own backlog note and they commit it when it suits them.
+The rule holds however substantial the item turns out to be: one citing a dozen files is
+still a single edit to a single markdown file.
+
 **Formatting.** Prettier owns `README.md` at `printWidth: 80`. Continuation lines sit at
 six spaces, sub-bullets at four — a sub-bullet indented six will be swallowed into the
 parent paragraph by the reflow, which is how the welcome-screen entry got mangled once.
@@ -343,6 +355,9 @@ Redundancy is judged **within** a subsection, not across the boundary. A bug and
 feature can describe the same area without either being redundant: "make images display"
 (a bug) and a hypothetical image-caption feature both touch the image node and neither
 covers the other. Only merge two items when one genuinely subsumes the other's work.
+
+**No branch, no commit** — as in Step 3b. Pruning edits `README.md` in place on the
+current branch and stops there; the user commits.
 
 Once confirmed, delete the confirmed items' lines in full (continuations and sub-bullets
 with them) — leaving every unconfirmed candidate exactly as it was — then run
