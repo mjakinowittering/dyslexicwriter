@@ -6,6 +6,7 @@ import Insert from './FormatInsert.svelte';
 import HorizontalRule from './FormatInsertHorizontalRule.svelte';
 import InsertImage from './FormatInsertImage.svelte';
 import InsertTable from './FormatInsertTable.svelte';
+import Redo from './FormatRedo.svelte';
 import Toggle from './FormatToggle.svelte';
 import Blockquote from './FormatToggleBlockquote.svelte';
 import Bold from './FormatToggleBold.svelte';
@@ -13,6 +14,7 @@ import BulletList from './FormatToggleBulletList.svelte';
 import Heading from './FormatToggleHeading.svelte';
 import Italic from './FormatToggleItalic.svelte';
 import OrderedList from './FormatToggleOrderedList.svelte';
+import Undo from './FormatUndo.svelte';
 
 const getFormattingActive = (editor: Editor | undefined): string[] => {
     if (!editor) return [];
@@ -86,7 +88,9 @@ export {
     InsertTable,
     Italic,
     OrderedList,
+    Redo,
     Root,
     Toggle,
-    toggleWithWordBoundary
+    toggleWithWordBoundary,
+    Undo
 };

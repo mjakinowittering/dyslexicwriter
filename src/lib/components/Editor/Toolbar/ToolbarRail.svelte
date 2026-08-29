@@ -8,8 +8,8 @@
     import * as m from '$lib/paraglide/messages';
 
     // The tall rail on the far left of the editor, spanning the full height of
-    // the title row AND the toolbar row. Just a chevron — the app's logo sits in
-    // its own column (`ToolbarLogo`) immediately to the right, and nothing else
+    // the title row AND the toolbar row. Just a chevron, and the whole left
+    // column: the app's mark is drawn on `/` only (`AppHeader`), so nothing
     // here competes with the writing.
     let {
         disabled = false,

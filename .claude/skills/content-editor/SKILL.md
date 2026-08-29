@@ -15,8 +15,12 @@ lost the next time the file is opened.
 The editor is deliberately minimal, and that is a product constraint rather than a
 gap. The writer sees their prose, a placeholder, and a quiet word count.
 
-The toolbar is **capped**: headings, bold, italic, bullet/ordered list,
-blockquote, horizontal rule, table, image. That is the whole list.
+The toolbar is **capped**: undo/redo, headings, bold, italic, bullet/ordered
+list, blockquote, horizontal rule, table, image. That is the whole list.
+
+Undo and redo are on it because they surface a keymap the writer already has
+(`Mod+Z`, `Shift+Mod+Z`) rather than adding a capability — the same reasoning
+that keeps everything else off it.
 
 - no font-family or font-size pickers (font choice is one setting, in the panel)
 - no colour pickers, no alignment controls
