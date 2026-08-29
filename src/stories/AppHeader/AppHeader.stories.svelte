@@ -1,7 +1,14 @@
 <script lang="ts" module>
     import { makePreferences } from '../support/fakes.svelte';
     import { defineMeta } from '@storybook/addon-svelte-csf';
-    import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+    import {
+        expect,
+        fn,
+        screen,
+        userEvent,
+        waitFor,
+        within
+    } from 'storybook/test';
 
     import AppHeader from '$lib/components/AppHeader/AppHeader.svelte';
 
@@ -156,6 +163,62 @@
         // The header only asks; the route's ConfirmDialog is what stands
         // between this and the folder actually being let go.
         await expect(args.onLeaveFolder).toHaveBeenCalled();
+    }}
+>
+    {#snippet template(args)}
+        <AppHeader {...args} store={menu} />
+    {/snippet}
+</Story>
+
+<!-- The balloon lands in <body>, outside the story's own element, so these
+     queries go through `screen` rather than the story canvas. -->
+<Story
+    name="Theme toggle tooltip"
+    args={{ hasFolder: true }}
+    play={async ({ canvas }) => {
+        // A menu closed by an earlier story holds `pointer-events: none` on
+        // <body> through its close animation, and these stories share a page.
+        await waitFor(() =>
+            expect(getComputedStyle(document.body).pointerEvents).not.toBe(
+                'none'
+            )
+        );
+
+        await userEvent.hover(
+            canvas.getByRole('button', { name: m.header_theme_to_dark() })
+        );
+        await waitFor(() =>
+            expect(
+                screen.getByText(m.header_theme_to_dark())
+            ).toBeInTheDocument()
+        );
+    }}
+>
+    {#snippet template(args)}
+        <AppHeader {...args} store={menu} />
+    {/snippet}
+</Story>
+
+<Story
+    name="Menu tooltip"
+    args={{ hasFolder: true }}
+    play={async ({ canvas }) => {
+        // The trigger carries both a dropdown and a tooltip; the tooltip is the
+        // half that breaks quietly if the two prop sets collide.
+        // A menu closed by an earlier story holds `pointer-events: none` on
+        // <body> through its close animation, and these stories share a page.
+        await waitFor(() =>
+            expect(getComputedStyle(document.body).pointerEvents).not.toBe(
+                'none'
+            )
+        );
+
+        await userEvent.hover(
+            canvas.getByRole('button', { name: m.header_menu() })
+        );
+        await waitFor(() =>
+            expect(screen.getByText(m.header_menu())).toBeInTheDocument()
+        );
     }}
 >
     {#snippet template(args)}
