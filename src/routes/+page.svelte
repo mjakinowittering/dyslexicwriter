@@ -1,7 +1,9 @@
 <script lang="ts">
     import {
+        ArrowDown01Icon,
         File01Icon,
         FileAddIcon,
+        FolderAddIcon,
         FolderOpenIcon,
         RefreshIcon
     } from '@hugeicons/core-free-icons';
@@ -13,13 +15,20 @@
     import EmptyState from '$lib/components/EmptyState/EmptyState.svelte';
     import * as FileTree from '$lib/components/FileTree';
     import Icon from '$lib/components/Icon/Icon.svelte';
+    import * as ButtonGroup from '$lib/components/ui/button-group';
     import Button from '$lib/components/ui/button/button.svelte';
+    import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
     import * as Welcome from '$lib/components/Welcome';
 
     import {
+        createDocument,
+        createFolder,
         deleteDocument,
+        deleteFolder,
+        DocumentError,
         isFileSystemAccessSupported,
-        SUGGESTED_FOLDER_NAME
+        SUGGESTED_FOLDER_NAME,
+        type FolderNode
     } from '$lib/fs';
     import {
         documentPath,
@@ -38,6 +47,13 @@
     let leaveOpen = $state(false);
     let deleteOpen = $state(false);
     let deleteTarget = $state<DocumentIndexEntry | null>(null);
+    let folderDeleteOpen = $state(false);
+    let folderDeleteTarget = $state<FolderNode | null>(null);
+
+    // The one inline naming row the tree may have open, owned here rather than
+    // inside the recursive tree component — there is only ever one, and opening
+    // a second would leave the first stranded mid-name.
+    let naming = $state<FileTree.FileTreeNaming | null>(null);
 
     // Be honest about which delete this is: a document that owns its folder takes
     // the folder and its images with it, a markdown file sitting among the user's
@@ -106,6 +122,86 @@
         await deleteDocument(workspace.root, entry);
         await workspace.refresh();
     }
+
+    // Open the naming row inside a folder, expanding it first so the row is
+    // actually visible. For a folder the depth cap stopped at, `toggle` is also
+    // what goes and looks — and the duplicate check the row runs is only worth
+    // anything once we know what is in there.
+    async function startNaming(node: FolderNode, kind: 'folder' | 'document') {
+        workspace.error = '';
+        if (!workspace.isExpanded(node)) await workspace.toggle(node);
+        naming = { parent: node.path, kind };
+    }
+
+    // "New folder" in the title row: the same row, at the top level.
+    function onNewFolderAtRoot() {
+        workspace.error = '';
+        naming = { parent: '', kind: 'folder' };
+    }
+
+    async function onNamingSubmit(name: string) {
+        const target = naming;
+        const root = workspace.root;
+        if (!target || !root) return;
+
+        naming = null;
+
+        try {
+            if (target.kind === 'folder') {
+                await createFolder(root, target.parent, name);
+            } else {
+                // Deliberately no goto: the writer has already typed the name,
+                // and is more often than not setting up structure — a folder and
+                // three chapters in it — rather than about to start writing.
+                await createDocument(root, target.parent, name);
+            }
+        } catch (cause) {
+            // Thrown from a handler nobody awaits, so it has to land somewhere
+            // the writer can see it rather than in an unhandled rejection.
+            workspace.error =
+                cause instanceof DocumentError
+                    ? cause.message
+                    : m.files_read_error();
+            return;
+        }
+
+        await workspace.refresh();
+    }
+
+    // Only ever offered for a folder the scan found empty. The browser is what
+    // actually enforces that — removeEntry without `recursive` refuses a
+    // directory with anything in it — so a folder filled behind our back between
+    // the scan and the confirm fails safely rather than taking writing with it.
+    function onDeleteFolder(node: FolderNode) {
+        folderDeleteTarget = node;
+        folderDeleteOpen = true;
+    }
+
+    async function confirmDeleteFolder() {
+        const node = folderDeleteTarget;
+        if (!node || !workspace.root) return;
+
+        try {
+            await deleteFolder(workspace.root, node.path);
+        } catch (cause) {
+            workspace.error =
+                cause instanceof DocumentError
+                    ? cause.message
+                    : m.files_read_error();
+            return;
+        }
+
+        await workspace.refresh();
+    }
+
+    const treeActions: FileTree.FileTreeActions = {
+        open: onOpen,
+        rename: onRename,
+        delete: onDelete,
+        newDocument: (node) => startNaming(node, 'document'),
+        newFolder: (node) => startNaming(node, 'folder'),
+        deleteFolder: onDeleteFolder
+    };
 
     async function confirmLeaveFolder() {
         // Flush before the handle is dropped. Reaching this screen normally means
@@ -176,27 +272,50 @@
     <div class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-10">
         <!-- The list's own title row, not a landmark: the two folder actions
              that used to sit here have moved up into the app header's menu, and
-             the page's one <header> is that. Refresh stays — it is about this
-             list rather than about which folder is open. -->
+             the page's one <header> is that.
+
+             One control rather than three. "New document" is the screen's only
+             primary action, so Refresh and "New folder" ride behind it as a
+             split button instead of standing beside it as two more buttons
+             competing for the same corner. -->
         <div class="flex items-center justify-between gap-4">
             <h1 class="text-xl font-semibold">{m.files_title()}</h1>
-            <div class="flex items-center gap-2">
-                <!-- The automatic rescans cover most of it; this is for the
-                     writer who has just saved something from another app and
-                     wants to see it now rather than wonder. -->
-                <Button
-                    disabled={workspace.scanning}
-                    onclick={() => workspace.refresh()}
-                    variant="ghost"
-                >
-                    <Icon icon={RefreshIcon} />
-                    {m.files_refresh()}
-                </Button>
+            <ButtonGroup.Root>
                 <Button onclick={onCreate}>
                     <Icon icon={FileAddIcon} />
                     {m.files_new()}
                 </Button>
-            </div>
+                <DropdownMenu.Root>
+                    <DropdownMenu.Trigger>
+                        {#snippet child({ props })}
+                            <Button
+                                {...props}
+                                aria-label={m.files_more_actions()}
+                            >
+                                <Icon icon={ArrowDown01Icon} />
+                            </Button>
+                        {/snippet}
+                    </DropdownMenu.Trigger>
+                    <!-- w-auto because nova pins menu content to its anchor's
+                         width, and this anchor is a bare chevron button. -->
+                    <DropdownMenu.Content align="end" class="w-auto">
+                        <!-- The automatic rescans cover most of it; this is for
+                             the writer who has just saved something from another
+                             app and wants to see it now rather than wonder. -->
+                        <DropdownMenu.Item
+                            disabled={workspace.scanning}
+                            onSelect={() => workspace.refresh()}
+                        >
+                            <Icon icon={RefreshIcon} />
+                            {m.files_refresh()}
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item onSelect={onNewFolderAtRoot}>
+                            <Icon icon={FolderAddIcon} />
+                            {m.files_new_folder()}
+                        </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                </DropdownMenu.Root>
+            </ButtonGroup.Root>
         </div>
 
         {#if workspace.error}
@@ -204,8 +323,11 @@
         {/if}
 
         <!-- Two different empty folders, and they must not read alike: one has
-             nothing in it, the other is full of files this app cannot open. -->
-        {#if workspace.isEmpty}
+             nothing in it, the other is full of files this app cannot open.
+             `naming` beats both: the tree is where the naming row is drawn, so
+             an empty folder still has to render one to name the first thing
+             into it. -->
+        {#if workspace.isEmpty && !naming}
             <EmptyState
                 description={workspace.hasUnopenableFiles
                     ? m.files_no_writing_description()
@@ -224,11 +346,12 @@
             </EmptyState>
         {:else if workspace.tree}
             <FileTree.Root
+                actions={treeActions}
                 isExpanded={(node) => workspace.isExpanded(node)}
+                {naming}
                 node={workspace.tree}
-                {onDelete}
-                {onOpen}
-                {onRename}
+                onNamingCancel={() => (naming = null)}
+                {onNamingSubmit}
                 onToggle={(node) => workspace.toggle(node)}
             />
         {/if}
@@ -243,6 +366,20 @@
             destructive
             onConfirm={confirmDelete}
             title={m.files_delete_title({ title: deleteTarget?.title ?? '' })}
+        />
+
+        <!-- Only ever an empty folder, so nothing of the user's is in it — but
+             it is still a directory leaving their disk with no trash behind it,
+             and CLAUDE.md asks before any of those. -->
+        <ConfirmDialog
+            bind:open={folderDeleteOpen}
+            confirmLabel={m.files_delete()}
+            description={m.files_folder_delete_description()}
+            destructive
+            onConfirm={confirmDeleteFolder}
+            title={m.files_folder_delete_title({
+                name: folderDeleteTarget?.name ?? ''
+            })}
         />
     </div>
 {/if}

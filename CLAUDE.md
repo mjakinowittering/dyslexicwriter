@@ -208,18 +208,25 @@ in-code constants when malformed.
 - **The Files screen shows the folder structure**, not a flat list — a disclosure tree
   of the directories the scan reached. Sorting is folders first then documents,
   alphabetical; `lastModified` is shown per row but no longer orders anything.
-- **A folder holding nothing but one document is shown as that document.** The scan
-  lifts it into the parent rather than emitting a folder row you must open to find
-  the single file named after it — `My Chapter/My Chapter.md` is one row, not two.
-  The folder is untouched on disk and the entry's `folder` still points inside it,
-  so rename, delete and images are unaffected. An unloaded folder is never
-  collapsed: nothing is known about what else is in it.
-- **A new document is in-memory only** until its first save. It starts as `Untitled`,
-  incrementing to `Untitled 2`, `Untitled 3`… when a folder of that name already exists.
-  Nothing is written to disk until there is something to write.
-- **First save creates the folder, then the file inside it** — `My Chapter/My Chapter.md`.
-  New documents are always created as a top-level folder-document, never into a
-  subfolder.
+- **A folder holding nothing but the document named after it is shown as that
+  document.** The scan lifts it into the parent rather than emitting a folder row you
+  must open to find the single file repeating its name — `My Chapter/My Chapter.md` is
+  one row, not two. The name check is the whole of it: `Drafts/Chapter One.md` keeps
+  its `Drafts` row, and so does every level of `Book/Chapters/One.md`, because the tree
+  has to match the folder on disk. The folder is untouched on disk and the entry's
+  `folder` still points inside it, so rename, delete and images are unaffected. An
+  unloaded folder is never collapsed: nothing is known about what else is in it.
+- **Every other folder the scan reached keeps its row** — including an empty one,
+  which is very often one the writer has just made to file writing into, and one
+  holding nothing this app can open, which is theirs either way. The second says so
+  rather than claiming to be empty.
+- **A new document from the editor is in-memory only** until its first save. It starts
+  as `Untitled`, incrementing to `Untitled 2`, `Untitled 3`… when a folder of that name
+  already exists. Nothing is written to disk until there is something to write.
+- **First save creates the folder, then the file inside it** — `My Chapter/My Chapter.md`,
+  always a top-level folder-document. A document created from a folder row on the Files
+  screen is the other case: it is named before it is made and written straight away, as
+  a file-document inside the folder chosen for it.
 - **Rename is folder first, then the file inside it**, so a failure halfway through can
   never leave a folder and file whose names disagree. A file-document renames only its
   file — its folder and any images beside it belong to the user, not to that document.
@@ -424,8 +431,11 @@ project has no environment configuration.
   never parsed out of user input, and the resolver refuses `.` and `..` regardless
 - `ownsFolder` is **recomputed by every scan** — it decides whether delete removes a
   folder recursively or a single file
-- New documents stay **in memory until first save**, named `Untitled`, `Untitled 2`, …
-  by probing for an existing folder of that name
+- A new document from the editor stays **in memory until first save**, named `Untitled`,
+  `Untitled 2`, … by probing for an existing folder of that name, and lands as a
+  top-level folder-document. One created from a folder row on the Files screen is named
+  first and written immediately, as a file-document inside that folder — the duplicate
+  name is refused **before** the write, never worked around afterwards
 - Any node or mark added to the editor must be taught to **both** `toMarkdown` **and**
   `fromMarkdown` in the **same commit** — the two converters and the editor's extension
   list share one exported array and must never drift

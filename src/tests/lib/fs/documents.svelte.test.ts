@@ -2,7 +2,10 @@ import * as opfs from '../../support/opfs';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
+    createDocument,
+    createFolder,
     deleteDocument,
+    deleteFolder,
     DocumentError,
     ensureSubfolder,
     flattenDocuments,
@@ -157,9 +160,9 @@ describe('scanFolder', () => {
         await writeRaw('', 'notes.md', 'loose');
         await writeRaw('Book/Chapters', 'One.md', 'one');
 
-        // Book/Chapters holds nothing but One.md, so it shows at the root
-        // alongside notes.md rather than behind two disclosures.
-        expect(await paths()).toEqual(['notes.md', 'Book/Chapters/One.md']);
+        // Both are found wherever they sit. Folders come first in the flattened
+        // order, so the nested chapter leads and the loose file follows.
+        expect(await paths()).toEqual(['Book/Chapters/One.md', 'notes.md']);
     });
 
     it('marks a document that owns its folder, and one that does not', async () => {
@@ -199,17 +202,29 @@ describe('scanFolder', () => {
         expect(tree.documents).toEqual([]);
     });
 
-    it('collapses each level of a chain that is one document deep', async () => {
+    it('keeps every folder in a chain that is one document deep', async () => {
         await writeRaw('Book/Chapters', 'One.md', 'one');
 
-        // Book holds only Chapters, which holds only One.md — three rows for
-        // one document. Chapters gives way to One, then Book to what is left.
+        // `One` is not named after `Chapters`, so nothing here is the folder
+        // repeating its file's name — the tree matches the folder on disk.
         const tree = await scanFolder(root);
 
-        expect(tree.folders).toHaveLength(0);
-        expect(tree.documents.map(documentPath)).toEqual([
-            'Book/Chapters/One.md'
-        ]);
+        expect(tree.documents).toEqual([]);
+        const chapters = folderNamed(tree, 'Book');
+        expect(
+            folderNamed(chapters!, 'Chapters')?.documents.map(documentPath)
+        ).toEqual(['Book/Chapters/One.md']);
+    });
+
+    it('keeps a folder holding one document not named after it', async () => {
+        await writeRaw('Drafts', 'Chapter One.md', 'a');
+
+        // The shape a writer gets from making a folder and filing writing into
+        // it. Collapsing it would take away the folder they just made.
+        const tree = await scanFolder(root);
+
+        expect(tree.documents).toEqual([]);
+        expect(folderNamed(tree, 'Drafts')?.documents).toHaveLength(1);
     });
 
     it('sorts a lifted document among the documents beside it', async () => {
@@ -234,9 +249,23 @@ describe('scanFolder', () => {
         expect(found.find((d) => d.file === 'Book.md')?.ownsFolder).toBe(false);
     });
 
-    it('ignores a folder with no markdown anywhere beneath it', async () => {
-        await root.getDirectoryHandle('Not A Document', { create: true });
-        expect((await scanFolder(root)).folders).toHaveLength(0);
+    it('keeps an empty folder, which is very often one just made', async () => {
+        await root.getDirectoryHandle('Drafts', { create: true });
+
+        // A folder made from the Files screen and left empty has to survive the
+        // rescan that follows, or it is gone the moment the writer looks away.
+        expect(folderNamed(await scanFolder(root), 'Drafts')).toBeDefined();
+    });
+
+    it('keeps a folder holding only files it cannot open', async () => {
+        await writeRaw('Scans', 'page-one.jpg', 'x');
+
+        const tree = await scanFolder(root);
+
+        // Shown, because it is the user's — and flagged, so the row can say
+        // "nothing we can open" rather than "nothing in here".
+        expect(folderNamed(tree, 'Scans')?.hasOtherEntries).toBe(true);
+        expect(flattenDocuments(tree)).toEqual([]);
     });
 
     it('skips dot-directories and non-markdown files', async () => {
@@ -296,14 +325,15 @@ describe('scanFolder — hasOtherEntries', () => {
         expect(tree.hasOtherEntries).toBe(true);
     });
 
-    it('carries up from a subfolder dropped for holding no writing', async () => {
+    it('carries up from a subfolder holding no writing', async () => {
         await writeRaw('Scans', 'page-one.jpg', 'x');
 
         const tree = await scanFolder(root);
 
-        // `Scans` is dropped from the tree, but it is still something sitting in
-        // the user's folder, and the empty state has to know that.
-        expect(tree.folders).toHaveLength(0);
+        // `Scans` keeps its row, and what is inside it still has to reach the
+        // root: the empty state asks the root alone whether the scan saw
+        // anything it could not show.
+        expect(tree.folders).toHaveLength(1);
         expect(tree.hasOtherEntries).toBe(true);
     });
 
@@ -495,6 +525,96 @@ describe('deleteDocument', () => {
 
         expect(await fileExists('Notes', 'One.md')).toBe(false);
         expect(await readFile('Notes', 'Two.md')).toBe('two');
+    });
+});
+
+describe('createFolder', () => {
+    it('creates a folder at the root and inside another', async () => {
+        expect(await createFolder(root, '', 'Drafts')).toBe('Drafts');
+        expect(await createFolder(root, 'Drafts', 'Chapters')).toBe(
+            'Drafts/Chapters'
+        );
+
+        expect(await folderExists(root, 'Drafts/Chapters')).toBe(true);
+    });
+
+    it('refuses a folder that is already there rather than adopting it', async () => {
+        await writeRaw('Chapters', 'One.md', 'one');
+
+        // The difference from ensureSubfolder, which reuses on purpose. Silently
+        // adopting somebody's existing "Chapters" is not what was asked for.
+        await expect(createFolder(root, '', 'Chapters')).rejects.toThrow(
+            DocumentError
+        );
+        expect(await readFile('Chapters', 'One.md')).toBe('one');
+    });
+
+    it('refuses a name a file already holds', async () => {
+        await writeRaw('', 'notes.md', 'a');
+
+        await expect(createFolder(root, '', 'notes.md')).rejects.toThrow(
+            DocumentError
+        );
+    });
+
+    it('sanitises a name that would escape the folder', async () => {
+        const path = await createFolder(root, '', '../../etc');
+
+        expect(path).toBe('etc');
+        expect(await folderExists(root, 'etc')).toBe(true);
+    });
+});
+
+describe('deleteFolder', () => {
+    it('removes an empty folder', async () => {
+        await createFolder(root, '', 'Drafts');
+
+        await deleteFolder(root, 'Drafts');
+
+        expect(await folderExists(root, 'Drafts')).toBe(false);
+    });
+
+    it('leaves a folder with anything in it completely alone', async () => {
+        await writeRaw('Chapters', 'One.md', 'one');
+
+        // removeEntry WITHOUT recursive is what refuses this — the browser is
+        // the safety here, not the UI that decides when to offer the action.
+        await expect(deleteFolder(root, 'Chapters')).rejects.toThrow(
+            DocumentError
+        );
+        expect(await readFile('Chapters', 'One.md')).toBe('one');
+    });
+});
+
+describe('createDocument', () => {
+    it('creates a document inside a folder the user chose', async () => {
+        await createFolder(root, '', 'Drafts');
+
+        const entry = await createDocument(root, 'Drafts', 'Chapter One');
+
+        expect(entry.file).toBe('Chapter One.md');
+        expect(await fileExists('Drafts', 'Chapter One.md')).toBe(true);
+    });
+
+    it('shows up in the next scan, inside the folder it was made in', async () => {
+        await createFolder(root, '', 'Drafts');
+        await createDocument(root, 'Drafts', 'Chapter One');
+
+        // Unlike an empty folder, an empty document needs nothing special to
+        // survive: the scan lists any .md regardless of what is in it.
+        const tree = await scanFolder(root);
+        expect(
+            folderNamed(tree, 'Drafts')?.documents.map(documentPath)
+        ).toEqual(['Drafts/Chapter One.md']);
+    });
+
+    it('refuses a name already taken in that folder', async () => {
+        await writeRaw('Notes', 'One.md', 'one');
+
+        await expect(createDocument(root, 'Notes', 'One')).rejects.toThrow(
+            DocumentError
+        );
+        expect(await readFile('Notes', 'One.md')).toBe('one');
     });
 });
 
