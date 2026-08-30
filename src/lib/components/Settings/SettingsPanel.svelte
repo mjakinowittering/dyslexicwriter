@@ -96,12 +96,6 @@
                     value={store.font}
                 >
                     <div class="flex items-center gap-2">
-                        <RadioGroup.Item id="font-sans" value="sans" />
-                        <Label class="font-normal" for="font-sans">
-                            {m.settings_font_sans()}
-                        </Label>
-                    </div>
-                    <div class="flex items-center gap-2">
                         <RadioGroup.Item id="font-dyslexic" value="dyslexic" />
                         <!-- The label previews the choice: it is the one bit of chrome
                          that renders in the reading font. -->
@@ -110,6 +104,12 @@
                             for="font-dyslexic"
                         >
                             {m.settings_font_dyslexic()}
+                        </Label>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <RadioGroup.Item id="font-sans" value="sans" />
+                        <Label class="font-normal" for="font-sans">
+                            {m.settings_font_sans()}
                         </Label>
                     </div>
                 </RadioGroup.Root>
