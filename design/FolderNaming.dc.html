@@ -114,6 +114,17 @@
     </div>
 
     <ul class="tree">
+        <li style="display:flex;flex-direction:column;gap:6px;padding:8px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <svg viewBox="0 0 24 24" width="24" height="24" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M8 7H16.75C18.8567 7 19.91 7 20.6667 7.50559C20.9943 7.72447 21.2755 8.00572 21.4944 8.33329C22 9.08996 22 10.1433 22 12.25C22 15.7612 22 17.5167 21.1573 18.7779C20.7926 19.3238 20.3238 19.7926 19.7779 20.1573C18.5167 21 16.7612 21 13.25 21H12C7.28595 21 4.92893 21 3.46447 19.5355C2 18.0711 2 15.714 2 11V7.94427C2 6.1278 2 5.21956 2.38032 4.53806C2.65142 4.05227 3.05227 3.65142 3.53806 3.38032C4.21956 3 5.1278 3 6.94427 3C8.10802 3 8.6899 3 9.19926 3.19101C10.3622 3.62712 10.8418 4.68358 11.3666 5.73313L12 7" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg>
+            <div role="group" style="display:flex;height:32px;flex:1;min-width:0;align-items:center;border:1px solid var(--ring);border-radius:10px;box-shadow:0 0 0 3px color-mix(in oklch,var(--ring) 50%,transparent)">
+              <div style="display:flex;flex:1;min-width:0;align-items:center;height:32px;padding:0 6px 0 10px;font-size:14px">Drafts</div>
+            </div>
+            <button class="btn btn-outline" style="height:28px;padding:0 10px;font-size:12.8px">Cancel</button>
+            <button class="btn btn-primary" style="height:28px;padding:0 10px;font-size:12.8px">Create</button>
+          </div>
+          <span class="visually-hidden" hidden>Folder name</span>
+        </li>
     <li>
         <div class="row">
           <button class="row-btn" aria-expanded="true">

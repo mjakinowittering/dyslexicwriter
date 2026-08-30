@@ -39,6 +39,35 @@
     .btn-primary{background:var(--primary);color:var(--primary-foreground)}
     .btn-outline{border-color:var(--border);background:var(--background)}
     .btn-muted{background:var(--muted)}
+    /* shadcn-svelte button-group — joined, the split button on the Files screen */
+    .bg-grp{display:flex;width:fit-content;align-items:stretch}
+    .bg-grp > .btn{border-radius:0}
+    .bg-grp > .btn:first-child{border-top-left-radius:10px;border-bottom-left-radius:10px}
+    .bg-grp > .btn:last-child{border-top-right-radius:10px;border-bottom-right-radius:10px}
+    .bg-grp > .btn + .btn{border-left:1px solid color-mix(in oklch,var(--primary-foreground) 20%,transparent)}
+    /* dropdown-menu content + item */
+    .menu{position:absolute;z-index:50;display:flex;min-width:180px;flex-direction:column;border-radius:10px;padding:4px;background:var(--popover);box-shadow:0 0 0 1px color-mix(in oklch,var(--border) 100%,transparent),0 4px 6px -1px rgb(0 0 0 / 0.1),0 2px 4px -2px rgb(0 0 0 / 0.1)}
+    .menu-item{display:flex;align-items:center;gap:8px;border-radius:8px;padding:6px 8px;font-size:14px;white-space:nowrap}
+    .menu-item[data-active]{background:var(--accent)}
+    .menu-item[data-disabled]{opacity:.5}
+    /* Files tree — FileTree.svelte / FileTreeDocument.svelte.
+       Row icons are 24px: the rows are bare <button>s, so shadcn's
+       [&_svg:not([class*='size-'])]:size-4 never reaches them. */
+    .row{display:flex;align-items:center;gap:8px;border-radius:8px;box-shadow:0 0 0 1px transparent}
+    .row[data-hover]{background:color-mix(in oklch,var(--muted) 40%,transparent);box-shadow:0 0 0 1px var(--border)}
+    .row-btn{display:flex;flex:1;min-width:0;align-items:center;gap:8px;border:0;border-radius:0;background:transparent;color:inherit;padding:8px;text-align:left;font:inherit;cursor:pointer}
+    /* size="icon-lg" (36px) holding a 24px glyph, so it matches the row icons
+       rather than the 16px the Button base would otherwise force. */
+    .row-menu{width:36px;height:36px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:10px;background:transparent;color:inherit;opacity:0}
+    .row[data-hover] .row-menu{opacity:1}
+    /* One icon column of indent: 20px puts the guide down the centre of the
+       parent's chevron (8–32), then 1px border + 11px = 32px in all. A child
+       row's own 8px padding then starts its first icon at 40 — exactly where
+       the parent's FOLDER icon starts. */
+    .kids{margin-left:20px;border-left:1px solid var(--border);padding-left:11px}
+    ul.tree{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
+    .muted{color:var(--muted-foreground)}
+    .trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     /* Tailwind Typography — the app sets no custom prose colours, so these are its defaults */
     .prose{font-size:18px;line-height:1.7778;color:#374151}
     .prose h1{font-size:30px;font-weight:600;line-height:1.2;color:#111827;margin:0 0 24px}
@@ -57,8 +86,9 @@
     .reading-font .tts-sentence,.reading-font .tts-word{background-color:transparent;background-image:linear-gradient(rgb(250 204 21 / 0.18),rgb(250 204 21 / 0.18));background-position:0 0.35em;background-repeat:no-repeat;background-size:100% 1.3em;-webkit-box-decoration-break:clone;box-decoration-break:clone;box-shadow:none}
   </style>
 </helmet>
-<div style="width:1440px;height:900px;display:flex;flex-direction:column;overflow:hidden;background:var(--background)">
-  <!-- AppHeader — h-14, border-b, px-3. Sized to match the editor's title row. -->
+<div style="position:relative;width:1440px;height:900px;display:flex;flex-direction:column;overflow:hidden;background:var(--background)">
+  <!-- AppHeader.svelte with hasFolder=false: the mark is there from the first
+       paint, the two controls are not. -->
   <header style="display:flex;height:56px;flex-shrink:0;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding:0 12px">
     <div style="display:flex;align-items:center;gap:8px">
       <svg viewBox="0 0 24 24" width="32" height="32" style="color:var(--primary)"><path d="M4.22222 21.9948V18.4451C4.22222 17.1737 3.88927 16.5128 3.23482 15.4078C2.4503 14.0833 2 12.5375 2 10.8866C2 5.97866 5.97969 2 10.8889 2C15.7981 2 19.7778 5.97866 19.7778 10.8866C19.7778 11.4663 19.7778 11.7562 19.802 11.9187C19.8598 12.3072 20.0411 12.6414 20.2194 12.9873L22 16.4407L20.6006 17.1402C20.195 17.3429 19.9923 17.4443 19.851 17.6314C19.7097 17.8184 19.67 18.0296 19.5904 18.4519L19.5826 18.4931C19.4004 19.4606 19.1993 20.5286 18.6329 21.2024C18.4329 21.4403 18.1853 21.6336 17.9059 21.7699C17.4447 21.9948 16.8777 21.9948 15.7437 21.9948C15.219 21.9948 14.6928 22.0069 14.1682 21.9942C12.9247 21.9639 12 20.9184 12 19.7044" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M14.388 10.5315C13.9617 10.5315 13.5729 10.3702 13.2784 10.1048M14.388 10.5315C14.388 11.6774 13.7241 12.7658 12.4461 12.7658C11.1681 12.7658 10.5043 13.8541 10.5043 15M14.388 10.5315C16.5373 10.5315 16.5373 7.18017 14.388 7.18017C14.1927 7.18017 14.0053 7.21403 13.8312 7.27624C13.9362 4.77819 10.3349 4.1 9.51923 6.44018M10.5043 8.29729C10.5043 7.52323 10.1133 6.8411 9.51923 6.44018M9.51923 6.44018C7.66742 5.19034 5.19883 7.4331 6.37324 9.43277C4.40226 9.72827 4.61299 12.7658 6.6205 12.7658C7.18344 12.7658 7.68111 12.4844 7.98234 12.0538" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
@@ -66,30 +96,33 @@
     </div>
   </header>
   <div style="margin:0 auto;display:flex;width:100%;max-width:672px;flex:1;align-items:center;padding:0 24px">
-    <div style="display:flex;width:100%;min-width:0;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:16px;border-radius:14px;padding:24px;text-align:center">
-
-      <div style="display:flex;max-width:384px;flex-direction:column;align-items:center;gap:8px">
+    <div style="display:flex;width:100%;flex-direction:column;align-items:center;gap:24px;text-align:center">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
         <div style="margin-bottom:8px;display:flex;height:32px;width:32px;flex-shrink:0;align-items:center;justify-content:center;border-radius:10px;background:var(--muted)">
           <svg viewBox="0 0 24 24" width="16" height="16"><path d="M2.5 20V8.87695C2.5 7.58945 2.5 6.9457 2.78533 6.47048C2.9541 6.18939 3.18939 5.9541 3.47048 5.78533C3.9457 5.5 4.59449 5.5 5.89206 5.5C6.52339 5.5 6.83906 5.5 7.12612 5.58819C7.31759 5.64702 7.49914 5.73428 7.66469 5.84705C7.91289 6.01611 8.10859 6.26074 8.5 6.75C8.89141 7.23926 9.08711 7.48389 9.33531 7.65295C9.50086 7.76572 9.68241 7.85298 9.87388 7.91181C10.1609 8 10.4742 8 11.1008 8H15C16.4045 8 17.1067 8 17.6111 8.33706C17.8295 8.48298 18.017 8.67048 18.1629 8.88886C18.5 9.39331 18.5 10.0955 18.5 11.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M4.42028 14.0144L3.63368 16.0144C2.65618 18.4998 2.16743 19.7425 2.7524 20.6213C3.33737 21.5 4.65337 21.5 7.28537 21.5H15.1903C16.4249 21.5 17.0422 21.5 17.5295 21.1795C18.0169 20.859 18.2702 20.2865 18.7769 19.1415L19.6618 17.1415C20.7866 14.5992 21.349 13.3281 20.7679 12.4141C20.1868 11.5 18.8163 11.5 16.0752 11.5H8.07196C6.78232 11.5 6.1375 11.5 5.63811 11.8439C5.13872 12.1877 4.89924 12.7966 4.42028 14.0144Z" stroke="currentColor" stroke-width="1.5"/><path d="M11.5 4.51456C12.4151 3.28409 13.6662 2.55594 15.5125 2.50161C16.1155 2.48386 16.7152 2.61395 17.2682 2.85544C18.5748 3.42601 19.4185 4.15644 20 5.5L21.5 3" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
         </div>
-        <div style="font-size:20px;font-weight:600;letter-spacing:-0.025em">Welcome back</div>
-        <div style="font-size:14px;line-height:1.625;color:var(--muted-foreground)">Open the folder you were writing in, or point us at a different one.</div>
+        <div style="font-size:20px;font-weight:600">Welcome back</div>
+        <div class="muted" style="font-size:14px;line-height:1.625;max-width:520px">Open the folder you were writing in, or point us at a different one.</div>
       </div>
 
-      <div style="display:flex;width:100%;max-width:672px;min-width:0;flex-direction:column;align-items:center;gap:16px;font-size:14px">
-        <div style="display:grid;width:100%;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
-          <button class="btn btn-outline" style="height:auto;flex-direction:column;align-items:flex-start;gap:8px;padding:20px;text-align:left;white-space:normal">
+      <div style="display:flex;width:100%;max-width:672px;flex-direction:column;gap:16px">
+        <div style="display:grid;width:100%;gap:16px;grid-template-columns:1fr 1fr">
+          <button class="btn btn-outline" style="height:auto;width:100%;flex-direction:column;align-items:flex-start;gap:8px;padding:20px;text-align:left;white-space:normal">
             <svg viewBox="0 0 24 24" width="24" height="24"><path d="M12 21C7.28595 21 4.92893 21 3.46447 19.5355C2 18.0711 2 15.714 2 11V7.94427C2 6.1278 2 5.21956 2.38032 4.53806C2.65142 4.05227 3.05227 3.65142 3.53806 3.38032C4.21956 3 5.1278 3 6.94427 3C8.10802 3 8.6899 3 9.19926 3.19101C10.3622 3.62712 10.8418 4.68358 11.3666 5.73313L12 7M8 7H16.75C18.8567 7 19.91 7 20.6667 7.50559C20.9943 7.72447 21.2755 8.00572 21.4944 8.33329C21.9796 9.05942 21.9992 10.0588 22 12" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M14 19C14 19 15 19 16 21C16 21 19.1765 16 22 15" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
-            <span style="font-size:16px;font-weight:600">Reopen “Writing”</span>
-            <span style="font-size:14px;font-weight:400;color:var(--muted-foreground)">Pick up where you left off. Your browser needs a quick yes.</span>
+            <span style="font-size:16px;font-weight:600">Reopen “My Writing”</span>
+            <span class="muted" style="font-size:14px;font-weight:400">Pick up where you left off. Your browser needs a quick yes.</span>
           </button>
-          <button class="btn btn-outline" style="height:auto;flex-direction:column;align-items:flex-start;gap:8px;padding:20px;text-align:left;white-space:normal">
+          <button class="btn btn-outline" style="height:auto;width:100%;flex-direction:column;align-items:flex-start;gap:8px;padding:20px;text-align:left;white-space:normal">
             <svg viewBox="0 0 24 24" width="24" height="24"><path d="M2.5 20V8.87695C2.5 7.58945 2.5 6.9457 2.78533 6.47048C2.9541 6.18939 3.18939 5.9541 3.47048 5.78533C3.9457 5.5 4.59449 5.5 5.89206 5.5C6.52339 5.5 6.83906 5.5 7.12612 5.58819C7.31759 5.64702 7.49914 5.73428 7.66469 5.84705C7.91289 6.01611 8.10859 6.26074 8.5 6.75C8.89141 7.23926 9.08711 7.48389 9.33531 7.65295C9.50086 7.76572 9.68241 7.85298 9.87388 7.91181C10.1609 8 10.4742 8 11.1008 8H15C16.4045 8 17.1067 8 17.6111 8.33706C17.8295 8.48298 18.017 8.67048 18.1629 8.88886C18.5 9.39331 18.5 10.0955 18.5 11.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M4.42028 14.0144L3.63368 16.0144C2.65618 18.4998 2.16743 19.7425 2.7524 20.6213C3.33737 21.5 4.65337 21.5 7.28537 21.5H15.1903C16.4249 21.5 17.0422 21.5 17.5295 21.1795C18.0169 20.859 18.2702 20.2865 18.7769 19.1415L19.6618 17.1415C20.7866 14.5992 21.349 13.3281 20.7679 12.4141C20.1868 11.5 18.8163 11.5 16.0752 11.5H8.07196C6.78232 11.5 6.1375 11.5 5.63811 11.8439C5.13872 12.1877 4.89924 12.7966 4.42028 14.0144Z" stroke="currentColor" stroke-width="1.5"/><path d="M11.5 4.51456C12.4151 3.28409 13.6662 2.55594 15.5125 2.50161C16.1155 2.48386 16.7152 2.61395 17.2682 2.85544C18.5748 3.42601 19.4185 4.15644 20 5.5L21.5 3" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
             <span style="font-size:16px;font-weight:600">Choose your own</span>
-            <span style="font-size:14px;font-weight:400;color:var(--muted-foreground)">Point us at any folder on your computer and use that one.</span>
+            <span class="muted" style="font-size:14px;font-weight:400">Point us at any folder on your computer and use that one.</span>
           </button>
         </div>
-        <p style="margin:0;font-size:12px;color:var(--muted-foreground)">Downloads and your home folder are blocked by the browser. A folder inside Documents works well.</p>
+
+        <!-- The browser blocks Downloads, the home folder and system folders
+             outright. Say so before the picker does, so the refusal doesn't
+             read as the app being broken. -->
+        <p class="muted" style="margin:0;font-size:12px">Downloads and your home folder are blocked by the browser. A folder inside Documents works well.</p>
         <p style="margin:0;font-size:14px;color:var(--destructive)">DyslexicWriter needs permission to use that folder</p>
       </div>
     </div>
