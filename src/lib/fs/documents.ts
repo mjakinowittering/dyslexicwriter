@@ -178,13 +178,14 @@ export interface FolderNode {
     // known yet rather than known to be absent.
     loaded: boolean;
     // True when this directory, or one the scan reached below it, held something
-    // this tree is not showing — a file the app cannot open, a folder dropped for
-    // holding no writing anywhere, or a skipped directory.
+    // this tree is not showing — a file the app cannot open, or a skipped
+    // directory.
     //
     // It exists so the Files screen can tell an empty folder from one full of
     // .docx files. Both show no documents; only one of them is empty, and saying
     // "nothing here yet" about a folder of somebody's work reads as if the app
-    // threw it away.
+    // threw it away. Read at the root for the screen's empty state, and per
+    // folder for what an expanded but empty disclosure says.
     hasOtherEntries: boolean;
 }
 
@@ -196,20 +197,19 @@ function byTitle(a: { title: string }, b: { title: string }): number {
     return a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
 }
 
-// An unloaded folder is kept even when we know nothing about it — we have not
-// looked. A loaded one that turned out to hold no documents anywhere is dropped,
-// so the tree shows writing rather than the whole directory structure.
-function worthShowing(node: FolderNode): boolean {
-    return !node.loaded || node.documents.length > 0 || node.folders.length > 0;
-}
-
-// The one document a folder holds, when that document is the whole of it — no
-// second markdown file, no subdirectory. This is the shape the app creates for
-// itself, `My Chapter/My Chapter.md`, and a folder the writer must open to find
-// the single file named after it is a row that says nothing twice. The folder
-// gives way to its document in the tree; on disk it is untouched, and the
-// document's `folder` still points inside it, so rename and delete behave
-// exactly as they did.
+// The document a folder gives way to in the tree: the one it holds, sitting
+// directly in it, and NAMED AFTER IT. That is `My Chapter/My Chapter.md` and
+// nothing else — the shape the app creates for itself, where the folder is a
+// disclosure the writer must open to find the single file repeating its name.
+//
+// The name check is what keeps this to that shape. Without it any folder holding
+// one document gave way, and it cascaded: `Book/Chapters/One.md` surfaced `One`
+// at the root with `Book` and `Chapters` gone from the tree entirely, so the list
+// no longer matched the folder on disk. It also swallowed folders the writer had
+// just made and filed a document into.
+//
+// On disk the folder is untouched, and the document's `folder` still points
+// inside it, so rename, delete and image writes behave exactly as they did.
 //
 // An unloaded folder is never collapsed: we have not looked inside it, so one
 // document is not yet known to be all there is.
@@ -217,7 +217,15 @@ function onlyDocument(node: FolderNode): DocumentIndexEntry | null {
     if (!node.loaded || node.folders.length > 0) return null;
     if (node.documents.length !== 1) return null;
 
-    return node.documents[0] ?? null;
+    const entry = node.documents[0];
+    if (!entry) return null;
+
+    // Lifted out of a subfolder a moment ago rather than sitting here, so this
+    // folder is not the one it would be collapsing into.
+    if (entry.folder !== node.path) return null;
+    if (titleFromFileName(entry.file) !== node.name) return null;
+
+    return entry;
 }
 
 async function walk(
@@ -233,9 +241,9 @@ async function walk(
 
     const folders: FolderNode[] = [];
     // Anything here the tree will not be showing: files we cannot open, and — as
-    // the loop below finds them — folders skipped or dropped for holding no
-    // writing. Carried up from every child so the root alone can answer for the
-    // whole scan.
+    // the loop below finds them — directories skipped outright. Carried up from
+    // every child so the root alone can answer for the whole scan, and so a
+    // folder row can say "nothing we can open" rather than "nothing in here".
     let hasOtherEntries = listing.others > 0;
 
     for (const child of listing.subdirectories) {
@@ -262,14 +270,14 @@ async function walk(
 
         if (node.hasOtherEntries) hasOtherEntries = true;
 
-        // A folder that is nothing but one document shows as that document,
-        // lifted into this level rather than hidden behind a disclosure.
+        // A folder that is nothing but the document named after it shows as that
+        // document, lifted into this level rather than hidden behind a
+        // disclosure. Every other folder keeps its row — including an empty one,
+        // which is very often one the writer has just made to file writing into,
+        // and one holding nothing this app can open, which is theirs either way.
         const single = onlyDocument(node);
         if (single) documents.push(single);
-        else if (worthShowing(node)) folders.push(node);
-        // Dropped for holding no writing anywhere — but it is still something
-        // sitting in the user's folder, and the empty state has to know.
-        else hasOtherEntries = true;
+        else folders.push(node);
     }
 
     return {
@@ -473,6 +481,44 @@ export async function writeDocument(
     };
 }
 
+// Create a document inside a folder the user picked, named as it is made.
+//
+// Unlike the editor's "New document" — which stays in memory until there is
+// something worth writing — this one is written immediately: the writer has
+// already typed the name and expects to see the row appear in that folder. The
+// file lands beside whatever else is in there, so it is a file-document; the
+// only shape the app creates for itself remains the top-level folder-document.
+//
+// The name is checked against the directory here rather than trusted from the
+// tree: the tree is a scan snapshot and can always be out of date by the time
+// this runs.
+export async function createDocument(
+    root: FileSystemDirectoryHandle,
+    folder: string,
+    title: string
+): Promise<DocumentIndexEntry> {
+    const target = sanitiseTitle(title);
+    const fileName = fileNameFor(target);
+
+    const dir = await resolveDirectory(root, folder);
+    if (await entryExists(dir, fileName, 'file')) {
+        throw new DocumentError(m.files_exists_error({ title: target }));
+    }
+
+    // `ownsFolder: false` is not a claim, it is a placeholder — the scan that
+    // follows recomputes it off the real directory listing, which is the only
+    // authority for it. A document named after the folder it is created in will
+    // come back owning it, and should.
+    return writeDocument(
+        root,
+        { folder, file: fileName, ownsFolder: false },
+        {
+            type: 'doc',
+            content: [{ type: 'paragraph' }]
+        }
+    );
+}
+
 async function copyFile(
     source: FileSystemFileHandle,
     destination: FileSystemDirectoryHandle,
@@ -614,6 +660,66 @@ export async function deleteDocument(
         }
     } catch (cause) {
         throw new DocumentError(m.files_delete_error({ title }), { cause });
+    }
+}
+
+// Make a folder inside the working folder, so writing can be filed into a tree
+// the writer arranges rather than a flat list.
+//
+// Deliberately NOT `ensureSubfolder`. That one reuses a directory already sitting
+// there, which is exactly right for the welcome screen's "start a new folder"
+// card — a second run must land back in the user's writing rather than beside it
+// — and exactly wrong here, where silently adopting somebody's existing
+// "Chapters" is not what the writer asked for. Refuse instead, before anything
+// reaches the disk, and refuse against a file of that name too: the browser will
+// not create a directory over one, and the message should say which it is.
+export async function createFolder(
+    root: FileSystemDirectoryHandle,
+    parent: string,
+    name: string
+): Promise<string> {
+    const safe = sanitiseTitle(name);
+
+    const dir = await resolveDirectory(root, parent);
+    if (
+        (await entryExists(dir, safe, 'directory')) ||
+        (await entryExists(dir, safe, 'file'))
+    ) {
+        throw new DocumentError(m.files_folder_exists_error({ name: safe }));
+    }
+
+    try {
+        await dir.getDirectoryHandle(safe, { create: true });
+    } catch (cause) {
+        throw new DocumentError(m.files_folder_create_error({ name: safe }), {
+            cause
+        });
+    }
+
+    return joinPath(parent, safe);
+}
+
+// Remove an empty folder — one made by mistake, or left behind after its last
+// document went.
+//
+// The safety here is the browser's, not the UI's: `removeEntry` WITHOUT
+// `recursive` is refused outright when the directory is not empty. That is the
+// opposite of `deleteDocument` above, which passes `recursive: true` on purpose
+// because a folder-document's folder is the document. Nothing here may ever take
+// a neighbour with it, so the flag must stay off however the caller is gated.
+export async function deleteFolder(
+    root: FileSystemDirectoryHandle,
+    path: string
+): Promise<void> {
+    const name = lastSegment(path);
+
+    try {
+        const parentDir = await resolveDirectory(root, parentPath(path));
+        await parentDir.removeEntry(name);
+    } catch (cause) {
+        throw new DocumentError(m.files_folder_delete_error({ name }), {
+            cause
+        });
     }
 }
 

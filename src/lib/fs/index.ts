@@ -1,6 +1,9 @@
 export { readConfig, updateConfig, writeConfig } from './config';
 export {
+    createDocument,
+    createFolder,
     deleteDocument,
+    deleteFolder,
     DocumentError,
     type DocumentLocation,
     ensureSubfolder,

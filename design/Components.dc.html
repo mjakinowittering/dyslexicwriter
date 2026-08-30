@@ -187,8 +187,80 @@
         <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="7.5" cy="7.5" r="1.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M2.5 12C2.5 7.52166 2.5 5.28249 3.89124 3.89124C5.28249 2.5 7.52166 2.5 12 2.5C16.4783 2.5 18.7175 2.5 20.1088 3.89124C21.5 5.28249 21.5 7.52166 21.5 12C21.5 16.4783 21.5 18.7175 20.1088 20.1088C18.7175 21.5 16.4783 21.5 12 21.5C7.52166 21.5 5.28249 21.5 3.89124 20.1088C2.5 18.7175 2.5 16.4783 2.5 12Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 21C9.37246 15.775 14.2741 8.88406 21.4975 13.5424" stroke="currentColor" stroke-width="1.5"/></svg>
         <svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 6L17 6" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M9 12L19 12" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M9 18L17 18" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M5 3L5 21" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
       </div>
-      <span style="font-size:12px;color:var(--muted-foreground)">Drawn at 16px in chrome, 20px in the rail, 24px on the welcome cards, 32px for the mark.</span>
+      <span style="font-size:12px;color:var(--muted-foreground)">Drawn at 16px in chrome, 20px in the rail, 24px in the Files tree and on the welcome cards, 32px for the mark.</span>
     </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:12px">
+    <div style="font-size:14px;font-weight:600">Files tree row — FileTree.svelte</div>
+    <span style="font-size:12px;color:var(--muted-foreground)">Row icons are 24px: the rows are bare &lt;button&gt;s, so the Button base's size-4 rule never reaches them. The tree indents by one icon column (32px), which puts a child's first icon under its parent's folder icon.</span>
+    <div style="display:flex;flex-direction:column;gap:4px;max-width:520px">
+      <ul class="tree">
+  <div class="row">
+    <button class="row-btn" aria-expanded="true">
+      <svg viewBox="0 0 24 24" width="24" height="24" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M18 9.00005C18 9.00005 13.5811 15 12 15C10.4188 15 6 9 6 9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+      <svg viewBox="0 0 24 24" width="24" height="24" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M8 7H16.75C18.8567 7 19.91 7 20.6667 7.50559C20.9943 7.72447 21.2755 8.00572 21.4944 8.33329C22 9.08996 22 10.1433 22 12.25C22 15.7612 22 17.5167 21.1573 18.7779C20.7926 19.3238 20.3238 19.7926 19.7779 20.1573C18.5167 21 16.7612 21 13.25 21H12C7.28595 21 4.92893 21 3.46447 19.5355C2 18.0711 2 15.714 2 11V7.94427C2 6.1278 2 5.21956 2.38032 4.53806C2.65142 4.05227 3.05227 3.65142 3.53806 3.38032C4.21956 3 5.1278 3 6.94427 3C8.10802 3 8.6899 3 9.19926 3.19101C10.3622 3.62712 10.8418 4.68358 11.3666 5.73313L12 7" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg>
+      <span class="trunc" style="font-weight:500">Book</span>
+    </button>
+    <button class="row-menu" aria-label="Actions for &quot;Book&quot;"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M6.00449 12.5V12M18.0045 12.5V12M12.0045 12.5V12M7.00449 12.5C7.00449 11.9477 6.55677 11.5 6.00449 11.5C5.4522 11.5 5.00449 11.9477 5.00449 12.5C5.00449 13.0523 5.4522 13.5 6.00449 13.5C6.55677 13.5 7.00449 13.0523 7.00449 12.5ZM19.0045 12.5C19.0045 11.9477 18.5568 11.5 18.0045 11.5C17.4522 11.5 17.0045 11.9477 17.0045 12.5C17.0045 13.0523 17.4522 13.5 18.0045 13.5C18.5568 13.5 19.0045 13.0523 19.0045 12.5ZM13.0045 12.5C13.0045 11.9477 12.5568 11.5 12.0045 11.5C11.4522 11.5 11.0045 11.9477 11.0045 12.5C11.0045 13.0523 11.4522 13.5 12.0045 13.5C12.5568 13.5 13.0045 13.0523 13.0045 12.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+  </div>
+  <li class="row" data-hover>
+    <button class="row-btn">
+      <svg viewBox="0 0 24 24" width="24" height="24" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M8 7L16 7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M8 11L12 11" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M13 21.5V21C13 18.1716 13 16.7574 13.8787 15.8787C14.7574 15 16.1716 15 19 15H19.5M20 13.3431V10C20 6.22876 20 4.34315 18.8284 3.17157C17.6569 2 15.7712 2 12 2C8.22877 2 6.34315 2 5.17157 3.17157C4 4.34314 4 6.22876 4 10L4 14.5442C4 17.7892 4 19.4117 4.88607 20.5107C5.06508 20.7327 5.26731 20.9349 5.48933 21.1139C6.58831 22 8.21082 22 11.4558 22C12.1614 22 12.5141 22 12.8372 21.886C12.9044 21.8623 12.9702 21.835 13.0345 21.8043C13.3436 21.6564 13.593 21.407 14.0919 20.9081L18.8284 16.1716C19.4065 15.5935 19.6955 15.3045 19.8478 14.9369C20 14.5694 20 14.1606 20 13.3431Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+      <span style="display:flex;min-width:0;flex-direction:column">
+        <span class="trunc" style="font-weight:500">notes</span>
+        <span class="muted" style="font-size:14px">Edited 3 days ago</span>
+      </span>
+    </button>
+    <button class="row-menu" aria-label="Actions for &quot;notes&quot;" style="opacity:1"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M6.00449 12.5V12M18.0045 12.5V12M12.0045 12.5V12M7.00449 12.5C7.00449 11.9477 6.55677 11.5 6.00449 11.5C5.4522 11.5 5.00449 11.9477 5.00449 12.5C5.00449 13.0523 5.4522 13.5 6.00449 13.5C6.55677 13.5 7.00449 13.0523 7.00449 12.5ZM19.0045 12.5C19.0045 11.9477 18.5568 11.5 18.0045 11.5C17.4522 11.5 17.0045 11.9477 17.0045 12.5C17.0045 13.0523 17.4522 13.5 18.0045 13.5C18.5568 13.5 19.0045 13.0523 19.0045 12.5ZM13.0045 12.5C13.0045 11.9477 12.5568 11.5 12.0045 11.5C11.4522 11.5 11.0045 11.9477 11.0045 12.5C11.0045 13.0523 11.4522 13.5 12.0045 13.5C12.5568 13.5 13.0045 13.0523 13.0045 12.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+  </li>
+      </ul>
+      <div class="kids">
+        <ul class="tree">
+  <li class="row">
+    <button class="row-btn">
+      <svg viewBox="0 0 24 24" width="24" height="24" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M8 7L16 7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M8 11L12 11" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M13 21.5V21C13 18.1716 13 16.7574 13.8787 15.8787C14.7574 15 16.1716 15 19 15H19.5M20 13.3431V10C20 6.22876 20 4.34315 18.8284 3.17157C17.6569 2 15.7712 2 12 2C8.22877 2 6.34315 2 5.17157 3.17157C4 4.34314 4 6.22876 4 10L4 14.5442C4 17.7892 4 19.4117 4.88607 20.5107C5.06508 20.7327 5.26731 20.9349 5.48933 21.1139C6.58831 22 8.21082 22 11.4558 22C12.1614 22 12.5141 22 12.8372 21.886C12.9044 21.8623 12.9702 21.835 13.0345 21.8043C13.3436 21.6564 13.593 21.407 14.0919 20.9081L18.8284 16.1716C19.4065 15.5935 19.6955 15.3045 19.8478 14.9369C20 14.5694 20 14.1606 20 13.3431Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+      <span style="display:flex;min-width:0;flex-direction:column">
+        <span class="trunc" style="font-weight:500">One</span>
+        <span class="muted" style="font-size:14px">Edited 2 hours ago</span>
+      </span>
+    </button>
+    <button class="row-menu" aria-label="Actions for &quot;One&quot;"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M6.00449 12.5V12M18.0045 12.5V12M12.0045 12.5V12M7.00449 12.5C7.00449 11.9477 6.55677 11.5 6.00449 11.5C5.4522 11.5 5.00449 11.9477 5.00449 12.5C5.00449 13.0523 5.4522 13.5 6.00449 13.5C6.55677 13.5 7.00449 13.0523 7.00449 12.5ZM19.0045 12.5C19.0045 11.9477 18.5568 11.5 18.0045 11.5C17.4522 11.5 17.0045 11.9477 17.0045 12.5C17.0045 13.0523 17.4522 13.5 18.0045 13.5C18.5568 13.5 19.0045 13.0523 19.0045 12.5ZM13.0045 12.5C13.0045 11.9477 12.5568 11.5 12.0045 11.5C11.4522 11.5 11.0045 11.9477 11.0045 12.5C11.0045 13.0523 11.4522 13.5 12.0045 13.5C12.5568 13.5 13.0045 13.0523 13.0045 12.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+  </li>
+        </ul>
+      </div>
+    </div>
+    <span style="font-size:12px;color:var(--muted-foreground)">At rest, hovered (ring plus a light fill, the whole row including the menu), and the menu revealed. The overflow button is opacity-0 until hover or focus — it keeps its place so the row never changes width, and stays focusable so a keyboard can reach it.</span>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:12px">
+    <div style="font-size:14px;font-weight:600">Split button — ButtonGroup + DropdownMenu</div>
+    <div class="bg-grp">
+      <button class="btn btn-primary"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12.0005L4 14.5446C4 17.7896 4 19.4122 4.88607 20.5111C5.06508 20.7331 5.26731 20.9354 5.48933 21.1144C6.58831 22.0005 8.21082 22.0005 11.4558 22.0005C12.1614 22.0005 12.5141 22.0005 12.8372 21.8865C12.9044 21.8627 12.9702 21.8355 13.0345 21.8047C13.3436 21.6569 13.593 21.4075 14.0919 20.9086L18.8284 16.172C19.4065 15.594 19.6955 15.3049 19.8478 14.9374C20 14.5699 20 14.1611 20 13.3436V10.0005C20 6.22922 20 4.34361 18.8284 3.17203C17.7693 2.11287 16.1265 2.01125 13.0345 2.0015M13 21.5005V21.0005C13 18.172 13 16.7578 13.8787 15.8791C14.7574 15.0005 16.1716 15.0005 19 15.0005H19.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M12 5.99954H4M8 1.99954V9.99954" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>New document</button>
+      <button class="btn btn-primary" aria-label="More actions" style="padding:0 8px"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M18 9.00005C18 9.00005 13.5811 15 12 15C10.4188 15 6 9 6 9" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+    </div>
+    <span style="font-size:12px;color:var(--muted-foreground)">The Files screen's one primary action. Refresh and New folder ride behind it rather than standing beside it as two more buttons.</span>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:12px">
+    <div style="font-size:14px;font-weight:600">Inline naming row — FileTreeNameRow.svelte</div>
+    <div style="max-width:520px">
+      <ul class="tree">
+  <li style="display:flex;flex-direction:column;gap:6px;padding:8px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <svg viewBox="0 0 24 24" width="24" height="24" style="flex-shrink:0;color:var(--muted-foreground)"><path d="M8 7L16 7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M8 11L12 11" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M13 21.5V21C13 18.1716 13 16.7574 13.8787 15.8787C14.7574 15 16.1716 15 19 15H19.5M20 13.3431V10C20 6.22876 20 4.34315 18.8284 3.17157C17.6569 2 15.7712 2 12 2C8.22877 2 6.34315 2 5.17157 3.17157C4 4.34314 4 6.22876 4 10L4 14.5442C4 17.7892 4 19.4117 4.88607 20.5107C5.06508 20.7327 5.26731 20.9349 5.48933 21.1139C6.58831 22 8.21082 22 11.4558 22C12.1614 22 12.5141 22 12.8372 21.886C12.9044 21.8623 12.9702 21.835 13.0345 21.8043C13.3436 21.6564 13.593 21.407 14.0919 20.9081L18.8284 16.1716C19.4065 15.5935 19.6955 15.3045 19.8478 14.9369C20 14.5694 20 14.1606 20 13.3431Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+      <div role="group" style="display:flex;height:32px;flex:1;min-width:0;align-items:center;border:1px solid var(--ring);border-radius:10px;box-shadow:0 0 0 3px color-mix(in oklch,var(--ring) 50%,transparent)">
+        <div style="display:flex;flex:1;min-width:0;align-items:center;height:32px;padding:0 6px 0 10px;font-size:14px">Chapter Three</div>
+        <div style="order:9;display:flex;align-items:center;padding:6px 8px 6px 0;font-size:14px" class="muted">.md</div>
+      </div>
+      <button class="btn btn-outline" style="height:28px;padding:0 10px;font-size:12.8px">Cancel</button>
+      <button class="btn btn-primary" style="height:28px;padding:0 10px;font-size:12.8px">Create</button>
+    </div>
+    <span class="visually-hidden" hidden>Document name</span>
+  </li>
+      </ul>
+    </div>
+    <span style="font-size:12px;color:var(--muted-foreground)">Drawn at the depth the thing will live at, so the indentation says where it is going. The extension sits in an addon because the title IS the filename.</span>
   </section>
 </div>
 </x-dc>

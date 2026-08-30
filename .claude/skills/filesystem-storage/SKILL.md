@@ -77,15 +77,23 @@ whole Documents tree stats every markdown file in it — slow enough to read as 
 Dot-entries and `node_modules` are skipped; `config.json` falls out of the `.md`
 filter, and is excluded by name from the `others` count below.
 
-A folder whose entire contents is one markdown file is **collapsed into its
-parent**: the walk lifts that document up and emits no folder row, so the shape the
-app creates for itself (`My Chapter/My Chapter.md`) reads as one row rather than a
-disclosure repeating the same name inside itself. It cascades — `Book/Chapters/One.md`
-with nothing else in either folder surfaces `One` at the root. Only the tree changes;
-the entry's `folder` still names the real directory, so `ownsFolder`, rename, delete
-and image writes all behave exactly as before. An unloaded folder is never collapsed.
-That also means a document's row is not necessarily under `findFolder(entry.folder)`,
-which is why `findDocument()` searches the tree level by level.
+A folder whose entire contents is **the one markdown file named after it** is
+**collapsed into its parent**: the walk lifts that document up and emits no folder
+row, so the shape the app creates for itself (`My Chapter/My Chapter.md`) reads as one
+row rather than a disclosure repeating the same name inside itself. `onlyDocument()`
+asks the same question `ownsItsFolder()` does, and the name check is load-bearing —
+without it the collapse cascaded, and `Book/Chapters/One.md` surfaced `One` at the root
+with both folders gone from the tree. Only the tree changes; the entry's `folder` still
+names the real directory, so `ownsFolder`, rename, delete and image writes all behave
+exactly as before. An unloaded folder is never collapsed. That also means a document's
+row is not necessarily under `findFolder(entry.folder)`, which is why `findDocument()`
+searches the tree level by level.
+
+**Every other folder the scan reached keeps its row**, whatever is in it. An empty one
+is very often one the writer just made from the Files screen — dropping it would make
+it vanish on the rescan that follows — and one holding only files the app cannot open
+is still theirs. `hasOtherEntries` is what lets that second row say "nothing we can
+open" instead of "nothing in here".
 
 `workspace.refresh()` re-walks from the root and replays the folders the user had
 opened past the cap, so a rescan never folds the tree back up. Autosave calls
@@ -109,9 +117,10 @@ unguarded — `touch()` and the refresh button must always do their work.
 A folder of `.docx` files scans to zero documents exactly like an empty one does,
 and "Nothing here yet" about somebody's work reads as if the app threw it away.
 `FolderNode.hasOtherEntries` is what separates them: true when this directory or
-one below it held something the tree is not showing — a file we cannot open, a
-folder dropped for holding no writing, a skipped directory. `config.json` is not
-counted; the app wrote it.
+one below it held something the tree is not showing — a file we cannot open, or a
+skipped directory. `config.json` is not counted; the app wrote it. It is read both
+at the root, for the screen's empty state, and per folder, for what an expanded but
+empty disclosure says.
 
 The screen's empty check is `workspace.isEmpty`, read off the **root of the tree**
 — no documents _and_ no folders — never a flat document count. A folder the depth
@@ -209,9 +218,32 @@ separators, control characters, leading dots (which would hide the folder) and
 trailing dots/spaces (which Windows drops silently, desyncing the index from
 disk), suffixes Windows reserved device names (`CON`, `LPT1`, …), caps length, and
 never returns an empty string. It owns one **segment** at a time — the path around
-it is the app's, not the user's. New documents are `Untitled`, `Untitled 2`, … by
-probing top-level folder names, and are always created as a folder-document at the
-root; the app never creates a document into a subfolder.
+it is the app's, not the user's. A new document from the editor is `Untitled`,
+`Untitled 2`, … by probing top-level folder names, and is created as a
+folder-document at the root.
+
+## Making folders and documents from the Files screen
+
+Three functions, all of which **refuse before they write** rather than working around
+a collision afterwards:
+
+- `createFolder(root, parent, name)` — sanitises the segment, refuses a name any
+  entry already holds, then creates. Deliberately **not** `ensureSubfolder`, whose
+  silent reuse is right for the welcome screen's "start a new folder" card and wrong
+  here.
+- `deleteFolder(root, path)` — `removeEntry` **without** `recursive`, which the
+  browser refuses on a directory that is not empty. That refusal is the safety, not
+  the UI gating that only offers the action on an empty folder; the flag must stay
+  off however the caller is gated. `deleteDocument` passes `recursive: true` on
+  purpose, because a folder-document's folder _is_ the document.
+- `createDocument(root, folder, title)` — named before it is made and written
+  straight away, as a **file-document** inside the chosen folder, always `.md`. It
+  goes through `writeDocument` so the file is derived by the same `toMarkdown` path
+  as every other write. `ownsFolder` is a placeholder here; the scan recomputes it.
+
+The Files screen also checks a name against the tree while it is being typed, so the
+writer sees the collision before Create is reachable. That check is a courtesy over a
+scan snapshot — the filesystem guards above are the authority.
 
 ## Images
 

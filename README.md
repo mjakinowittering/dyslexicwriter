@@ -158,30 +158,6 @@ Within each, related items sit next to each other.
       (`.github/workflows/build-and-deploy.yml`) and the full head metadata
       including the `<noscript>` prose. Add a real 1200x630 PNG under `static/`;
       the absolute URL and alt text are already correct
-- [ ] Fix the Files tree hiding intermediate folders — a chain of single-child
-      directories collapses away in full. `LinkedIn/Posts/My Claude Skills/` holding
-      one `My Claude Skills.md` shows as a `My Claude Skills` row sitting directly
-      under `LinkedIn`, and `Posts` appears nowhere at all, so the tree no longer
-      matches the folder on disk. `onlyDocument`
-      (`src/lib/fs/documents.ts:216-221`) asks only whether a node holds exactly one
-      document and no folders — still true of a folder whose one "document" was
-      itself lifted out of a subfolder a moment earlier (`walk`, `:265-268`) — so
-      each level of the chain gives way in turn. Gate it on the document actually
-      sitting in that directory (`entry.folder === node.path`), so the innermost
-      folder still collapses into its file while `Posts` keeps its row.
-    - **The cascade is asserted today, not accidental.** The test "collapses each
-      level of a chain that is one document deep"
-      (`src/tests/lib/fs/documents.svelte.test.ts:202`) expects `Book/Chapters/One.md`
-      as a single root row. It is rewritten by this fix, not kept
-    - **Decide how tight the collapse should be.** CLAUDE.md describes the folder
-      that gives way as the one you would open "to find the single file named after
-      it" — that is `ownsFolder`, and it would keep `Chapters` in the example above
-      as well. The path check alone is the smaller change; adding the name check
-      matches the written rule. Whichever wins, CLAUDE.md's Key rules and the
-      `filesystem-storage` skill have to end up saying what the code does
-    - **Display only — nothing on disk moves.** `ownsFolder` is still recomputed by
-      every scan from the real listing, so rename, delete and image writes are
-      unaffected; only which rows the Files screen draws changes
 
 ### Features
 
@@ -226,63 +202,3 @@ Within each, related items sit next to each other.
       via `@fontsource/opendyslexic` (`src/routes/layout.css:9-12`)
     - The app is a static SPA with no server, so the footer is markup and Paraglide
       copy only — nothing fetched, no analytics, no external assets
-- [ ] Add folders from the Files screen — a "New folder" button in the list's title
-      row, and an action on every folder row to create one inside it, so writing can be
-      filed into a nested tree. Nothing like it exists today: folder rows in
-      `FileTree.svelte` carry no actions at all, and the only directory the app ever
-      creates is a document's own. The filesystem half is nearly there —
-      `ensureSubfolder` (`src/lib/fs/documents.ts:658`) already creates a directory, and
-      `sanitiseTitle` (`src/lib/models/document.model.ts:55`) already handles a folder
-      segment unchanged. Naming happens inline in the tree at the depth the folder will
-      live at, so the indentation says where it is going. Drawn in
-      `design/FolderEntry.dc.html` and `design/FolderNaming.dc.html`
-    - **An empty folder vanishes on the next scan.** `worthShowing`
-      (`src/lib/fs/documents.ts:202`) keeps a loaded folder only when it holds a
-      document or another folder, and the Files screen rescans on mount and on window
-      focus — so a folder made and left empty is gone the moment the writer looks away.
-      Shipping this means teaching the scan about folders made deliberately
-    - **Touches the same rules as the Files-tree collapse bug above**, which rewrites
-      `onlyDocument` fourteen lines below `worthShowing`. Whichever lands second works
-      against the other's shape, so they are worth doing in one pass
-    - **`ensureSubfolder` reuses an existing directory** rather than refusing
-      (`create: true`), so creating "Chapters" where one already exists silently adopts
-      it. Guard the name before it reaches disk
-- [ ] Let an empty folder be deleted from the Files tree, so one made by mistake — or
-      left behind after its last document went — can be cleared without leaving the
-      app. The browser enforces the safety here rather than the UI: `removeEntry(name)`
-      without `recursive: true` is refused when the directory is not empty, unlike
-      `deleteDocument` (`src/lib/fs/documents.ts:596`) which passes `recursive: true`
-      deliberately at `:609`. The action sits on the folder row beside the add action
-      and only while the folder is empty, mirroring the rename and delete pair a
-      document row already carries. Drawn in `design/FolderDelete.dc.html`
-    - **Drawn without a confirm step**, on the grounds that nothing is lost and the
-      cost of a mistake is making the folder again. That is a deliberate departure from
-      CLAUDE.md's "confirm before any destructive filesystem operation", which is
-      written for deletes that take writing with them — decide which wins before
-      building it
-    - **Pairs with the new-folder item above**: being able to remove an empty folder is
-      what makes keeping empty folders visible in the tree tolerable, so the two answer
-      each other
-- [ ] Create a document inside a chosen folder, naming the file as it is made, rather
-      than only at the top level. "New document" today calls `doc.createNew()` and goes
-      straight to the editor (`src/routes/+page.svelte:74-77`), and the first save
-      always lands a top-level folder-document. Add the same action to every folder row,
-      using the inline naming row from the folder items with the extension on an
-      `InputGroupAddon` — always `.md`, because that is what the app creates, where an
-      opened `.mdx` keeps its own. Drawn in `design/DocumentEntry.dc.html`,
-      `design/DocumentNaming.dc.html` and `design/DocumentExists.dc.html`
-    - **This changes a written invariant.** `CLAUDE.md:221` — "New documents are always
-      created as a top-level folder-document, never into a subfolder" — so the rule
-      changes in the same commit rather than being worked around
-    - **Unlike an empty folder, the file survives.** The scan lists any `.md` regardless
-      of content, so a freshly created empty document appears in the tree and stays —
-      none of the scan work the folder items need applies here
-    - **A duplicate name has to be blocked before the write** — `files_exists_error`
-      already carries the copy
-    - **Folder rows would then carry three actions** — new document, new folder, and
-      delete once empty. `design/DocumentRowMenu.dc.html` draws the alternate: one `+`
-      per row opening a menu with both add actions, which is the version that survives
-      the next action added. Decide before the third one lands
-    - **Decide where Create leaves you** — in the editor, matching what "New document"
-      does today, or on the Files screen with the new row in place, which suits setting
-      up structure
