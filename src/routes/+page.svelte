@@ -256,7 +256,9 @@
         <p>{m.welcome_loading()}</p>
     </div>
 {:else if workspace.status === 'needs-folder' || workspace.status === 'needs-permission'}
-    <div class="mx-auto flex max-w-2xl flex-1 items-center px-6">
+    <!-- Wider than the cards need: the editor preview below them takes the extra
+         measure, and Welcome's own Empty.Content keeps the cards at `max-w-2xl`. -->
+    <div class="mx-auto flex max-w-4xl flex-1 items-center px-6">
         <!-- `pendingName` is empty in the first-run case, which is what picks
              the "start a new folder" card over "reopen". -->
         <Welcome.Root

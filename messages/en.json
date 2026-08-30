@@ -132,6 +132,8 @@
     "welcome_folder_missing": "That folder has moved or gone — choose it again",
     "welcome_loading": "Looking for your folder…",
     "welcome_permission_denied": "DyslexicWriter needs permission to use that folder",
+    "welcome_preview_prose": "The stairs to the lantern room were never meant for a person carrying anything. Twenty-two of them, each one a hand's width narrower at the inside edge, spiralling up inside a tower built for the light and not for the keeper.",
+    "welcome_preview_title": "The Lantern Room",
     "welcome_reopen_description": "Pick up where you left off. Your browser needs a quick yes.",
     "welcome_reopen_title": "Reopen “{name}”",
     "welcome_suggested_description": "We'll make a DyslexicWriter folder inside the one you pick.",

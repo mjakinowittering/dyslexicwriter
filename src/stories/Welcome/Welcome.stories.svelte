@@ -48,7 +48,9 @@
 >
     {#snippet template(args)}
         <div class="bg-background flex min-h-128 w-full items-center p-6">
-            <Welcome {...args} />
+            <div class="mx-auto w-full max-w-4xl">
+                <Welcome {...args} />
+            </div>
         </div>
     {/snippet}
 </Story>
@@ -77,7 +79,9 @@
 >
     {#snippet template(args)}
         <div class="bg-background flex min-h-128 w-full items-center p-6">
-            <Welcome {...args} />
+            <div class="mx-auto w-full max-w-4xl">
+                <Welcome {...args} />
+            </div>
         </div>
     {/snippet}
 </Story>
@@ -93,7 +97,9 @@
 >
     {#snippet template(args)}
         <div class="bg-background flex min-h-128 w-full items-center p-6">
-            <Welcome {...args} />
+            <div class="mx-auto w-full max-w-4xl">
+                <Welcome {...args} />
+            </div>
         </div>
     {/snippet}
 </Story>

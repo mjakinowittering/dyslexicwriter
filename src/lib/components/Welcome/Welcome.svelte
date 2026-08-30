@@ -11,6 +11,7 @@
     import * as m from '$lib/paraglide/messages';
 
     import WelcomeCard from './WelcomeCard.svelte';
+    import WelcomePreview from './WelcomePreview.svelte';
 
     // The screen shown before there is a working folder. Two shapes, one layout:
     //
@@ -87,4 +88,11 @@
             <p class="text-destructive text-sm">{error}</p>
         {/if}
     </Empty.Content>
+
+    <!-- A picture of the editor, so the folder is handed over knowing what it is
+         for. Sits outside Empty.Content rather than in it: the cards keep their
+         `max-w-2xl` and the window gets the wider measure the route now allows.
+         Shown in both states — a return visit waiting on permission is still a
+         screen with nothing on it saying what this app does. -->
+    <WelcomePreview />
 </Empty.Root>
