@@ -70,7 +70,12 @@ export default defineConfig(
     },
     {
         rules: {
-            'svelte/no-navigation-without-resolve': 'off',
+            // On, and it must stay on. A bare `goto('/edit')` is origin-
+            // absolute, so on GitHub Pages — served from `/dyslexicwriter/` —
+            // it walks out of the base path and lands on GitHub's own 404
+            // instead of the editor. Every internal navigation goes through
+            // `resolve()` from `$app/paths`.
+            'svelte/no-navigation-without-resolve': 'error',
             // Allow an underscore prefix to mark something deliberately unused —
             // chiefly destructuring a key out of an object to drop it, as the
             // Storybook stories do to keep `children` out of a props spread.

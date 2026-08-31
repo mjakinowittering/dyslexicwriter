@@ -8,6 +8,7 @@
         RefreshIcon
     } from '@hugeicons/core-free-icons';
     import { goto } from '$app/navigation';
+    import { resolve } from '$app/paths';
     import { onMount } from 'svelte';
 
     import * as AppHeader from '$lib/components/AppHeader';
@@ -111,11 +112,13 @@
 
     async function onCreate() {
         await doc.createNew();
-        await goto('/edit');
+        await goto(resolve('/edit'));
     }
 
     async function onOpen(entry: DocumentIndexEntry) {
-        await goto(`/edit?doc=${encodeURIComponent(documentPath(entry))}`);
+        await goto(
+            resolve(`/edit?doc=${encodeURIComponent(documentPath(entry))}`)
+        );
     }
 
     async function onRename(entry: DocumentIndexEntry) {
