@@ -1,0 +1,166 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+  <style>
+    /* src/routes/layout.css :root — verbatim */
+    :root{
+      --background:oklch(0.98 0 0);--foreground:oklch(0.145 0 0);
+      --card:oklch(0.99 0 0);--popover:oklch(0.99 0 0);
+      --primary:oklch(0.205 0 0);--primary-foreground:oklch(0.985 0 0);
+      --secondary:oklch(0.95 0 0);--muted:oklch(0.95 0 0);
+      --muted-foreground:oklch(0.53 0 0);--accent:oklch(0.92 0 0);
+      --destructive:oklch(0.53 0.225 27.325);
+      --border:oklch(0.9 0 0);--input:oklch(0.9 0 0);--ring:oklch(0.708 0 0);
+      --canvas:oklch(0.955 0 0);--sheet:oklch(0.99 0 0);
+      --sheet-shadow:0 1px 2px oklch(0.145 0 0 / 0.05),0 8px 24px oklch(0.145 0 0 / 0.06);
+    }
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;background:var(--background);color:var(--foreground);font-family:'Geist',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:16px;-webkit-font-smoothing:antialiased}
+    a{color:var(--foreground);text-decoration:underline;text-underline-offset:4px}
+    a:hover{color:var(--muted-foreground)}
+    svg{display:block;fill:none}
+    /* shadcn-svelte toggle-group, spacing=0, variant=outline — joined segments */
+    .tg{display:flex;align-items:center;border-radius:10px}
+    .tgi{height:32px;min-width:32px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--input);border-left-width:0;background:transparent;color:var(--foreground);font-size:14px;font-weight:500}
+    .tg .tgi:first-child{border-left-width:1px;border-top-left-radius:10px;border-bottom-left-radius:10px}
+    .tg .tgi:last-child{border-top-right-radius:10px;border-bottom-right-radius:10px}
+    .tgi[data-on]{background:var(--muted)}
+    .tgi[data-off]{opacity:.5}
+    /* shadcn-svelte button */
+    .btn{height:32px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid transparent;border-radius:10px;font-size:14px;font-weight:500;background:transparent;color:var(--foreground);white-space:nowrap}
+    .btn-icon{width:32px;height:32px;padding:0}
+    .btn-primary{background:var(--primary);color:var(--primary-foreground)}
+    .btn-outline{border-color:var(--border);background:var(--background)}
+    .btn-muted{background:var(--muted)}
+    /* Tailwind Typography — the app sets no custom prose colours, so these are its defaults */
+    .prose{font-size:18px;line-height:1.7778;color:#374151}
+    .prose h1{font-size:30px;font-weight:600;line-height:1.2;color:#111827;margin:0 0 24px}
+    .prose h2{font-size:24px;font-weight:600;line-height:1.3;color:#111827;margin:32px 0 16px}
+    .prose h3{font-size:20px;font-weight:600;line-height:1.4;color:#111827;margin:28px 0 12px}
+    .prose p{margin:0 0 24px}
+    .prose strong{color:#111827;font-weight:600}
+    .prose ul{margin:0 0 24px;padding-left:26px}
+    .prose li{margin:4px 0}
+    .prose blockquote{margin:24px 0;padding-left:20px;border-left:4px solid #e5e7eb;font-style:italic;color:#111827}
+    /* Read-aloud decorations — tiptap-tts-highlight.ts */
+    .tts-sentence{background-color:rgb(250 204 21 / 0.18);border-radius:0.15rem}
+    .tts-word{background-color:rgb(250 204 21 / 0.45);border-radius:0.15rem;box-shadow:0 0 0 1px rgb(202 138 4 / 0.35)}
+    /* The reading font — OpenDyslexic, self-hosted in the app; the canvas falls back */
+    .reading-font{font-family:'OpenDyslexic','Comic Sans MS',sans-serif;letter-spacing:-0.01em}
+    .reading-font .tts-sentence,.reading-font .tts-word{background-color:transparent;background-image:linear-gradient(rgb(250 204 21 / 0.18),rgb(250 204 21 / 0.18));background-position:0 0.35em;background-repeat:no-repeat;background-size:100% 1.3em;-webkit-box-decoration-break:clone;box-decoration-break:clone;box-shadow:none}
+  </style>
+</helmet>
+<div style="width:1440px;height:900px;display:flex;overflow:hidden;background:var(--background)">
+  <div style="display:flex;min-width:0;flex:1;flex-direction:column">
+
+    <!-- Header: rail + logo, then the title row above the toolbar row -->
+    <div style="display:flex;flex-shrink:0;gap:12px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;flex-shrink:0;align-items:center;justify-content:center;border-right:1px solid var(--border);padding:0 12px">
+        <button class="btn" style="width:36px;height:36px;padding:0" aria-label="Back to files">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path d="M15 6C15 6 9.00001 10.4189 9 12C8.99999 13.5812 15 18 15 18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+        </button>
+      </div>
+
+      <div style="display:flex;min-width:0;flex:1;flex-direction:column">
+        <div style="display:flex;height:56px;align-items:center;gap:8px;padding:0 12px">
+          <div style="width:100%;max-width:384px">
+            <div role="group" style="display:flex;height:32px;width:100%;min-width:0;align-items:center;border:1px solid var(--input);border-radius:10px">
+              <div style="display:flex;flex:1;min-width:0;align-items:center;height:32px;padding:0 6px 0 10px;font-size:14px;font-weight:500">The Lantern Room</div>
+              <div class="muted" style="order:9;display:flex;align-items:center;padding:6px 8px 6px 0;font-size:14px;font-weight:500">.md</div>
+            </div>
+          </div>
+          <div style="margin-left:auto">
+            <button class="btn btn-icon" aria-label="Settings">
+              <svg viewBox="0 0 24 24" width="16" height="16"><path d="M21.3175 7.14139L20.8239 6.28479C20.4506 5.63696 20.264 5.31305 19.9464 5.18388C19.6288 5.05472 19.2696 5.15664 18.5513 5.36048L17.3311 5.70418C16.8725 5.80994 16.3913 5.74994 15.9726 5.53479L15.6357 5.34042C15.2766 5.11043 15.0004 4.77133 14.8475 4.37274L14.5136 3.37536C14.294 2.71534 14.1842 2.38533 13.9228 2.19657C13.6615 2.00781 13.3143 2.00781 12.6199 2.00781H11.5051C10.8108 2.00781 10.4636 2.00781 10.2022 2.19657C9.94085 2.38533 9.83106 2.71534 9.61149 3.37536L9.27753 4.37274C9.12465 4.77133 8.84845 5.11043 8.48937 5.34042L8.15249 5.53479C7.73374 5.74994 7.25259 5.80994 6.79398 5.70418L5.57375 5.36048C4.85541 5.15664 4.49625 5.05472 4.17867 5.18388C3.86109 5.31305 3.67445 5.63696 3.30115 6.28479L2.80757 7.14139C2.45766 7.74864 2.2827 8.05227 2.31666 8.37549C2.35061 8.69871 2.58483 8.95918 3.05326 9.48012L4.0843 10.6328C4.3363 10.9518 4.51521 11.5078 4.51521 12.0077C4.51521 12.5078 4.33636 13.0636 4.08433 13.3827L3.05326 14.5354C2.58483 15.0564 2.35062 15.3168 2.31666 15.6401C2.2827 15.9633 2.45766 16.2669 2.80757 16.8741L3.30114 17.7307C3.67443 18.3785 3.86109 18.7025 4.17867 18.8316C4.49625 18.9608 4.85542 18.8589 5.57377 18.655L6.79394 18.3113C7.25263 18.2055 7.73387 18.2656 8.15267 18.4808L8.4895 18.6752C8.84851 18.9052 9.12464 19.2442 9.2775 19.6428L9.61149 20.6403C9.83106 21.3003 9.94085 21.6303 10.2022 21.8191C10.4636 22.0078 10.8108 22.0078 11.5051 22.0078H12.6199C13.3143 22.0078 13.6615 22.0078 13.9228 21.8191C14.1842 21.6303 14.294 21.3003 14.5136 20.6403L14.8476 19.6428C15.0004 19.2442 15.2765 18.9052 15.6356 18.6752L15.9724 18.4808C16.3912 18.2656 16.8724 18.2055 17.3311 18.3113L18.5513 18.655C19.2696 18.8589 19.6288 18.9608 19.9464 18.8316C20.264 18.7025 20.4506 18.3785 20.8239 17.7307L21.3175 16.8741C21.6674 16.2669 21.8423 15.9633 21.8084 15.6401C21.7744 15.3168 21.5402 15.0564 21.0718 14.5354L20.0407 13.3827C19.7887 13.0636 19.6098 12.5078 19.6098 12.0077C19.6098 11.5078 19.7888 10.9518 20.0407 10.6328L21.0718 9.48012C21.5402 8.95918 21.7744 8.69871 21.8084 8.37549C21.8423 8.05227 21.6674 7.74864 21.3175 7.14139Z" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M15.5195 12C15.5195 13.933 13.9525 15.5 12.0195 15.5C10.0865 15.5 8.51953 13.933 8.51953 12C8.51953 10.067 10.0865 8.5 12.0195 8.5C13.9525 8.5 15.5195 10.067 15.5195 12Z" stroke="currentColor" stroke-width="1.5"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;padding:0 12px 8px">
+          <div style="display:flex;flex:1;flex-direction:row;align-items:flex-start;gap:20px">
+            <div class="tg">
+              <button class="tgi" aria-label="Undo"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M3 8H15C18.3137 8 21 10.6863 21 14C21 17.3137 18.3137 20 15 20H11" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M7 4L5.8462 4.87652C3.94873 6.31801 3 7.03875 3 8C3 8.96125 3.94873 9.68199 5.8462 11.1235L7 12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+              <button class="tgi" aria-label="Redo"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M21 8H9C5.68629 8 3 10.6863 3 14C3 17.3137 5.68629 20 9 20H13" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M17 4L18.1538 4.87652C20.0513 6.31801 21 7.03875 21 8C21 8.96125 20.0513 9.68199 18.1538 11.1235L17 12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+            </div>
+            <div class="tg">
+              <button class="tgi"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 5V19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M14 5V19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M17 19H18.5M20 19H18.5M18.5 19V11L17 12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M4 12L14 12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+              <button class="tgi"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M3.5 5V19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M13.5 5V19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M20.5 19H16.5V18.6907C16.5 18.2521 16.5 18.0327 16.5865 17.8385C16.673 17.6443 16.836 17.4976 17.1621 17.2041L19.7671 14.8596C20.2336 14.4397 20.5 13.8416 20.5 13.214V13C20.5 11.8954 19.6046 11 18.5 11C17.3954 11 16.5 11.8954 16.5 13V13.4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M3.5 12L13.5 12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+              <button class="tgi"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M3.5 5V19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M13.5 5V19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M16.5 17C16.5 18.1046 17.3954 19 18.5 19C19.6046 19 20.5 18.1046 20.5 17C20.5 15.8954 19.6046 15 18.5 15C19.6046 15 20.5 14.1046 20.5 13C20.5 11.8954 19.6046 11 18.5 11C17.3954 11 16.5 11.8954 16.5 13" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M3.5 12L13.5 12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+              <button class="tgi"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M3.5 5V19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M13.5 5V19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M16.5 11V15H20.5M20.5 15V19M20.5 15V11" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M3.5 12L13.5 12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+            </div>
+            <div class="tg">
+              <button class="tgi"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M5 6C5 4.58579 5 3.87868 5.43934 3.43934C5.87868 3 6.58579 3 8 3H12.5789C15.0206 3 17 5.01472 17 7.5C17 9.98528 15.0206 12 12.5789 12H5V6Z" stroke="currentColor" fill-rule="evenodd" clip-rule="evenodd" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M12.4286 12H13.6667C16.0599 12 18 14.0147 18 16.5C18 18.9853 16.0599 21 13.6667 21H8C6.58579 21 5.87868 21 5.43934 20.5607C5 20.1213 5 19.4142 5 18V12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+              <button class="tgi"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 4H19" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M8 20L16 4" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M5 20H12" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg></button>
+            </div>
+            <div class="tg">
+              <button class="tgi"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M8 5.5L20 5.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M8 12.5L20 12.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M8 19.5L20 19.5" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M4.375 5.5H4.25M4.5 5.5C4.5 5.63807 4.38807 5.75 4.25 5.75C4.11193 5.75 4 5.63807 4 5.5C4 5.36193 4.11193 5.25 4.25 5.25C4.38807 5.25 4.5 5.36193 4.5 5.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M4.375 12.5H4.25M4.5 12.5C4.5 12.6381 4.38807 12.75 4.25 12.75C4.11193 12.75 4 12.6381 4 12.5C4 12.3619 4.11193 12.25 4.25 12.25C4.38807 12.25 4.5 12.3619 4.5 12.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M4.375 19.5H4.25M4.5 19.5C4.5 19.6381 4.38807 19.75 4.25 19.75C4.11193 19.75 4 19.6381 4 19.5C4 19.3619 4.11193 19.25 4.25 19.25C4.38807 19.25 4.5 19.3619 4.5 19.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+              <button class="tgi"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M11 6L21 6" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M11 12L21 12" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M11 18L21 18" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M3 15H4.5C4.77879 15 4.91819 15 5.03411 15.0231C5.51014 15.1177 5.88225 15.4899 5.97694 15.9659C6 16.0818 6 16.2212 6 16.5C6 16.7788 6 16.9182 5.97694 17.0341C5.88225 17.5101 5.51014 17.8823 5.03411 17.9769C4.91819 18 4.77879 18 4.5 18C4.22121 18 4.08181 18 3.96589 18.0231C3.48986 18.1177 3.11775 18.4899 3.02306 18.9659C3 19.0818 3 19.2212 3 19.5V20.4C3 20.6828 3 20.8243 3.08787 20.9121C3.17574 21 3.31716 21 3.6 21H6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M3 3H4.2C4.36569 3 4.5 3.13431 4.5 3.3V9M4.5 9H3M4.5 9H6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+            </div>
+            <div class="tg">
+              <button class="tgi"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 6L17 6" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M9 12L19 12" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M9 18L17 18" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M5 3L5 21" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+              <button class="tgi"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M20 12L4 12" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+            </div>
+            <div class="tg">
+              <button class="tgi"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M3.89124 20.1088C2.5 18.7175 2.5 16.4783 2.5 12C2.5 7.52166 2.5 5.28249 3.89124 3.89124C5.28249 2.5 7.52166 2.5 12 2.5C16.4783 2.5 18.7175 2.5 20.1088 3.89124C21.5 5.28249 21.5 7.52166 21.5 12C21.5 16.4783 21.5 18.7175 20.1088 20.1088C18.7175 21.5 16.4783 21.5 12 21.5C7.52166 21.5 5.28249 21.5 3.89124 20.1088Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M2.5 9L21.5 9" stroke="currentColor" stroke-width="1.5"/><path d="M2.5 13L21.5 13" stroke="currentColor" stroke-width="1.5"/><path d="M2.5 17L21.5 17" stroke="currentColor" stroke-width="1.5"/><path d="M12 21.5L12 9" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg></button>
+              <button class="tgi"><svg viewBox="0 0 24 24" width="16" height="16"><circle cx="7.5" cy="7.5" r="1.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M2.5 12C2.5 7.52166 2.5 5.28249 3.89124 3.89124C5.28249 2.5 7.52166 2.5 12 2.5C16.4783 2.5 18.7175 2.5 20.1088 3.89124C21.5 5.28249 21.5 7.52166 21.5 12C21.5 16.4783 21.5 18.7175 20.1088 20.1088C18.7175 21.5 16.4783 21.5 12 21.5C7.52166 21.5 5.28249 21.5 3.89124 20.1088C2.5 18.7175 2.5 16.4783 2.5 12Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 21C9.37246 15.775 14.2741 8.88406 21.4975 13.5424" stroke="currentColor" stroke-width="1.5"/></svg></button>
+            </div>
+          </div>
+
+          <div style="margin-left:auto">
+            <div class="tg">
+              <button class="tgi" data-off><svg viewBox="0 0 24 24" width="16" height="16"><path d="M8.06492 12.6258C8.31931 13.8374 9.67295 14.7077 12.3802 16.4481C15.3247 18.3411 16.797 19.2876 17.9895 18.9229C18.3934 18.7994 18.7654 18.5823 19.0777 18.2876C20 17.4178 20 15.6118 20 12C20 8.38816 20 6.58224 19.0777 5.71235C18.7654 5.41773 18.3934 5.20057 17.9895 5.07707C16.797 4.71243 15.3247 5.6589 12.3802 7.55186C9.67295 9.29233 8.31931 10.1626 8.06492 11.3742C7.97836 11.7865 7.97836 12.2135 8.06492 12.6258Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M4 4L4 20" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg></button>
+              <button class="tgi"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 12C4 8.72077 4 7.08116 4.81382 5.91891C5.1149 5.48891 5.48891 5.1149 5.91891 4.81382C7.08116 4 8.72077 4 12 4C15.2792 4 16.9188 4 18.0811 4.81382C18.5111 5.1149 18.8851 5.48891 19.1862 5.91891C20 7.08116 20 8.72077 20 12C20 15.2792 20 16.9188 19.1862 18.0811C18.8851 18.5111 18.5111 18.8851 18.0811 19.1862C16.9188 20 15.2792 20 12 20C8.72077 20 7.08116 20 5.91891 19.1862C5.48891 18.8851 5.1149 18.5111 4.81382 18.0811C4 16.9188 4 15.2792 4 12Z" stroke="currentColor" stroke-width="1.5"/></svg></button>
+              <button class="tgi"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M18.8906 12.846C18.5371 14.189 16.8667 15.138 13.5257 17.0361C10.296 18.8709 8.6812 19.7884 7.37983 19.4196C6.8418 19.2671 6.35159 18.9776 5.95624 18.5787C5 17.6139 5 15.7426 5 12C5 8.2574 5 6.3861 5.95624 5.42132C6.35159 5.02245 6.8418 4.73288 7.37983 4.58042C8.6812 4.21165 10.296 5.12907 13.5257 6.96393C16.8667 8.86197 18.5371 9.811 18.8906 11.154C19.0365 11.7084 19.0365 12.2916 18.8906 12.846Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+              <button class="tgi" data-off><svg viewBox="0 0 24 24" width="16" height="16"><path d="M15.9351 12.6258C15.6807 13.8374 14.327 14.7077 11.6198 16.4481C8.67528 18.3411 7.20303 19.2876 6.01052 18.9229C5.60662 18.7994 5.23463 18.5823 4.92227 18.2876C4 17.4178 4 15.6118 4 12C4 8.38816 4 6.58224 4.92227 5.71235C5.23463 5.41773 5.60662 5.20057 6.01052 5.07707C7.20304 4.71243 8.67528 5.6589 11.6198 7.55186C14.327 9.29233 15.6807 10.1626 15.9351 11.3742C16.0216 11.7865 16.0216 12.2135 15.9351 12.6258Z" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/><path d="M20 5V19" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg></button>
+              <button class="tgi"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M13 4L3 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M11 19L3 19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M21 19L17 19" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M21 11.5L11 11.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M21 4L19 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M5 11.5L3 11.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M14.5 2C14.9659 2 15.1989 2 15.3827 2.07612C15.6277 2.17761 15.8224 2.37229 15.9239 2.61732C16 2.80109 16 3.03406 16 3.5L16 4.5C16 4.96594 16 5.19891 15.9239 5.38268C15.8224 5.62771 15.6277 5.82239 15.3827 5.92388C15.1989 6 14.9659 6 14.5 6C14.0341 6 13.8011 6 13.6173 5.92388C13.3723 5.82239 13.1776 5.62771 13.0761 5.38268C13 5.19891 13 4.96594 13 4.5L13 3.5C13 3.03406 13 2.80109 13.0761 2.61732C13.1776 2.37229 13.3723 2.17761 13.6173 2.07612C13.8011 2 14.0341 2 14.5 2Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M12.5 17C12.9659 17 13.1989 17 13.3827 17.0761C13.6277 17.1776 13.8224 17.3723 13.9239 17.6173C14 17.8011 14 18.0341 14 18.5L14 19.5C14 19.9659 14 20.1989 13.9239 20.3827C13.8224 20.6277 13.6277 20.8224 13.3827 20.9239C13.1989 21 12.9659 21 12.5 21C12.0341 21 11.8011 21 11.6173 20.9239C11.3723 20.8224 11.1776 20.6277 11.0761 20.3827C11 20.1989 11 19.9659 11 19.5L11 18.5C11 18.0341 11 17.8011 11.0761 17.6173C11.1776 17.3723 11.3723 17.1776 11.6173 17.0761C11.8011 17 12.0341 17 12.5 17Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M9.5 9.5C9.96594 9.5 10.1989 9.5 10.3827 9.57612C10.6277 9.67761 10.8224 9.87229 10.9239 10.1173C11 10.3011 11 10.5341 11 11L11 12C11 12.4659 11 12.6989 10.9239 12.8827C10.8224 13.1277 10.6277 13.3224 10.3827 13.4239C10.1989 13.5 9.96594 13.5 9.5 13.5C9.03406 13.5 8.80109 13.5 8.61732 13.4239C8.37229 13.3224 8.17761 13.1277 8.07612 12.8827C8 12.6989 8 12.4659 8 12L8 11C8 10.5341 8 10.3011 8.07612 10.1173C8.17761 9.87229 8.37229 9.67761 8.61732 9.57612C8.80109 9.5 9.03406 9.5 9.5 9.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Canvas (the well) → track (the gutter) → sheet (the paper) -->
+    <div style="flex:1;width:100%;overflow:hidden;background:var(--canvas)">
+      <div style="display:flex;min-height:100%;width:100%;flex-direction:column;padding:56px 64px">
+        <div style="margin:0 auto;display:flex;width:100%;max-width:966px;flex:1;flex-direction:column;border:1px solid var(--border);border-radius:14px;background:var(--sheet);box-shadow:var(--sheet-shadow);padding:115px">
+          <div class="prose">
+            <h1>The Lantern Room</h1>
+            <p>The stairs to the lantern room were never meant for a person carrying anything. Twenty-two of them, each one a hand's width narrower at the inside edge, spiralling up inside a tower built for the light and not for the keeper.</p>
+            <p>Ada went up sideways, the way her father had taught her, with the paraffin can held out over the drop and her free hand flat against the cold curve of the wall.</p>
+            <h2>Second Tuesday</h2>
+            <p>The log book lived on the shelf under the window, and every entry in it was four words long.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status bar: spans the content column only -->
+    <footer style="display:flex;height:36px;flex-shrink:0;align-items:center;gap:16px;border-top:1px solid var(--border);padding:0 16px;font-size:14px;color:var(--muted-foreground)">
+      <div style="display:flex;flex-direction:row;align-items:center;gap:8px">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path d="M19 17.1429C19 18.6464 19 19.3982 18.6504 19.9471C18.468 20.2333 18.2227 20.4753 17.9325 20.6551C17.3761 21 16.6139 21 15.0895 21H9.19861C6.61368 21 5.32121 21 5.04567 20.2653C4.77014 19.5306 5.75145 18.701 7.71408 17.0417L11.6568 13.7083C12.5958 12.9144 13.0654 12.5174 13.0654 12C13.0654 11.4826 12.5958 11.0856 11.6568 10.2917L7.71408 6.95833C5.75145 5.29902 4.77014 4.46937 5.04567 3.73469C5.32121 3 6.61368 3 9.19861 3H15.0895C16.6139 3 17.3761 3 17.9325 3.34487C18.2227 3.52471 18.468 3.76672 18.6504 4.05293C19 4.60179 19 5.35357 19 6.85714" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+        <span>Words 1,284</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path d="M2 8C2 8 6.47715 3 12 3C17.5228 3 22 8 22 8" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M21.544 13.045C21.848 13.4713 22 13.6845 22 14C22 14.3155 21.848 14.5287 21.544 14.955C20.1779 16.8706 16.6892 21 12 21C7.31078 21 3.8221 16.8706 2.45604 14.955C2.15201 14.5287 2 14.3155 2 14C2 13.6845 2.15201 13.4713 2.45604 13.045C3.8221 11.1294 7.31078 7 12 7C16.6892 7 20.1779 11.1294 21.544 13.045Z" stroke="currentColor" stroke-width="1.5"/><path d="M15 14C15 12.3431 13.6569 11 12 11C10.3431 11 9 12.3431 9 14C9 15.6569 10.3431 17 12 17C13.6569 17 15 15.6569 15 14Z" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span>Read in 6 minutes</span>
+      </div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+        <div style="display:flex;align-items:center;gap:8px;color:var(--foreground)">
+          <svg viewBox="0 0 24 24" width="12" height="12"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5"/></svg>
+          <span>Unsaved changes</span>
+        </div>
+        <span>Saved 4 minutes ago</span>
+      </div>
+    </footer>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -23,7 +23,11 @@ const preview: Preview = {
             // 'todo' - show a11y violations in the test UI only
             // 'error' - fail CI on a11y violations
             // 'off' - skip a11y checks entirely
-            test: 'todo'
+            //
+            // Enforcing. Both themes are scanned — see the paired storybook
+            // projects in vite.config.ts — so a contrast defect in either palette
+            // fails the run rather than sitting quietly in the Storybook UI.
+            test: 'error'
         }
     }
 };

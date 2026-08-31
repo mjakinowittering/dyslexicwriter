@@ -1,12 +1,13 @@
 <script lang="ts" module>
     import { defineMeta } from '@storybook/addon-svelte-csf';
-    import { expect, fn, userEvent } from 'storybook/test';
+    import { expect, fn, userEvent, waitFor } from 'storybook/test';
     import { SvelteSet } from 'svelte/reactivity';
 
+    import type { FileTreeActions } from '$lib/components/FileTree';
     import FileTree from '$lib/components/FileTree/FileTree.svelte';
 
     import type { FolderNode } from '$lib/fs';
-    import type { DocumentIndexEntry } from '$lib/models/config.model';
+    import type { DocumentIndexEntry } from '$lib/models/document.model';
 
     const { Story } = defineMeta({
         title: 'FileTree/FileTree',
@@ -16,9 +17,10 @@
             node: { control: false },
             isExpanded: { control: false },
             onToggle: { control: false },
-            onOpen: { control: false },
-            onRename: { control: false },
-            onDelete: { control: false }
+            actions: { control: false },
+            naming: { control: false },
+            onNamingSubmit: { control: false },
+            onNamingCancel: { control: false }
         },
         parameters: {
             layout: 'fullscreen',
@@ -58,6 +60,7 @@
             folders: [],
             documents: [],
             loaded: true,
+            hasOtherEntries: false,
             ...contents
         };
     }
@@ -86,11 +89,20 @@
         documents: [doc('My Chapter', 'My Chapter', true), doc('notes', '')]
     });
 
+    const actions: FileTreeActions = {
+        open: fn(),
+        rename: fn(),
+        delete: fn(),
+        newDocument: fn(),
+        newFolder: fn(),
+        deleteFolder: fn()
+    };
+
     const handlers = {
-        onOpen: fn(),
-        onRename: fn(),
-        onDelete: fn(),
-        onToggle: fn()
+        actions,
+        onToggle: fn(),
+        onNamingSubmit: fn(),
+        onNamingCancel: fn()
     };
 </script>
 
@@ -113,10 +125,19 @@
             canvas.queryByRole('button', { name: /^My Chapter$/ })
         ).not.toBeInTheDocument();
 
-        // A folder the scan never reached announces itself as closed.
+        // A folder the scan never reached announces itself as closed. Matched
+        // exactly: every folder row also carries a menu button naming it.
         await expect(
-            canvas.getByRole('button', { name: /Archive/ })
+            canvas.getByRole('button', { name: /^Archive$/ })
         ).toHaveAttribute('aria-expanded', 'false');
+
+        // Both kinds of row hang their actions off the same overflow menu.
+        await expect(
+            canvas.getByRole('button', { name: 'Actions for "Archive"' })
+        ).toBeInTheDocument();
+        await expect(
+            canvas.getByRole('button', { name: 'Actions for "notes"' })
+        ).toBeInTheDocument();
     }}
 >
     {#snippet template(args)}
@@ -133,7 +154,7 @@
         // Nothing below a closed folder is in the DOM at all.
         await expect(canvas.queryByText('One')).not.toBeInTheDocument();
 
-        await userEvent.click(canvas.getByRole('button', { name: /Book/ }));
+        await userEvent.click(canvas.getByRole('button', { name: /^Book$/ }));
         await expect(handlers.onToggle).toHaveBeenCalled();
     }}
 >
@@ -148,10 +169,16 @@
     name="Interactive"
     args={{ node: tree, ...handlers }}
     play={async ({ canvas }) => {
-        await userEvent.click(canvas.getByRole('button', { name: /Archive/ }));
         // An expanded folder with nothing in it says so rather than showing a
         // blank gap.
         await expect(canvas.getByText('Nothing in here')).toBeInTheDocument();
+
+        // Driven by the story's own state, a folder shuts and opens again.
+        const archive = canvas.getByRole('button', { name: /^Archive$/ });
+        await userEvent.click(archive);
+        await expect(archive).toHaveAttribute('aria-expanded', 'false');
+        await userEvent.click(archive);
+        await expect(archive).toHaveAttribute('aria-expanded', 'true');
     }}
 >
     {#snippet template(args)}
@@ -165,6 +192,72 @@
                     else collapsed.add(node.path);
                 }}
             />
+        </div>
+    {/snippet}
+</Story>
+
+<!-- The tree indents by exactly one icon column per level, so every row's first
+     icon sits under the folder icon of the folder holding it. Worth a story of
+     its own: it is the kind of thing that drifts a few pixels at a time and is
+     only ever obvious side by side. -->
+<Story
+    name="Alignment"
+    args={{
+        node: folder('Writing', '', {
+            folders: [
+                folder('Book', 'Book', {
+                    folders: [
+                        folder('Chapters', 'Book/Chapters', {
+                            documents: [doc('One', 'Book/Chapters')]
+                        })
+                    ],
+                    documents: [doc('Outline', 'Book')]
+                })
+            ],
+            documents: [doc('notes', '')]
+        }),
+        isExpanded: () => true,
+        ...handlers
+    }}
+    play={async ({ canvas }) => {
+        // Every level is open, so all four rows are on screen at once.
+        await expect(canvas.getByText('Chapters')).toBeInTheDocument();
+        await expect(canvas.getByText('One')).toBeInTheDocument();
+        await expect(canvas.getByText('Outline')).toBeInTheDocument();
+    }}
+>
+    {#snippet template(args)}
+        <div class="bg-background w-full max-w-3xl p-6">
+            <FileTree {...args} />
+        </div>
+    {/snippet}
+</Story>
+
+<!-- The row menu is revealed by hover OR by focus, and only the second can be
+     tested here: `userEvent.hover` dispatches pointer events but never moves a
+     real pointer, so CSS :hover does not engage. Focus does, and it is the path
+     that matters most anyway — a control a keyboard cannot reach is a control
+     that is not there. The hover rule mirrors this one exactly. -->
+<Story
+    name="Revealed On Focus"
+    args={{ node: tree, isExpanded: () => true, ...handlers }}
+    play={async ({ canvas }) => {
+        const menu = canvas.getByRole('button', {
+            name: 'Actions for "notes"'
+        });
+
+        // Drawn but transparent to begin with. It keeps its place in the layout
+        // so the row never changes width, and stays in the accessibility tree so
+        // it can be tabbed to at all.
+        await expect(getComputedStyle(menu).opacity).toBe('0');
+
+        menu.focus();
+        await waitFor(() => expect(getComputedStyle(menu).opacity).toBe('1'));
+    }}
+>
+    {#snippet template(args)}
+        <div class="bg-background w-full max-w-3xl p-6">
+            <FileTree {...args} />
         </div>
     {/snippet}
 </Story>

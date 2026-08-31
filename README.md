@@ -18,8 +18,7 @@ way to work on it, not a place it gets locked up.
 - **A plain Files screen** — list your documents, create, open, rename, delete.
 - **Word count and reading time** — always visible in the status bar, never in the way.
 - **Two typefaces** — a standard sans-serif, or OpenDyslexic.
-- **Two themes** — a warm light/sepia (not stark white) and a soft muted dark (not
-  bright-on-black).
+- **Two themes** — a neutral light (a hair off stark white) and a neutral dark.
 
 ## How your documents are stored
 
@@ -27,7 +26,7 @@ You pick one working folder the first time you open the app. Inside it:
 
 ```
 my-writing/                  <- the folder you chose
-├── config.json              <- all your preferences + the document index
+├── config.json              <- all your preferences, and nothing else
 ├── My Chapter/
 │   ├── My Chapter.md        <- the document itself
 │   └── diagram.png          <- images live beside the document that uses them
@@ -40,10 +39,14 @@ you've dropped in. Images are written as real files and referenced with relative
 (`![alt](diagram.png)`) — never embedded as base64 — so a document folder is
 self-contained and can be moved, zipped or shared as a unit.
 
-`config.json` holds **every** preference (theme, font, read-aloud voice and speed) as
-well as the document index. Because it lives in your folder rather than in browser
-storage, moving that folder to another machine or browser brings your settings and your
-Files screen with it.
+`config.json` holds **every** preference (theme, font, read-aloud voice and speed) and
+nothing else. Because it lives in your folder rather than in browser storage, moving
+that folder to another machine or browser brings your settings along with your writing.
+
+Your list of documents is not stored anywhere. The app reads it from the folder each
+time it needs it — when you open the app, when you come back to the Files screen, and
+when you switch back to the tab — so a file you add, rename or delete outside the app
+shows up as soon as you look.
 
 The browser's IndexedDB is used for exactly one thing: remembering the handle to your
 chosen folder so you don't have to re-pick it on every visit. No document content and
@@ -146,96 +149,33 @@ Within each, related items sit next to each other.
       `min-width` in `layout.css`, plus the ProseMirror table internals — `.tableWrapper`
       (horizontal overflow) and `.selectedCell` (cell-selection tint). Column resizing is
       off by design, so `.column-resize-handle` is not needed
+- [ ] Ship a real `og:image`. `static/og-image.png` is a 0-byte placeholder, but
+      `src/app.html:36` and `:52` already point at it and declare it 1200x630, so
+      every link preview of the deployed site resolves to an empty image. The rest
+      of the GitHub Pages work is done: the `404.html` fallback
+      (`svelte.config.js:21`), `static/.nojekyll`, the base path from `BASE_PATH`
+      via `actions/configure-pages`, the deploy workflow
+      (`.github/workflows/build-and-deploy.yml`) and the full head metadata
+      including the `<noscript>` prose. Add a real 1200x630 PNG under `static/`;
+      the absolute URL and alt text are already correct
 
 ### Features
 
 - [ ] Read-aloud: karaoke-style auto-scroll to keep the spoken word in view as playback
       advances (the sentence highlight is in place; scrolling to follow it is not)
-- [ ] Improve the welcome / first-run experience — replace the single "choose folder"
-      button with two large graphical cards, both of which open the directory picker:
-    - **Suggested** — ends up at `Documents/DyslexicWriter`. The picker cannot be
-      pointed at a path, so this opens with `startIn: 'documents'` and then creates
-      the folder inside whatever the user picks, via
-      `getDirectoryHandle('DyslexicWriter', { create: true })`. Say plainly on the
-      card where the writing will end up
-    - **Choose your own** — the same picker, no subfolder created. It cannot start at
-      the home directory: Chromium refuses the home folder, Downloads and system
-      directories outright (see the existing `welcome_folder_hint` copy), so start at
-      Documents or Desktop
-    - Returning visits already work — `workspace.restore()` reads the stored handle
-      from IndexedDB (a directory handle has no string form, so it can never be
-      localStorage) and falls back to the welcome screen. What's missing is the middle
-      case: when `queryPermission` is not yet `granted`, restore drops silently to
-      first-run. Instead remember the folder's name and offer a "Reopen <name>" card,
-      which supplies the user gesture `requestPermission` needs. Chromium's "allow on
-      every visit" grant makes this silent thereafter
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
-- [ ] Deploy to GitHub Pages as a static SPA, and add the site-level SEO /
-      OpenGraph metadata that goes with it. The build shape is already right —
-      `adapter-static` is configured (`svelte.config.js:17`) and the app is
-      client-only (`ssr = false`, `prerender = false`, `+layout.ts`). What is
-      missing is everything Pages specifically needs, plus every meta tag beyond
-      `charset` / `viewport` / `text-scale` (`src/app.html`). SSR is not the answer
-      and is not coming back: with no server tier the tags are static in
-      `app.html`, which the SPA fallback then serves on every route.
-    - **`fallback: 'index.html'` breaks deep links on Pages.** Pages has no SPA
-      rewrite — it serves `404.html` for any path that is not a real file, so
-      reloading `/edit` would 404. Change the fallback to `404.html`, which makes
-      Pages hand the SPA to every unknown path
-    - **Add `static/.nojekyll`.** Pages runs Jekyll by default, which strips
-      directories beginning with an underscore — that is SvelteKit's entire
-      `_app/` bundle. Without the file the deployed site loads nothing
-    - **The base path is `/dyslexicwriter`.** This is settled: the repo is now
-      `mjakinowittering/dyslexicwriter` and `package.json` already declares the
-      matching `homepage`. A project site serves from
-      `https://<user>.github.io/<repo>/`, so `kit.paths.base` has to be set and
-      every asset URL routed through it — a user site or a custom domain would
-      serve from `/` and need none of it. CLAUDE.md rules out environment
-      configuration, so the base belongs in `svelte.config.js` as a literal, not
-      a build flag
-    - **There is no `.github/workflows/` at all** — add a deploy job on `master`
-      using `actions/upload-pages-artifact` + `actions/deploy-pages` over `build/`
-    - **The metadata is site-level, not per-route.** The public surface is one
-      screen, the welcome page; `/edit` only ever shows the user's own local
-      documents, so there is nothing per-document to describe and no dynamic
-      OpenGraph to generate. Put `description`, `og:*`, `twitter:*`, `theme-color`
-      and a canonical URL directly in `app.html`, and add a static preview image
-      under `static/` — the favicon is a bundled asset
-      (`$lib/assets/favicon.svg`, content-hashed at build) and cannot serve as an
-      `og:image`, which needs a stable absolute URL. These tags sit outside the
-      Svelte tree, so they stay literal rather than going through Paraglide
-    - **Know the limit of a JS-only shell.** With `ssr = false` the served HTML
-      body is empty. Google executes JS and will see the app, but many crawlers
-      and LLM fetchers do not and read the head alone. If that matters, the fix is
-      a little real prose in `app.html` — a `<noscript>` block describing the app —
-      not reinstating SSR
-    - `static/robots.txt` already allows everything. A `sitemap.xml` is only worth
-      adding once the base path decision produces a stable public URL
-- [ ] Settle the last Storybook a11y failure, then enforce the checks.
-      `@storybook/addon-a11y` is wired (`.storybook/main.ts`) but still runs as
-      `test: 'todo'` (`.storybook/preview.ts:26`), so violations surface in the
-      Storybook UI and never fail a run. The editor and the speed slider now
-      have accessible names, which leaves exactly **one** failing story out of
-      95 — everything else passes under `'error'` today.
-    - **The canvas reads as a keyboard-inaccessible scroll region**
-      (`scrollable-region-focusable`, the Page `Long document` story).
-      `Page.svelte:56` scrolls on overflow and is neither focusable nor
-      guaranteed to hold focusable content. Confirmed **not** a product defect:
-      `Page` is only ever used as `Page.Root` wrapping
-      `Page.Editor` (`edit/+page.svelte:166`), whose contenteditable is
-      focusable and satisfies the rule. The story is the artifact — it renders
-      the sheet around static prose. Either disable that one rule for that one
-      story (`parameters.a11y.config.rules`, verified to work) or give the story
-      focusable content; do not change the component
-    - **Only the dark theme is ever scanned.** `withThemeByClassName` sets
-      `defaultTheme: 'dark'` (`.storybook/preview.ts:10`) and the test run takes
-      the default global, so no story is axe-checked in the warm light theme and
-      every light-theme contrast defect is invisible. Worth deciding whether
-      enforcement should cover both themes before the flag is flipped
-    - **Nothing checks the routes.** `/` and `/edit` have no stories, so
-      landmarks, heading order and the focus path across rail → title → toolbar
-      → editor → settings are outside the addon's reach entirely. Out of scope
-      here; noted so the green run isn't read as more than it is
-    - **Then flip `test: 'todo'` to `test: 'error'`** so the suite holds the
-      line. Doing that before the canvas story is settled only leaves the run red
+- [ ] Give the welcome and Files screens a shared footer, for licence information,
+      a link back to GitHub and a short note from the author — contents still to be
+      decided. The shared header now exists (`src/lib/components/AppHeader/`,
+      rendered above every state of `/`), so the footer is the other half of that
+      chrome and should sit as its sibling in `src/routes/+page.svelte`. The
+      repository and homepage URLs are already in `package.json:7-11`, so the
+      GitHub link can read from those rather than hardcode a string.
+    - **There is no licence to point at yet.** No `LICENSE` file, no `license` field
+      in `package.json` (it is `private: true`) and no `## License` section in this
+      README, so a licence has to be chosen before the footer can name one — for the
+      app itself and for what ships inside it, starting with OpenDyslexic, bundled
+      via `@fontsource/opendyslexic` (`src/routes/layout.css:9-12`)
+    - The app is a static SPA with no server, so the footer is markup and Paraglide
+      copy only — nothing fetched, no analytics, no external assets

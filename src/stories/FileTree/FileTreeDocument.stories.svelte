@@ -2,6 +2,7 @@
     import { defineMeta } from '@storybook/addon-svelte-csf';
     import { expect, fn, userEvent } from 'storybook/test';
 
+    import type { FileTreeActions } from '$lib/components/FileTree';
     import FileTreeDocument from '$lib/components/FileTree/FileTreeDocument.svelte';
 
     const { Story } = defineMeta({
@@ -10,22 +11,27 @@
         tags: ['autodocs'],
         argTypes: {
             entry: { control: false },
-            onOpen: { control: false },
-            onRename: { control: false },
-            onDelete: { control: false }
+            actions: { control: false }
         },
         parameters: {
             layout: 'fullscreen',
             docs: {
                 description: {
                     component:
-                        'One document row in the Files tree: the title and when it was last edited, with rename and delete beside them. The whole title block opens the document.'
+                        'One document row in the Files tree: the title and when it was last edited, with rename and delete in the row menu. The whole title block opens the document.'
                 }
             }
         }
     });
 
-    const handlers = { onOpen: fn(), onRename: fn(), onDelete: fn() };
+    const actions: FileTreeActions = {
+        open: fn(),
+        rename: fn(),
+        delete: fn(),
+        newDocument: fn(),
+        newFolder: fn(),
+        deleteFolder: fn()
+    };
 
     const entry = {
         title: 'My Chapter',
@@ -38,12 +44,13 @@
 
 <Story
     name="Default"
-    args={{ entry, ...handlers }}
+    args={{ entry, actions }}
     play={async ({ canvas }) => {
+        // Matched exactly: the row's menu button names the document too.
         await userEvent.click(
-            canvas.getByRole('button', { name: /My Chapter/ })
+            canvas.getByRole('button', { name: /^My Chapter/ })
         );
-        await expect(handlers.onOpen).toHaveBeenCalledWith(entry);
+        await expect(actions.open).toHaveBeenCalledWith(entry);
     }}
 >
     {#snippet template(args)}
@@ -63,14 +70,14 @@
             ownsFolder: false,
             lastModified: Date.now() - 86_400_000
         },
-        ...handlers
+        actions
     }}
     play={async ({ canvas }) => {
         // A markdown file the app found rather than created reads exactly the
         // same; what differs is what rename and delete do to it.
         await expect(canvas.getByText('notes')).toBeInTheDocument();
         await expect(
-            canvas.getByRole('button', { name: 'Delete' })
+            canvas.getByRole('button', { name: 'Actions for "notes"' })
         ).toBeInTheDocument();
     }}
 >

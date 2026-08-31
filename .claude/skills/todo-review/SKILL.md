@@ -15,6 +15,12 @@ That structure is the skill's responsibility to maintain. Every mode below leave
 two subsections intact and the grouping still true — a list that drifts back into one
 undifferentiated pile stops being worth reading.
 
+**Only planning branches.** A branch belongs to work that was planned and approved —
+Step 3a, and there only, as its first step after approval. **Add** and **prune** edit
+`README.md` on whatever branch is checked out and leave the change uncommitted for the
+user: a one-file edit to the backlog is not work in flight, and a branch per todo item
+leaves a trail of stubs behind.
+
 ## Step 1 — read the list
 
 Read `README.md` and take the `## Todo` section only.
@@ -153,6 +159,24 @@ If plan mode's verification drops a stale item and that makes the name wrong, em
 corrected `/rename` line at that point rather than leaving a name for work that is no
 longer in the plan.
 
+**Name the branch.** The work never lands on `develop` directly. `branch-and-commit`
+owns the naming, the prefix and the `git switch` lines; it is loaded twice over a run of
+this skill — **once when the plan is approved, to cut the branch, and once when the
+change is finished, to stage and commit it**. Neither load is optional and neither
+covers for the other.
+
+Naming happens here, while planning. Two things are this skill's to supply:
+
+- The **prefix comes from the subsection** the item sits under — `bug/` for one under
+  **Bugs**, `feature/` for one under **Features**. The heading decides it, not the
+  phrasing; a mixed selection takes `feature/`
+- **One branch per plan**, however many items it covers — name what they share, as the
+  session name does
+
+Name it here, state it in the plan so it is approved along with the work, and create it
+as the plan's **first step** once approved — plan mode changes nothing on disk, branches
+included.
+
 **Call `EnterPlanMode`.** Then:
 
 1. **Verify each item against the code.** Todos go stale — line numbers drift, files get
@@ -175,6 +199,8 @@ Keep each item traceable: a reader should be able to see which steps satisfy whi
 
 It should cover, briefly:
 
+- **a first step that opens the branch**: `git switch develop && git switch -c <name>`,
+  with the branch name written out in the plan so it is approved along with the work
 - what changes, in behaviour terms — what the user will see afterwards
 - the files touched and roughly what happens in each
 - the CLAUDE.md invariants that constrain it (the markdown round-trip's
@@ -196,6 +222,12 @@ It should cover, briefly:
 
 Then `ExitPlanMode` for approval.
 
+**Once the plan is approved — load `branch-and-commit` (1 of 2) and cut the branch.**
+This is the first thing that happens after approval, before a single file is edited.
+Plan mode changed nothing on disk, so the branch named in the plan does not exist yet;
+`git switch develop && git switch -c <name>`, under that skill's rules. Only then start
+the work.
+
 **Closing the loop.** When the approved plan is carried out, that last step is part of
 the work, not an optional extra: once the change is done and verified, delete each
 completed item's lines (its continuations and sub-bullets with it) and run prettier over
@@ -207,6 +239,16 @@ and still beside its relatives: fixing the broken half of a bug can leave a rema
 that is really a feature, and it should move rather than sit under **Bugs** describing
 work that isn't one. Report the removals alongside the change so the list and the code
 never disagree.
+
+**Stage, and suggest the commit — load `branch-and-commit` (2 of 2).** Last of all, once
+the change is verified, the README items are removed and `npm run check` / `npm test` /
+`npm run lint` pass. That skill owns the staging, the subject line and the bulleted
+body; load it again rather than working from memory of the first load.
+
+The one thing this skill adds is the closing line naming the item the work came from —
+`Closes the "Improve the welcome / first-run experience" todo.` — so the log and the
+Todo list can be read against each other later. A partly-finished item commits what
+actually landed, and names no item it did not finish.
 
 ## Step 3b — Add an item
 
@@ -246,6 +288,12 @@ decisions, in order:
 Placing an item may show that an existing one is really its neighbour two groups away.
 Moving that one too is fine and often right, but it is an edit the user didn't ask for —
 propose it, don't fold it in silently.
+
+**No branch, no commit.** Edit `README.md` where you stand. Don't load
+`branch-and-commit`, don't `git switch -c`, don't stage or commit — being on `develop`
+is fine here. This is the user's own backlog note and they commit it when it suits them.
+The rule holds however substantial the item turns out to be: one citing a dozen files is
+still a single edit to a single markdown file.
 
 **Formatting.** Prettier owns `README.md` at `printWidth: 80`. Continuation lines sit at
 six spaces, sub-bullets at four — a sub-bullet indented six will be swallowed into the
@@ -307,6 +355,9 @@ Redundancy is judged **within** a subsection, not across the boundary. A bug and
 feature can describe the same area without either being redundant: "make images display"
 (a bug) and a hypothetical image-caption feature both touch the image node and neither
 covers the other. Only merge two items when one genuinely subsumes the other's work.
+
+**No branch, no commit** — as in Step 3b. Pruning edits `README.md` in place on the
+current branch and stops there; the user commits.
 
 Once confirmed, delete the confirmed items' lines in full (continuations and sub-bullets
 with them) — leaving every unconfirmed candidate exactly as it was — then run

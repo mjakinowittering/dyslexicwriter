@@ -77,8 +77,13 @@ export default defineConfig({
                     ]
                 }
             },
-            {
-                extends: true,
+            // Every story, run twice — once per theme. The a11y addon is enforcing
+            // (`test: 'error'` in .storybook/preview.ts), and axe only ever sees the
+            // colours the run happens to render in, so a single project would leave
+            // every light-theme contrast defect invisible. The two are identical but
+            // for the setup file that pins the theme global.
+            ...(['light', 'dark'] as const).map((theme) => ({
+                extends: true as const,
                 plugins: [
                     // The plugin will run tests for the stories defined in your Storybook config
                     // See options at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon#storybooktest
@@ -87,19 +92,20 @@ export default defineConfig({
                     })
                 ],
                 test: {
-                    name: 'storybook',
+                    name: `storybook-${theme}`,
+                    setupFiles: [`./.storybook/vitest.setup.${theme}.ts`],
                     browser: {
                         enabled: true,
                         headless: true,
                         provider: playwright({}),
                         instances: [
                             {
-                                browser: 'chromium'
+                                browser: 'chromium' as const
                             }
                         ]
                     }
                 }
-            }
+            }))
         ]
     }
 });

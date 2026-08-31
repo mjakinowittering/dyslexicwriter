@@ -17,3 +17,6 @@ bun.lockb
 # stays linted.
 /project.inlang/.meta.json
 /project.inlang/README.md
+
+# Claude Design
+/design

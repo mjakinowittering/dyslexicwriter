@@ -119,6 +119,39 @@ export function titleFromFileName(file: string): string {
         : file;
 }
 
+// The other half of a file name: `.md` from `My Chapter.md`, so the editor's
+// title field can show the extension it actually has rather than assume one.
+// A leading dot is the whole name and not an extension (`.gitignore`), and a
+// name with no dot at all has none — both give ''.
+export function extensionFromFileName(file: string): string {
+    const dot = file.lastIndexOf('.');
+    return dot > 0 ? file.slice(dot) : '';
+}
+
+// One document as the Files screen knows it: where it lives, which of the two
+// kinds it is, and when it last changed.
+//
+// A plain interface rather than a Valibot schema, because this is never read from
+// disk. Every entry is built by `scanFolder` from a real file handle, so there is
+// no untrusted input to validate — the folder itself is the only source there has
+// ever been for this list.
+export interface DocumentIndexEntry {
+    // Display title: the markdown file's basename, without the extension.
+    title: string;
+    // The containing directory as a '/'-joined path relative to the working
+    // folder. '' is the working folder itself, where a loose `notes.md` lives.
+    folder: string;
+    // File name within that folder, including the .md extension.
+    file: string;
+    // True when this document owns its folder — the `My Chapter/My Chapter.md`
+    // shape the app creates, where renaming moves the folder and deleting removes
+    // it whole. False for a markdown file the app merely found sitting among
+    // others. Recomputed by every scan.
+    ownsFolder: boolean;
+    // Epoch milliseconds, shown against each document on the Files screen.
+    lastModified: number;
+}
+
 // "Untitled", then "Untitled 2", "Untitled 3", … skipping names already taken.
 // `taken` is the set of folder names currently in the working directory.
 export function nextUntitledName(taken: ReadonlySet<string>): string {

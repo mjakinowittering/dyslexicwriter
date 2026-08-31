@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     documentPath,
+    extensionFromFileName,
     fileNameFor,
     joinPath,
     lastSegment,
@@ -131,5 +132,18 @@ describe('path helpers', () => {
         expect(titleFromFileName('My Chapter.md')).toBe('My Chapter');
         // A name with no extension is left as it is rather than truncated.
         expect(titleFromFileName('README')).toBe('README');
+    });
+
+    it.each([
+        ['an ordinary markdown file', 'My Chapter.md', '.md'],
+        ['a longer extension', 'notes.markdown', '.markdown'],
+        // Only the last dot counts, so a title with its own dots keeps them.
+        ['a name with several dots', 'Chapter 1.2 draft.md', '.md'],
+        ['a name with no extension', 'README', ''],
+        // A leading dot is the whole name, not an extension.
+        ['a dotfile', '.gitignore', ''],
+        ['an empty name', '', '']
+    ])('reads the extension of %s', (_label, file, expected) => {
+        expect(extensionFromFileName(file)).toBe(expected);
     });
 });

@@ -6,32 +6,39 @@
     } from '@hugeicons/core-free-icons';
 
     import Icon from '$lib/components/Icon/Icon.svelte';
-    import Button from '$lib/components/ui/button/button.svelte';
+    import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 
-    import type { DocumentIndexEntry } from '$lib/models/config.model';
+    import type { DocumentIndexEntry } from '$lib/models/document.model';
     import * as m from '$lib/paraglide/messages';
     import { relativeTime } from '$lib/utils/relative-time';
 
+    import type { FileTreeActions } from './actions';
+    import FileTreeRowMenu from './FileTreeRowMenu.svelte';
+
     // One document row in the Files tree: the title and when it was last edited,
-    // with rename and delete beside them. The whole title block is the open
+    // with rename and delete in the row's menu. The whole title block is the open
     // control, so the target is as large as the row allows.
+    //
+    // No leading spacer before the file icon. The tree indents by exactly one
+    // icon column, so with nothing in front of it this icon lands under the
+    // folder icon of the folder holding it — see FileTree.svelte.
     let {
         entry,
-        onOpen,
-        onRename,
-        onDelete
+        actions
     }: {
         entry: DocumentIndexEntry;
-        onOpen: (entry: DocumentIndexEntry) => void;
-        onRename: (entry: DocumentIndexEntry) => void;
-        onDelete: (entry: DocumentIndexEntry) => void;
+        actions: FileTreeActions;
     } = $props();
 </script>
 
-<li class="flex items-center gap-2">
+<!-- The hover surface is the row itself, menu included — the same treatment the
+     folder rows carry, so the two kinds read as one list. -->
+<li
+    class="group/row hover:bg-muted/40 hover:ring-border focus-within:bg-muted/40 focus-within:ring-border flex items-center gap-2 rounded-md ring-1 ring-transparent"
+>
     <button
-        class="hover:bg-muted/60 flex min-w-0 flex-1 items-center gap-2 rounded-md p-2 text-left"
-        onclick={() => onOpen(entry)}
+        class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 p-2 text-left"
+        onclick={() => actions.open(entry)}
         type="button"
     >
         <Icon class="text-muted-foreground shrink-0" icon={File01Icon} />
@@ -43,20 +50,14 @@
         </span>
     </button>
 
-    <Button
-        aria-label={m.files_rename()}
-        onclick={() => onRename(entry)}
-        size="icon"
-        variant="ghost"
-    >
-        <Icon icon={PencilEdit01Icon} />
-    </Button>
-    <Button
-        aria-label={m.files_delete()}
-        onclick={() => onDelete(entry)}
-        size="icon"
-        variant="ghost"
-    >
-        <Icon icon={Delete02Icon} />
-    </Button>
+    <FileTreeRowMenu label={m.files_document_menu({ title: entry.title })}>
+        <DropdownMenu.Item onSelect={() => actions.rename(entry)}>
+            <Icon icon={PencilEdit01Icon} />
+            {m.files_rename()}
+        </DropdownMenu.Item>
+        <DropdownMenu.Item onSelect={() => actions.delete(entry)}>
+            <Icon icon={Delete02Icon} />
+            {m.files_delete()}
+        </DropdownMenu.Item>
+    </FileTreeRowMenu>
 </li>

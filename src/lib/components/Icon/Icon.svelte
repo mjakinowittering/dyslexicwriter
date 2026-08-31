@@ -16,4 +16,11 @@
     }: ComponentProps<typeof HugeiconsIcon> = $props();
 </script>
 
-<HugeiconsIcon {icon} aria-hidden="true" {...rest} class={className} />
+<!-- Keyed on the icon data because Hugeicons draws the glyph imperatively: it
+     builds the <svg>'s children from whatever `icon` it was handed on mount and
+     never looks at that prop again, so a glyph that swaps with state — the
+     Files tree's disclosure arrow — would keep drawing the one it started with.
+     The key remounts it on a real change, and does nothing on any other update. -->
+{#key icon}
+    <HugeiconsIcon {icon} aria-hidden="true" {...rest} class={className} />
+{/key}
