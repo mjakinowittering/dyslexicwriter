@@ -165,29 +165,6 @@ Within each, related items sit next to each other.
       advances (the sentence highlight is in place; scrolling to follow it is not)
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
-- [ ] Show a preview of the editor on the welcome screen, below the two cards, so it
-      is obvious what the app does before a folder is picked. Nothing like it exists
-      today: `Welcome.svelte` ends at the folder hint and the error line
-      (`src/lib/components/Welcome/Welcome.svelte:84-88`), and the route wraps the
-      whole screen in `max-w-2xl` (`src/routes/+page.svelte:94`), which a preview
-      would need widening past. Dress it as a small macOS-style window — rounded
-      corners and a title bar with traffic lights, not a full browser with a URL bar
-      and tabs. What sits inside is a **static mock** of the toolbar, the sheet and
-      the status bar, not a live TipTap instance: a real editor here would be a
-      second document with nowhere to save it.
-    - **The traffic lights are a colour problem.** Theme colours are CSS variables
-      in `src/routes/layout.css` and components never hardcode one, but red/amber/
-      green are not theme colours and have no token. Decide whether they earn three
-      new tokens or count as functional colour, the way the read-aloud highlight
-      does
-    - **Decorative, so keep it out of the a11y tree** — `aria-hidden` on the window
-      chrome and nothing focusable inside it; a fake close button that takes a tab
-      stop is worse than no preview at all. Storybook enforces a11y in both themes,
-      and the story belongs in `src/stories/Welcome/`
-    - **Scope: the welcome screen only** — not a tour, not an animation reel. Any
-      motion is native Svelte off `$lib/config/motion.ts` and all copy goes through
-      Paraglide. Overlaps the palette item above: whichever lands second authors its
-      window chrome against the palette that landed first
 - [ ] Give the welcome and Files screens a shared footer, for licence information,
       a link back to GitHub and a short note from the author — contents still to be
       decided. The shared header now exists (`src/lib/components/AppHeader/`,

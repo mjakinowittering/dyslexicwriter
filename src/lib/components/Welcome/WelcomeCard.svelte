@@ -30,7 +30,7 @@
 
 <Button
     class={cn(
-        'h-auto w-full flex-col items-start gap-2 p-5 text-left whitespace-normal',
+        'h-auto w-full flex-col items-start gap-2 p-5 text-left whitespace-normal hover:cursor-pointer',
         className
     )}
     {onclick}

@@ -55,6 +55,27 @@
     // a second would leave the first stranded mid-name.
     let naming = $state<FileTree.FileTreeNaming | null>(null);
 
+    // One of this screen's own filesystem operations is part-way through. A
+    // rename writes the new name and removes the old one a moment later, so a
+    // scan landing between the two walks a folder mid-change and fails on an
+    // entry that has just gone — reporting a folder that has moved when nothing
+    // has. `window.prompt` makes that the normal case rather than a rare one:
+    // dismissing it hands focus back to the window, which is what fires the
+    // rescan below, right as the rename starts.
+    let mutating = $state(false);
+
+    // Run a filesystem operation with the automatic rescans held off until it is
+    // finished. Every one of them ends in a refresh of its own, so nothing is
+    // missed by standing down while it works.
+    async function mutate(work: () => Promise<void>): Promise<void> {
+        mutating = true;
+        try {
+            await work();
+        } finally {
+            mutating = false;
+        }
+    }
+
     // Be honest about which delete this is: a document that owns its folder takes
     // the folder and its images with it, a markdown file sitting among the user's
     // own files takes only itself.
@@ -83,7 +104,8 @@
     // fire in bursts — a focus event can land on top of a mount — and a second
     // walk of the same tree would only repeat the first one's work.
     async function rescan() {
-        if (workspace.status !== 'ready' || workspace.scanning) return;
+        if (workspace.status !== 'ready' || workspace.scanning || mutating)
+            return;
         await workspace.refresh();
     }
 
@@ -103,10 +125,12 @@
         );
         if (next === null) return;
 
-        await doc.open(documentPath(entry));
-        await doc.rename(next);
-        await doc.close();
-        await workspace.refresh();
+        await mutate(async () => {
+            await doc.open(documentPath(entry));
+            await doc.rename(next);
+            await doc.close();
+            await workspace.refresh();
+        });
     }
 
     // Removing something from the user's disk, with no trash to recover it from.
@@ -117,10 +141,13 @@
 
     async function confirmDelete() {
         const entry = deleteTarget;
-        if (!entry || !workspace.root) return;
+        const root = workspace.root;
+        if (!entry || !root) return;
 
-        await deleteDocument(workspace.root, entry);
-        await workspace.refresh();
+        await mutate(async () => {
+            await deleteDocument(root, entry);
+            await workspace.refresh();
+        });
     }
 
     // Open the naming row inside a folder, expanding it first so the row is
@@ -146,26 +173,30 @@
 
         naming = null;
 
-        try {
-            if (target.kind === 'folder') {
-                await createFolder(root, target.parent, name);
-            } else {
-                // Deliberately no goto: the writer has already typed the name,
-                // and is more often than not setting up structure — a folder and
-                // three chapters in it — rather than about to start writing.
-                await createDocument(root, target.parent, name);
+        await mutate(async () => {
+            try {
+                if (target.kind === 'folder') {
+                    await createFolder(root, target.parent, name);
+                } else {
+                    // Deliberately no goto: the writer has already typed the
+                    // name, and is more often than not setting up structure — a
+                    // folder and three chapters in it — rather than about to
+                    // start writing.
+                    await createDocument(root, target.parent, name);
+                }
+            } catch (cause) {
+                // Thrown from a handler nobody awaits, so it has to land
+                // somewhere the writer can see it rather than in an unhandled
+                // rejection.
+                workspace.error =
+                    cause instanceof DocumentError
+                        ? cause.message
+                        : m.files_read_error();
+                return;
             }
-        } catch (cause) {
-            // Thrown from a handler nobody awaits, so it has to land somewhere
-            // the writer can see it rather than in an unhandled rejection.
-            workspace.error =
-                cause instanceof DocumentError
-                    ? cause.message
-                    : m.files_read_error();
-            return;
-        }
 
-        await workspace.refresh();
+            await workspace.refresh();
+        });
     }
 
     // Only ever offered for a folder the scan found empty. The browser is what
@@ -179,19 +210,22 @@
 
     async function confirmDeleteFolder() {
         const node = folderDeleteTarget;
-        if (!node || !workspace.root) return;
+        const root = workspace.root;
+        if (!node || !root) return;
 
-        try {
-            await deleteFolder(workspace.root, node.path);
-        } catch (cause) {
-            workspace.error =
-                cause instanceof DocumentError
-                    ? cause.message
-                    : m.files_read_error();
-            return;
-        }
+        await mutate(async () => {
+            try {
+                await deleteFolder(root, node.path);
+            } catch (cause) {
+                workspace.error =
+                    cause instanceof DocumentError
+                        ? cause.message
+                        : m.files_read_error();
+                return;
+            }
 
-        await workspace.refresh();
+            await workspace.refresh();
+        });
     }
 
     const treeActions: FileTree.FileTreeActions = {
@@ -256,13 +290,16 @@
         <p>{m.welcome_loading()}</p>
     </div>
 {:else if workspace.status === 'needs-folder' || workspace.status === 'needs-permission'}
-    <div class="mx-auto flex max-w-2xl flex-1 items-center px-6">
+    <!-- Wider than the cards need: the editor preview below them takes the extra
+         measure, and Welcome's own Empty.Content keeps the cards at `max-w-2xl`. -->
+    <div class="mx-auto flex min-h-0 w-full flex-1 px-6 md:max-w-5xl">
         <!-- `pendingName` is empty in the first-run case, which is what picks
              the "start a new folder" card over "reopen". -->
         <Welcome.Root
             error={workspace.error}
             folderName={workspace.pendingName}
             onChoose={() => workspace.chooseFolder()}
+            onDismissError={() => (workspace.error = '')}
             onReopen={() => workspace.reopen()}
             onSuggested={() =>
                 workspace.chooseFolder({ subfolder: SUGGESTED_FOLDER_NAME })}

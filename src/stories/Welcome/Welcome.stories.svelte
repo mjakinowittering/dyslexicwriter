@@ -1,6 +1,6 @@
 <script lang="ts" module>
     import { defineMeta } from '@storybook/addon-svelte-csf';
-    import { expect, fn, userEvent } from 'storybook/test';
+    import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
 
     import Welcome from '$lib/components/Welcome/Welcome.svelte';
 
@@ -13,12 +13,14 @@
         args: {
             onSuggested: fn(),
             onChoose: fn(),
-            onReopen: fn()
+            onReopen: fn(),
+            onDismissError: fn()
         },
         argTypes: {
             onSuggested: { control: false },
             onChoose: { control: false },
-            onReopen: { control: false }
+            onReopen: { control: false },
+            onDismissError: { control: false }
         },
         parameters: {
             layout: 'fullscreen',
@@ -30,6 +32,13 @@
             }
         }
     });
+</script>
+
+<script lang="ts">
+    // The error dialog is controlled by the `error` prop, so dismissing it is
+    // the owner clearing that prop — which here is the story rather than the
+    // route. A literal arg would leave the dialog unable to close.
+    let blockedError = $state<string>(m.welcome_folder_blocked());
 </script>
 
 <Story
@@ -48,7 +57,9 @@
 >
     {#snippet template(args)}
         <div class="bg-background flex min-h-128 w-full items-center p-6">
-            <Welcome {...args} />
+            <div class="mx-auto w-full max-w-4xl">
+                <Welcome {...args} />
+            </div>
         </div>
     {/snippet}
 </Story>
@@ -77,23 +88,49 @@
 >
     {#snippet template(args)}
         <div class="bg-background flex min-h-128 w-full items-center p-6">
-            <Welcome {...args} />
+            <div class="mx-auto w-full max-w-4xl">
+                <Welcome {...args} />
+            </div>
         </div>
     {/snippet}
 </Story>
 
+<!-- A refused folder interrupts rather than sitting under the cards. The dialog
+     is portaled to <body>, so it is queried through `screen`, not the canvas. -->
 <Story
-    args={{ error: m.welcome_folder_blocked() }}
     name="With error"
-    play={async ({ canvas }) => {
+    play={async ({ args, canvas }) => {
+        const dialog = await screen.findByRole('alertdialog');
+        await expect(dialog).toHaveTextContent(m.welcome_error_title());
+        await expect(dialog).toHaveTextContent(m.welcome_folder_blocked());
+
+        // Dismissing hands the error back to its owner to clear, and leaves the
+        // screen behind usable — the point is that the user goes straight back
+        // to picking a folder.
+        await userEvent.click(
+            screen.getByRole('button', { name: m.welcome_error_dismiss() })
+        );
+        await expect(args.onDismissError).toHaveBeenCalled();
+        await waitFor(() =>
+            expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+        );
         await expect(
-            canvas.getByText(m.welcome_folder_blocked())
+            canvas.getByRole('button', { name: /Choose your own/ })
         ).toBeInTheDocument();
     }}
 >
     {#snippet template(args)}
         <div class="bg-background flex min-h-128 w-full items-center p-6">
-            <Welcome {...args} />
+            <div class="mx-auto w-full max-w-4xl">
+                <Welcome
+                    {...args}
+                    error={blockedError}
+                    onDismissError={() => {
+                        blockedError = '';
+                        args.onDismissError();
+                    }}
+                />
+            </div>
         </div>
     {/snippet}
 </Story>

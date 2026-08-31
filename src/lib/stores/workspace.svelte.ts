@@ -207,13 +207,15 @@ class WorkspaceStore implements PreferenceStore {
                 return;
             }
 
-            // The browser refuses some locations outright — the Downloads
-            // folder, the home folder itself, and system directories — because
-            // handing a web page all of one of those leaks far more than a user
-            // expects. Chrome usually blocks these inside its own picker dialog
-            // ("this folder contains system files"), but it can also surface as
-            // a SecurityError here. Either way the user needs to know it is the
-            // folder that is the problem, not the app.
+            // The browser refuses some locations outright — Documents, the
+            // Downloads folder, the home folder itself, and system directories
+            // — because handing a web page all of one of those leaks far more
+            // than a user expects. Chrome blocks these in its own dialog and
+            // then reopens the picker, so that refusal never reaches us at all
+            // and the eventual rejection is an indistinguishable AbortError;
+            // `welcome_folder_hint` says so up front for that reason. It can
+            // still surface as a SecurityError here, and then the user needs to
+            // know it is the folder that is the problem, not the app.
             this.error =
                 cause instanceof DOMException && cause.name === 'SecurityError'
                     ? m.welcome_folder_blocked()
@@ -307,11 +309,20 @@ class WorkspaceStore implements PreferenceStore {
             const tree = await scanFolder(this.root);
             await this.#replayOpened(tree);
             this.tree = tree;
+            this.#clearReadError();
         } catch {
             this.error = m.files_read_error();
         } finally {
             this.scanning = false;
         }
+    }
+
+    // The folder read fine, so a message saying it did not is no longer true —
+    // and nothing else was ever going to take it off the screen. Only that one
+    // message is cleared: another operation's failure is not this one's to
+    // dismiss on its behalf.
+    #clearReadError(): void {
+        if (this.error === m.files_read_error()) this.error = '';
     }
 
     // Is this folder showing its contents? A folder the depth cap stopped at has
@@ -340,6 +351,7 @@ class WorkspaceStore implements PreferenceStore {
             node.hasOtherEntries = loaded.hasOtherEntries;
             this.#opened.add(node.path);
             this.collapsed.delete(node.path);
+            this.#clearReadError();
         } catch {
             this.error = m.files_read_error();
         }

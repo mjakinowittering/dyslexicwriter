@@ -303,6 +303,65 @@ describe('scanFolder', () => {
 // screen has to tell them apart: one is empty, the other is full of the user's
 // work in formats this app cannot open. Saying "nothing here yet" about the
 // second reads as if the app threw it away.
+describe('scanFolder — a folder that changes under it', () => {
+    // The folder is live. The app's own rename removes the old name a moment
+    // after writing the new one, and the Files screen rescans on window focus —
+    // which `window.prompt` hands back the instant the rename starts. A scan that
+    // failed whole for one vanished entry told the writer their folder had moved
+    // when it had not.
+    it('drops a file removed mid-walk rather than failing the scan', async () => {
+        for (let i = 0; i < 30; i += 1) {
+            await writeRaw('', `doc-${i}.md`, 'x'.repeat(500));
+        }
+
+        // Started, then interrupted after the listing and before the files are
+        // read — the window the rename lands in.
+        const scan = scanFolder(root);
+        await Promise.resolve();
+        await root.removeEntry('doc-15.md');
+
+        const found = (await scan).documents.map(documentPath);
+
+        expect(found).not.toContain('doc-15.md');
+        expect(found).toHaveLength(29);
+    });
+
+    it('drops a folder removed mid-walk rather than failing the scan', async () => {
+        for (let i = 0; i < 30; i += 1) {
+            await writeRaw(`folder-${i}`, 'chapter.md', 'x'.repeat(500));
+        }
+
+        const scan = scanFolder(root);
+        await Promise.resolve();
+        await root.removeEntry('folder-15', { recursive: true });
+
+        const tree = await scan;
+
+        expect(folderNamed(tree, 'folder-15')).toBeUndefined();
+        expect(tree.folders).toHaveLength(29);
+    });
+
+    it('renaming a file-document under a scan leaves the scan standing', async () => {
+        for (let i = 0; i < 30; i += 1) {
+            await writeRaw('Shared', `doc-${i}.md`, 'x'.repeat(500));
+        }
+
+        const scan = scanFolder(root);
+        const renamed = renameDocument(
+            root,
+            fileDoc('Shared', 'doc-15.md'),
+            'Renamed'
+        );
+
+        await expect(scan).resolves.toBeDefined();
+        await renamed;
+
+        // And the scan that follows the rename — the one the screen renders from
+        // — sees the new name.
+        expect(await paths()).toContain('Shared/Renamed.md');
+    });
+});
+
 describe('scanFolder — hasOtherEntries', () => {
     it('is false for a genuinely empty folder', async () => {
         expect((await scanFolder(root)).hasOtherEntries).toBe(false);

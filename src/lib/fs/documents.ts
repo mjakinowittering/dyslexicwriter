@@ -151,17 +151,44 @@ function ownsItsFolder(
     );
 }
 
+// Did this fail because the thing we were reading is no longer there?
+//
+// The folder is live, and a listing is only ever a snapshot: an entry it saw can
+// be gone by the time we stat it. This app's own rename is one cause — it writes
+// the new name and removes the old one a moment later — and the writer's other
+// tools (a file manager, a sync client) are under no obligation to hold still
+// either. A scan that failed whole for one vanished entry told the writer their
+// folder had moved when it had not, so a missing entry drops out of this pass and
+// the next scan tells the truth.
+//
+// Narrow on purpose. Every other failure — a permission we no longer have, most
+// of all — still fails the scan, because that one really does need saying.
+function isMissingEntry(cause: unknown): boolean {
+    return cause instanceof DOMException && cause.name === 'NotFoundError';
+}
+
+// Null when the file vanished between the listing and this read — see
+// `isMissingEntry`. The caller drops it from the folder's documents.
 async function toIndexEntry(
     handle: FileSystemFileHandle,
     folder: string,
     listing: DirectoryListing
-): Promise<DocumentIndexEntry> {
+): Promise<DocumentIndexEntry | null> {
+    let lastModified: number;
+
+    try {
+        lastModified = (await handle.getFile()).lastModified;
+    } catch (cause) {
+        if (isMissingEntry(cause)) return null;
+        throw cause;
+    }
+
     return {
         title: titleFromFileName(handle.name),
         folder,
         file: handle.name,
         ownsFolder: ownsItsFolder(folder, handle.name, listing),
-        lastModified: (await handle.getFile()).lastModified
+        lastModified
     };
 }
 
@@ -235,9 +262,13 @@ async function walk(
 ): Promise<FolderNode> {
     const listing = await listDirectory(dir);
 
-    const documents = await Promise.all(
-        listing.markdown.map((handle) => toIndexEntry(handle, path, listing))
-    );
+    const documents = (
+        await Promise.all(
+            listing.markdown.map((handle) =>
+                toIndexEntry(handle, path, listing)
+            )
+        )
+    ).filter((entry) => entry !== null);
 
     const folders: FolderNode[] = [];
     // Anything here the tree will not be showing: files we cannot open, and — as
@@ -254,19 +285,29 @@ async function walk(
 
         const childPath = joinPath(path, child.name);
 
-        const node =
-            depth > 0
-                ? await walk(child, childPath, depth - 1)
-                : {
-                      name: child.name,
-                      path: childPath,
-                      folders: [],
-                      documents: [],
-                      loaded: false,
-                      // Nothing has been looked at, so nothing is known to be
-                      // unshowable. The folder itself is shown either way.
-                      hasOtherEntries: false
-                  };
+        let node: FolderNode;
+
+        if (depth > 0) {
+            try {
+                node = await walk(child, childPath, depth - 1);
+            } catch (cause) {
+                // Removed while we were walking towards it — a folder-document's
+                // rename does exactly this. Nothing to show, and nothing wrong.
+                if (isMissingEntry(cause)) continue;
+                throw cause;
+            }
+        } else {
+            node = {
+                name: child.name,
+                path: childPath,
+                folders: [],
+                documents: [],
+                loaded: false,
+                // Nothing has been looked at, so nothing is known to be
+                // unshowable. The folder itself is shown either way.
+                hasOtherEntries: false
+            };
+        }
 
         if (node.hasOtherEntries) hasOtherEntries = true;
 
