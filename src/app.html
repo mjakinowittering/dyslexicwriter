@@ -52,17 +52,14 @@
             content="https://mjakinowittering.github.io/dyslexicwriter/og-image.png"
         />
 
-        <!-- The two `--background` values from src/routes/layout.css. -->
-        <meta
-            name="theme-color"
-            media="(prefers-color-scheme: light)"
-            content="#f8f8f8"
-        />
-        <meta
-            name="theme-color"
-            media="(prefers-color-scheme: dark)"
-            content="#0a0a0a"
-        />
+        <!--
+            The dark `--background` from src/routes/layout.css, matching the app's
+            default mode. One tag, and no `media` query: the mode is a preference
+            in the user's config.json rather than the OS's, so mode-watcher
+            rewrites this `content` to match whichever theme is actually showing
+            (see the `themeColors` prop in src/routes/+layout.svelte).
+        -->
+        <meta name="theme-color" content="#0a0a0a" />
 
         <link
             rel="canonical"
