@@ -27,6 +27,13 @@ describe('defaults.json', () => {
         expect(defaultConfig().font).toBe('dyslexic');
     });
 
+    // A bright page is the complaint the app exists to answer, so dark is where
+    // a first run starts — matching `defaultMode` on <ModeWatcher>, which is what
+    // the app shows before a folder's config.json has had its say.
+    it('ships dark as the default theme', () => {
+        expect(defaultConfig().theme).toBe('dark');
+    });
+
     // version is structural, owned by the code — a default for it has no meaning
     // and must not creep into the file.
     it('holds preferences only', () => {

@@ -15,10 +15,14 @@ way to work on it, not a place it gets locked up.
   you, with the current sentence highlighted as it goes, so you can catch by ear the
   mistakes your eye slides past. Transport controls for play/pause, stop, and skipping
   a sentence back or forward. Voice and speed are yours to set.
+- **Plain markdown files** — every document is saved as a real `.md` file on your own
+  disk, not in a proprietary format or a database. Open it in any other editor, put it
+  in version control, back it up, email it, move to a different app entirely — your
+  writing is yours and it goes wherever you do.
 - **A plain Files screen** — list your documents, create, open, rename, delete.
 - **Word count and reading time** — always visible in the status bar, never in the way.
 - **Two typefaces** — a standard sans-serif, or OpenDyslexic.
-- **Two themes** — a neutral light (a hair off stark white) and a neutral dark.
+- **Two themes** — a neutral dark by default, or a neutral light (a hair off stark white).
 
 ## How your documents are stored
 

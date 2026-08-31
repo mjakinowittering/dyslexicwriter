@@ -1,6 +1,7 @@
 <script lang="ts">
     import type { Editor as TipTapEditor } from '@tiptap/core';
     import { goto } from '$app/navigation';
+    import { resolve } from '$app/paths';
     import { page } from '$app/state';
     import { onDestroy, onMount } from 'svelte';
 
@@ -42,7 +43,7 @@
 
     onMount(async () => {
         if (!isFileSystemAccessSupported()) {
-            await goto('/');
+            await goto(resolve('/'));
             return;
         }
 
@@ -52,7 +53,7 @@
 
         if (workspace.status === 'loading') await workspace.restore();
         if (workspace.status !== 'ready') {
-            await goto('/');
+            await goto(resolve('/'));
             return;
         }
 
@@ -86,7 +87,7 @@
 
     async function onBack() {
         await doc.flush();
-        await goto('/');
+        await goto(resolve('/'));
     }
 
     function persistTtsPreferences(prefs: TtsPreferences) {
