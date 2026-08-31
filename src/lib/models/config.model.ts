@@ -58,7 +58,7 @@ export type Config = v.InferOutput<typeof configSchema>;
 // other, so a typo in it must not propagate into a fresh `config.json` — these
 // in-code values mirror the shipped ones and take over per key when it does.
 const FALLBACK_PREFERENCES: Preferences = {
-    theme: 'light',
+    theme: 'dark',
     font: 'dyslexic',
     tts: { voiceUri: null, rate: TTS_DEFAULT_RATE }
 };
