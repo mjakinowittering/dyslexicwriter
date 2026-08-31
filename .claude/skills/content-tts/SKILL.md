@@ -28,6 +28,9 @@ dyslexia aid), not on-canvas chrome — do not strip them under the "keep the ed
 | `Editor/Toolbar/ToolbarSkipBack.svelte`      | Previous-sentence button (`speech.skipBack()`); gated on `speech.canSkipBack`.                                                                                                                                                                                                                                                                                          |
 | `Editor/Toolbar/ToolbarSkipForward.svelte`   | Next-sentence button (`speech.skipForward()`); gated on `speech.canSkipForward`.                                                                                                                                                                                                                                                                                        |
 | `Editor/Toolbar/ToolbarVoiceSettings.svelte` | Popover: voice `Select` + speed `Slider` + reset; calls a `persist` prop (debounced).                                                                                                                                                                                                                                                                                   |
+| `$lib/tts/scroll-geometry.ts`                | **Pure, unit-tested.** Where the canvas should scroll to keep the spoken text inside the comfort band, or `null` to leave it alone (`followScrollTarget`, `BAND_TOP`, `BAND_BOTTOM`, `ANCHOR`).                                                                                                                                                                         |
+| `$lib/tts/scroll-follower.svelte.ts`         | `ScrollFollower` — resolves the canvas from the view, turns a `Range` into content coordinates, and drives a `ScrollAnimator`. Owned privately by `SpeechController`.                                                                                                                                                                                                   |
+| `Editor/Page/PageBackToTop.svelte`           | The floating button `Page` shows mid-read; stops the read and glides the canvas home.                                                                                                                                                                                                                                                                                   |
 
 Registration: `TtsHighlightExtension` is added to the editor's extension array in
 `Editor/Page/PageEditor.svelte`; the buttons live in the top `Toolbar.Group` in
@@ -149,6 +152,35 @@ The wiring is two call sites, both in `routes/edit/+page.svelte`:
 - **Voices are device-specific.** A saved `voiceUri` is resolved by identity at runtime
   (`pickDefaultVoice` fallback when absent). "Reset to defaults" clears `voiceUri` + restores rate.
 
-## Not built (future)
+## Following the voice down the page
 
-- Karaoke-style auto-scroll to keep the spoken word in view (tracked in the README `## Todo`).
+Playback scrolls the editor canvas to keep the spoken text in view, and offers a way back
+when it is done.
+
+- **One seam, the same one the highlight uses.** `#applyHighlight` calls
+  `follower.follow(view, word ?? sentence)` after `setTtsHighlight`, so `onstart`, `#seek`
+  and `#onBoundary` are all covered by that single call. The word is the finer target where
+  the engine reports one; the sentence is what every platform gets — the same graceful
+  degradation as the highlight itself.
+- **A comfort band, not a fixed anchor.** `followScrollTarget` (pure, in
+  `scroll-geometry.ts`) scrolls only when the target falls outside roughly the top
+  15%–70% of the canvas, and then brings it to ~30% down. A document that already fits on
+  one screen never moves, and a sentence taller than the band anchors its top **once**
+  rather than asking for the same scroll on every word.
+- **Scrolling is done to the DOM, never through a transaction.** No `tr.scrollIntoView()`
+  — that rides the selection and would reach the dirty signal.
+- **Motion is a `Tween`**, via the shared `ScrollAnimator`
+  (`$lib/utils/scroll-animator.svelte.ts`) at `followScrollDuration` — not
+  `scrollTo({ behavior: 'smooth' })`, which is state-driven motion the project doesn't
+  hand-roll. Reduced motion jumps instead. The animator holds an `$effect.root` because
+  the follower is a plain module, and must be `destroy()`ed — `#teardown` does it via
+  `follower.reset()`.
+- **The canvas is found by `[data-tts-scroll]`** (`Editor/Page/Page.svelte`), not by
+  walking ancestors guessing at `overflow`. No such ancestor — Storybook, a standalone
+  editor — and following is silently off.
+- **Back to top is a read-aloud control.** `Page` floats `PageBackToTop` at the
+  bottom-right while `reading` and the canvas is scrolled past the first screen; clicking
+  it **stops the read** and glides home. That is what makes it work at all — a read that
+  carried on would scroll straight back to the spoken sentence — and it is the deliberate
+  counterpart to Stop, which leaves the page where it is so writing can continue from the
+  last thing heard.

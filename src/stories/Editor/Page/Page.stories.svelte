@@ -11,7 +11,9 @@
         tags: ['autodocs'],
         argTypes: {
             narrow: { control: 'boolean' },
-            children: { control: false }
+            reading: { control: 'boolean' },
+            children: { control: false },
+            onBackToTop: { control: false }
         },
         parameters: {
             layout: 'fullscreen',
@@ -79,8 +81,11 @@
 </Story>
 
 <!-- The page is continuous: past A4's height it keeps growing rather than
-     breaking, so this story should scroll one long sheet, not two pages. -->
-<Story name="Long document" args={{ narrow: false }}>
+     breaking, so this story should scroll one long sheet, not two pages.
+
+     `reading` is set, so scrolling this one past the first screen brings up the
+     back-to-top button read-aloud offers once it has followed the voice down. -->
+<Story name="Long document" args={{ narrow: false, reading: true }}>
     {#snippet template({ children, ...args })}
         <div class="flex h-screen w-full">
             <Page {...args}>

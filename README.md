@@ -165,8 +165,6 @@ Within each, related items sit next to each other.
 
 ### Features
 
-- [ ] Read-aloud: karaoke-style auto-scroll to keep the spoken word in view as playback
-      advances (the sentence highlight is in place; scrolling to follow it is not)
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
 - [ ] Give the welcome and Files screens a shared footer, for licence information,
