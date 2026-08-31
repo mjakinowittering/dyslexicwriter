@@ -11,6 +11,7 @@
     import { resolve } from '$app/paths';
     import { onMount } from 'svelte';
 
+    import * as AppFooter from '$lib/components/AppFooter';
     import * as AppHeader from '$lib/components/AppHeader';
     import ConfirmDialog from '$lib/components/ConfirmDialog/ConfirmDialog.svelte';
     import EmptyState from '$lib/components/EmptyState/EmptyState.svelte';
@@ -294,8 +295,16 @@
     </div>
 {:else if workspace.status === 'needs-folder' || workspace.status === 'needs-permission'}
     <!-- Wider than the cards need: the editor preview below them takes the extra
-         measure, and Welcome's own Empty.Content keeps the cards at `max-w-2xl`. -->
-    <div class="mx-auto flex min-h-0 w-full flex-1 px-6 md:max-w-5xl">
+         measure, and Welcome's own Empty.Content keeps the cards at `max-w-2xl`.
+
+         `overflow-y-auto` for the same reason the Files list has it. This screen
+         is built to be one screenful and the preview shrinks to keep it that
+         way, but the title, cards and hint have a floor, and in a short enough
+         window they pass it. Without this they spill out of the branch and paint
+         over the footer; with it they scroll inside it and the chrome stays put. -->
+    <div
+        class="mx-auto flex min-h-0 w-full flex-1 overflow-y-auto px-6 md:max-w-5xl"
+    >
         <!-- `pendingName` is empty in the first-run case, which is what picks
              the "start a new folder" card over "reopen". -->
         <Welcome.Root
@@ -309,7 +318,14 @@
         />
     </div>
 {:else}
-    <div class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-10">
+    <!-- The one branch that can outgrow the window, so the one that owns the
+         scrolling. `overflow-y-auto` also resolves this flex item's implicit
+         `min-height: auto` to 0, which is what stops a long list pushing the
+         footer off the bottom edge — the same shape the editor uses, where its
+         chrome is `shrink-0` and Editor/Page is the scroll container. -->
+    <div
+        class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 overflow-y-auto px-6 py-10"
+    >
         <!-- The list's own title row, not a landmark: the two folder actions
              that used to sit here have moved up into the app header's menu, and
              the page's one <header> is that.
@@ -423,3 +439,8 @@
         />
     </div>
 {/if}
+
+<!-- The other half of the chrome, below every state above. Outside the {#if} for
+     the same reason the header is above it: what it says about the licence and
+     the fonts is true of the app, not of whichever screen is showing. -->
+<AppFooter.Root />
