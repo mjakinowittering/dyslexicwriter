@@ -13,7 +13,7 @@
             docs: {
                 description: {
                     component:
-                        'The picture of the editor on the welcome screen, so a first-time visitor can see what the app does before handing over a folder. A **static mock**, never a live TipTap instance — a real editor here would be a second document with nowhere to save it. Decorative in full: `aria-hidden` on the root and nothing focusable inside, because a fake close button that takes a tab stop is worse than no preview at all. Drawn at 0.8 of the editor’s real geometry, written out rather than scaled with a transform. Hidden below `sm`, where there is no width for it to read as anything.'
+                        'The picture of the editor on the welcome screen, so a first-time visitor can see what the app does before handing over a folder. A **static mock**, never a live TipTap instance — a real editor here would be a second document with nowhere to save it. Decorative in full: `aria-hidden` on the root and nothing focusable inside, because a fake close button that takes a tab stop is worse than no preview at all. Drawn a step down from the editor’s real chrome on Tailwind’s own scale rather than scaled with a transform. It keeps a screen’s shape (`aspect-video`) at every size, taking its width from the height it is given, and the A4 sheet inside it is clipped rather than ended — sliding under the status bar the way the top of a real page does. The toolbar groups reveal against the **window’s** own width, not the viewport’s, since the mock is routinely far narrower than the screen it is drawn on. Hidden below `sm`, where there is no width for it to read as anything.'
                 }
             }
         }
@@ -34,7 +34,9 @@
     }}
 >
     {#snippet template()}
-        <div class="bg-background flex w-full justify-center p-6">
+        <!-- A bounded height, because the preview takes the one it is given —
+             on the welcome screen that is whatever the cards above it leave. -->
+        <div class="bg-background flex h-128 w-full justify-center p-6">
             <WelcomePreview />
         </div>
     {/snippet}
