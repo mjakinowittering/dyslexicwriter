@@ -210,7 +210,15 @@
             <p class="text-destructive px-4 py-2 text-sm">{doc.error}</p>
         {/if}
 
-        <Page.Root narrow={settingsOpen}>
+        <!-- `reading` is what puts the back-to-top button on the canvas: the read
+             has been following the voice down the page, so there has to be a way
+             back. Clicking it ends the read — one that carried on would scroll
+             straight back to the spoken sentence. -->
+        <Page.Root
+            narrow={settingsOpen}
+            onBackToTop={() => speech.stop()}
+            reading={speech.isPlaying}
+        >
             <Page.Editor
                 bind:editor
                 bind:wordCount={doc.wordCount}

@@ -5,6 +5,7 @@ import { defaultPreferences } from '$lib/models/config.model';
 import type { TtsPreferences } from '$lib/models/tts.model';
 
 import { playStartChirp, playStopChirp } from './chirp';
+import { ScrollFollower } from './scroll-follower.svelte';
 import {
     buildUtterance,
     chunkUtterance,
@@ -121,6 +122,10 @@ class SpeechController implements TtsTransport {
     #sentenceStartedAt = 0;
     #current: SpeechSynthesisUtterance | null = null;
     #keepAlive: ReturnType<typeof setInterval> | null = null;
+
+    // Scrolls the editor canvas to keep the text being read in view. Owned here
+    // rather than exported as a second singleton — nothing else follows playback.
+    #follower = new ScrollFollower();
 
     // The selection captured on pointer-down, before clicking the button can disturb
     // it. Consumed by the next play().
@@ -401,6 +406,9 @@ class SpeechController implements TtsTransport {
         this.#detachCurrent();
         this.#stopKeepAlive();
         this.#clearHighlight();
+        // The page stays exactly where the read left it — the writer carries on
+        // from what they last heard — but nothing follows it any more.
+        this.#follower.reset();
         this.#editor = null;
         this.#utterance = null;
         this.#chunks = [];
@@ -441,6 +449,11 @@ class SpeechController implements TtsTransport {
     #applyHighlight(word: Range | null, sentence: Range | null): void {
         if (!this.#editor || this.#editor.isDestroyed) return;
         setTtsHighlight(this.#editor.view, { word, sentence });
+        // Every highlight change comes through here — onstart, #seek and
+        // #onBoundary — so following the page rides the same one call. The word is
+        // the finer target where the engine reports one; the sentence is what every
+        // platform gets.
+        this.#follower.follow(this.#editor.view, word ?? sentence);
     }
 
     #clearHighlight(): void {
