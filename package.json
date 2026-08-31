@@ -4,6 +4,11 @@
     "private": true,
     "version": "0.0.1",
     "type": "module",
+    "license": "MIT",
+    "author": {
+        "name": "Matthew Akino-Wittering",
+        "url": "https://matthew.akinowittering.com/"
+    },
     "homepage": "https://mjakinowittering.github.io/dyslexicwriter/",
     "repository": {
         "type": "git",

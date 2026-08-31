@@ -131,6 +131,20 @@ npm run preview         # preview the production build locally
 The build is a plain folder of static files — serve it from anywhere, or open it
 locally. There is no server process.
 
+## License
+
+DyslexicWriter is released under the [MIT License](LICENSE) — use it, change it, ship
+your own version of it.
+
+The two typefaces it ships with are licensed separately, both under the
+[SIL Open Font License 1.1](https://openfontlicense.org/):
+
+- **OpenDyslexic** by Abelardo Gonzalez, bundled via `@fontsource/opendyslexic`
+- **Geist** by Vercel, bundled via `@fontsource-variable/geist`
+
+Both are self-hosted from `node_modules` rather than fetched from a CDN, so their
+licence notices travel with the build.
+
 ## Todo
 
 Split into **Bugs** — something already built that doesn't behave as intended — and
@@ -169,17 +183,3 @@ Within each, related items sit next to each other.
       advances (the sentence highlight is in place; scrolling to follow it is not)
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
-- [ ] Give the welcome and Files screens a shared footer, for licence information,
-      a link back to GitHub and a short note from the author — contents still to be
-      decided. The shared header now exists (`src/lib/components/AppHeader/`,
-      rendered above every state of `/`), so the footer is the other half of that
-      chrome and should sit as its sibling in `src/routes/+page.svelte`. The
-      repository and homepage URLs are already in `package.json:7-11`, so the
-      GitHub link can read from those rather than hardcode a string.
-    - **There is no licence to point at yet.** No `LICENSE` file, no `license` field
-      in `package.json` (it is `private: true`) and no `## License` section in this
-      README, so a licence has to be chosen before the footer can name one — for the
-      app itself and for what ships inside it, starting with OpenDyslexic, bundled
-      via `@fontsource/opendyslexic` (`src/routes/layout.css:9-12`)
-    - The app is a static SPA with no server, so the footer is markup and Paraglide
-      copy only — nothing fetched, no analytics, no external assets
