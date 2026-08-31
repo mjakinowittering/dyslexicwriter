@@ -12,6 +12,13 @@ export const motionEasing = quintOut;
 // `motionDuration` it feels like the app is thinking rather than responding.
 export const disclosureDuration = 180; // ms
 
+// Read-aloud following the spoken sentence down the page. Shorter than
+// `motionDuration` because this motion has to keep pace with speech: at 700ms the
+// page would still be gliding when the next sentence starts, and a word-level
+// nudge would never settle at all. The deliberate scroll back to the top is a
+// single long move with nothing chasing it, so that one uses `motionDuration`.
+export const followScrollDuration = 450; // ms
+
 // Route crossfade (entering/leaving /content). Longer than a single slide phase so the
 // page dissolve eases out a few beats behind the nav rail. See the `animations` skill.
 export const crossfadeDuration = 1000; // ms

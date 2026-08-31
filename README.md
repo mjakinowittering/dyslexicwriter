@@ -131,6 +131,20 @@ npm run preview         # preview the production build locally
 The build is a plain folder of static files — serve it from anywhere, or open it
 locally. There is no server process.
 
+## License
+
+DyslexicWriter is released under the [MIT License](LICENSE) — use it, change it, ship
+your own version of it.
+
+The two typefaces it ships with are licensed separately, both under the
+[SIL Open Font License 1.1](https://openfontlicense.org/):
+
+- **OpenDyslexic** by Abelardo Gonzalez, bundled via `@fontsource/opendyslexic`
+- **Geist** by Vercel, bundled via `@fontsource-variable/geist`
+
+Both are self-hosted from `node_modules` rather than fetched from a CDN, so their
+licence notices travel with the build.
+
 ## Todo
 
 Split into **Bugs** — something already built that doesn't behave as intended — and
@@ -153,6 +167,15 @@ Within each, related items sit next to each other.
       `min-width` in `layout.css`, plus the ProseMirror table internals — `.tableWrapper`
       (horizontal overflow) and `.selectedCell` (cell-selection tint). Column resizing is
       off by design, so `.column-resize-handle` is not needed
+- [ ] Give list markers the read-aloud band — when a spoken sentence falls inside a
+      bullet or numbered list item the text is banded but the marker is not, so the
+      highlight stops short of the line it covers. The cause is structural rather than
+      styling: `tiptap-tts-highlight.ts` emits `Decoration.inline` over text inside
+      `<li><p>…</p></li>`, and `::marker` is generated content on the `<li>` that no
+      inline span can reach. Needs a `Decoration.node` on the enclosing list item when the
+      sentence range covers it, styled from that class in `PageEditor.svelte`'s `<style>`
+      block. Lists come from `StarterKit` (`src/lib/markdown/extensions.ts`), so nothing
+      is added to the shared extension set and the round-trip is unaffected
 - [ ] Ship a real `og:image`. `static/og-image.png` is a 0-byte placeholder, but
       `src/app.html:36` and `:52` already point at it and declare it 1200x630, so
       every link preview of the deployed site resolves to an empty image. The rest
@@ -161,25 +184,43 @@ Within each, related items sit next to each other.
       via `actions/configure-pages`, the deploy workflow
       (`.github/workflows/build-and-deploy.yml`) and the full head metadata
       including the `<noscript>` prose. Add a real 1200x630 PNG under `static/`;
-      the absolute URL and alt text are already correct
+      the absolute URL is already correct.
+      Direction settled: **A · Split, dark** — headline left, the editor window tilted on
+      the right, in the app's own achromatic palette. Three things go with it: the window
+      needs more separation from the near-black ground than `oklch(1 0 0 / 10%)` gives it
+      (a light ring, ~`oklch(1 0 0 / 0.16)`, plus a soft glow); the tagline becomes "Write
+      it. Hear it. Keep it."; and `src/app.html:42`'s `og:image:alt` still carries the old
+      "write, and hear it back", so it changes in the same commit or the alt text
+      describes a different picture. Re-render the mock once the highlight colours land
 
 ### Features
 
-- [ ] Read-aloud: karaoke-style auto-scroll to keep the spoken word in view as playback
-      advances (the sentence highlight is in place; scrolling to follow it is not)
+- [ ] Rework the read-aloud highlight colours to the LCARS-derived lit-band treatment.
+      The current amber wash is not broken — this is a deliberate redesign, and it rhymes
+      with `$lib/tts/chirp.ts`, which already synthesises LCARS-style chirps. Sentence
+      `rgb(255 204 153 / 0.92)`, word `rgb(255 153 0)`, ink `oklch(0.145 0 0)` on both — a
+      tonal pair, because `0.92` against `1.0` is not a visible step. All of it lives in
+      `PageEditor.svelte`'s `<style>` block, which is the documented exception to "theme
+      colours live in `layout.css`" — functional colour stays with the component and
+      `layout.css` stays chroma `0`. Two deletions come with it: the `.dark .tts-*`
+      overrides go (at `0.92` both grounds land within a few percent, so one rule set
+      serves both), and the `.tts-word` ring goes, since a solid block with dark ink needs
+      no outline. `PageEditor.stories.svelte` already renders the highlight in both fonts
+      and Storybook runs axe at `test: 'error'` across both themes, so contrast is checked
+      for free. Re-render the mocks with it
+- [ ] Show the read-aloud highlight in the welcome screen's editor preview —
+      `WelcomePreview.svelte` draws the transport controls but never the band, so the one
+      screen a stranger sees before handing over a folder doesn't show the feature the app
+      is built around. The preview is a deliberate static mock, not a TipTap instance, so
+      this is markup and CSS only: band one sentence in the sample prose with a word lit
+      inside it. Follows the highlight colours above — do it after, not alongside, so
+      there is one source of truth for the values
+- [ ] Replace the welcome preview's sample copy with the DyslexicWriter product vision.
+      `welcome_preview_title` and `welcome_preview_prose` (`messages/en.json`) are
+      currently a lighthouse-keeper vignette — pleasant, but it spends the one piece of
+      prose a new user reads on fiction. The vision would say what the app is for while
+      demonstrating the reading experience. Copy to be written together; keep it short
+      enough that the preview's sheet still shows the title plus a few lines. Re-render
+      the mocks with it
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
-- [ ] Give the welcome and Files screens a shared footer, for licence information,
-      a link back to GitHub and a short note from the author — contents still to be
-      decided. The shared header now exists (`src/lib/components/AppHeader/`,
-      rendered above every state of `/`), so the footer is the other half of that
-      chrome and should sit as its sibling in `src/routes/+page.svelte`. The
-      repository and homepage URLs are already in `package.json:7-11`, so the
-      GitHub link can read from those rather than hardcode a string.
-    - **There is no licence to point at yet.** No `LICENSE` file, no `license` field
-      in `package.json` (it is `private: true`) and no `## License` section in this
-      README, so a licence has to be chosen before the footer can name one — for the
-      app itself and for what ships inside it, starting with OpenDyslexic, bundled
-      via `@fontsource/opendyslexic` (`src/routes/layout.css:9-12`)
-    - The app is a static SPA with no server, so the footer is markup and Paraglide
-      copy only — nothing fetched, no analytics, no external assets
