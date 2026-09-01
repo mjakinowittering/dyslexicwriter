@@ -27,34 +27,82 @@ const DEFAULT_RATE = defaultPreferences().tts.rate;
 // Names hinting at a female / "computer" voice, in rough preference order. Star
 // Trek's Majel Barrett voice isn't installable, so we lean on whatever female
 // English voice the device ships — the chirps + speech carry the flavour.
-const VOICE_PREF_RE =
-    /female|samantha|zira|serena|karen|moira|tessa|fiona|google uk english female/i;
-
-// Chrome silently pauses long playback after ~15s; a periodic resume() defeats it.
-// resume() on a non-paused synth is a no-op, so this is safe on other engines.
-const KEEPALIVE_MS = 10_000;
+//
+// This is a *tie-breaker within* the on-device pool, never a reason to reach past
+// it (see pickDefaultVoice). Chrome's bundled `Google …` voices used to be named
+// here explicitly; they are network voices and emit no `boundary` events at all,
+// so choosing one made word highlighting structurally impossible.
+const VOICE_PREF_RE = /female|samantha|zira|serena|karen|moira|tessa|fiona/i;
 
 // Skip-back restarts the current sentence once playback is this far into it, and
 // steps back a sentence before that — the media-player convention. There is no
 // playback clock to consult, so this measures from the sentence's own start stamp.
 const SENTENCE_RESTART_MS = 1500;
 
+// Rough speaking speed at rate 1, used only to size the watchdog below. Deliberately
+// an under-estimate of how fast an engine reads: a too-generous watchdog costs a
+// pause, a too-eager one talks over the voice.
+const CHARS_PER_SECOND = 12;
+
+// How long past a chunk's estimated duration to wait before assuming its `end`
+// event is never coming. Chrome drops `end` outright when it truncates a long
+// utterance, and a lost `end` used to strand the read forever — the queue is
+// chained on that one event.
+const WATCHDOG_SLACK_MS = 8_000;
+
 function synth(): SpeechSynthesis | null {
     if (typeof window === 'undefined') return null;
     return window.speechSynthesis ?? null;
 }
 
-// Best default voice: a preferred-named English voice, else the first English
-// voice, else the first available. Pure + exported for unit testing.
+/**
+ * Best default voice, narrowing by three preferences in order of how much they
+ * matter: **on-device before network**, then English, then a preferred name.
+ *
+ * On-device leads because it is the only one that changes what the app can do.
+ * Word highlighting comes solely from `boundary` events, and a network voice —
+ * Chrome's bundled `Google …` set, `localService === false` — emits none, so
+ * picking one silently costs the writer the finer highlight. A network voice is
+ * still chosen when the device has nothing local; reading aloud without word
+ * highlighting beats not reading aloud.
+ *
+ * Pure + exported for unit testing.
+ */
 export function pickDefaultVoice(
     voices: SpeechSynthesisVoice[]
 ): SpeechSynthesisVoice | null {
     if (voices.length === 0) return null;
-    const english = voices.filter((v) =>
-        v.lang?.toLowerCase().startsWith('en')
+
+    // Each narrowing is skipped when it would empty the pool, so a device with
+    // only network voices, or no English at all, still gets a sensible answer.
+    const narrow = (
+        pool: SpeechSynthesisVoice[],
+        by: (voice: SpeechSynthesisVoice) => boolean
+    ): SpeechSynthesisVoice[] => {
+        const kept = pool.filter(by);
+        return kept.length > 0 ? kept : pool;
+    };
+
+    const local = narrow(voices, (v) => v.localService);
+    const english = narrow(local, (v) =>
+        Boolean(v.lang?.toLowerCase().startsWith('en'))
     );
-    const pool = english.length > 0 ? english : voices;
-    return pool.find((v) => VOICE_PREF_RE.test(v.name)) ?? pool[0] ?? null;
+    return (
+        english.find((v) => VOICE_PREF_RE.test(v.name)) ?? english[0] ?? null
+    );
+}
+
+// Whether two voice lists name the same voices in the same order. Chrome hands
+// back a fresh array of fresh objects from every getVoices() call, so identity
+// says nothing — see loadVoices().
+function sameVoices(
+    a: SpeechSynthesisVoice[],
+    b: SpeechSynthesisVoice[]
+): boolean {
+    return (
+        a.length === b.length &&
+        a.every((voice, i) => voice.voiceURI === b[i].voiceURI)
+    );
 }
 
 /**
@@ -95,11 +143,18 @@ export interface TtsTransport {
  *
  * - **Sentence highlight** is driven by each chunk's real `onstart` event — exact,
  *   and works everywhere (no boundary events needed).
- * - **Word highlight** requires `boundary` events. Chrome/Edge on Windows/macOS emit
- *   them (via SAPI/NSSpeech) and we light the exact word; Linux engines
- *   (speech-dispatcher/espeak) emit none, so word highlight is simply absent. We do
- *   **not** estimate word timing — predicting it from character counts drifts against
- *   a real engine, and a wrong highlight is worse than none.
+ * - **Word highlight** requires `boundary` events. On-device voices on Chrome/Edge for
+ *   Windows/macOS emit them (via SAPI/NSSpeech) and we light the exact word; Linux
+ *   engines (speech-dispatcher/espeak) and every *network* voice emit none, so word
+ *   highlight is simply absent there. We do **not** estimate word timing — predicting
+ *   it from character counts drifts against a real engine, and a wrong highlight is
+ *   worse than none. What the app does instead is prefer an on-device voice by
+ *   default (see pickDefaultVoice) and name the difference in the voice picker.
+ *
+ * Nothing here assumes the engine keeps its promises. A chunk that never reports
+ * ending is advanced past by a watchdog, and every call into `speechSynthesis` is
+ * guarded — a session that wedges with `isPlaying` true and no audio is the one
+ * failure the transport cannot show its way out of.
  */
 class SpeechController implements TtsTransport {
     isPlaying = $state(false);
@@ -121,7 +176,8 @@ class SpeechController implements TtsTransport {
     // Date.now() when the current sentence started speaking (see SENTENCE_RESTART_MS).
     #sentenceStartedAt = 0;
     #current: SpeechSynthesisUtterance | null = null;
-    #keepAlive: ReturnType<typeof setInterval> | null = null;
+    // Fires if the in-flight chunk never reports ending (see WATCHDOG_SLACK_MS).
+    #watchdog: ReturnType<typeof setTimeout> | null = null;
 
     // Scrolls the editor canvas to keep the text being read in view. Owned here
     // rather than exported as a second singleton — nothing else follows playback.
@@ -134,14 +190,37 @@ class SpeechController implements TtsTransport {
     // The live `voiceschanged` handler, kept so it can be removed again — holding it
     // also makes loadVoices() idempotent, so a remount can't stack listeners.
     #voicesChanged: (() => void) | null = null;
+    // True while the handler below is running. See loadVoices().
+    #readingVoices = false;
 
-    // Populate the voice list. getVoices() is empty until the async load fires, so
-    // we read it now and again whenever the engine says the list has changed.
+    /**
+     * Populate the voice list, and keep it current. getVoices() is empty until the
+     * engine's async load fires, so we read it now and again whenever the engine
+     * says the list has changed.
+     *
+     * Both guards here exist because of Chrome on Windows, where the list is
+     * assembled from two asynchronous sources (SAPI and the bundled Google TTS
+     * component extension) and is re-enumerated as playback starts:
+     *
+     * - **Re-entrancy.** getVoices() can itself raise `voiceschanged`. Handling that
+     *   from inside the handler is an unbounded loop that pegs the tab — the whole
+     *   window stops responding partway through a read.
+     * - **Identity.** Every getVoices() call returns a fresh array of fresh objects,
+     *   so assigning unconditionally invalidates every reader of this `$state` on a
+     *   fire that changed nothing. Assign only when the list really differs.
+     */
     loadVoices(): void {
         const s = synth();
         if (!s || this.#voicesChanged) return;
         const apply = (): void => {
-            this.voices = s.getVoices();
+            if (this.#readingVoices) return;
+            this.#readingVoices = true;
+            try {
+                const next = s.getVoices();
+                if (!sameVoices(this.voices, next)) this.voices = next;
+            } finally {
+                this.#readingVoices = false;
+            }
         };
         this.#voicesChanged = apply;
         apply();
@@ -226,10 +305,9 @@ class SpeechController implements TtsTransport {
         // own onend would re-enter teardown.
         const captured = this.#capturedRange;
         this.#teardown(false);
-        s.cancel();
         // The engine can be left in a paused state by an earlier session; speak()
         // would then queue silently forever.
-        s.resume();
+        this.#resetEngine();
 
         const { doc, selection } = editor.state;
         const range = !selection.empty
@@ -255,7 +333,6 @@ class SpeechController implements TtsTransport {
         this.isPlaying = true;
         this.isPaused = false;
         playStartChirp();
-        this.#startKeepAlive();
         this.#speakChunk();
     }
 
@@ -295,16 +372,60 @@ class SpeechController implements TtsTransport {
         }
 
         this.#current = u;
-        s.speak(u);
+        this.#armWatchdog(chunk.text.length);
+        // A throw here would leave the transport lit with no `end` event ever
+        // coming — the one state the buttons can't explain. End the read instead.
+        try {
+            s.speak(u);
+        } catch (error) {
+            console.error('Read aloud could not speak a passage', error);
+            this.#teardown(true);
+        }
     }
 
     #advance(): void {
+        this.#clearWatchdog();
         this.#chunkIndex += 1;
         if (this.#chunkIndex >= this.#chunks.length) {
             this.#finish();
             return;
         }
         this.#speakChunk();
+    }
+
+    // ── Watchdog ─────────────────────────────────────────────────────────────────
+    //
+    // The queue is chained on `end`, so a chunk whose `end` never arrives stops the
+    // read dead — highlight frozen on one sentence, transport still showing Pause,
+    // and no way forward but Stop. Chrome does exactly this when it truncates an
+    // utterance it considers too long. Rather than trust the event, give each chunk
+    // a deadline: its estimated speaking time plus generous slack, after which we
+    // move on as though it had ended normally.
+
+    #armWatchdog(chars: number): void {
+        this.#clearWatchdog();
+        if (typeof window === 'undefined' || chars <= 0) return;
+        const estimated = (chars / (CHARS_PER_SECOND * this.rate)) * 1000;
+        this.#watchdog = setTimeout(() => {
+            this.#watchdog = null;
+            // Genuinely invisible otherwise: the read simply carries on, and only
+            // the console says the engine stopped reporting.
+            console.error(
+                'Read aloud: no end event for a passage, skipping on'
+            );
+            // Cancel before moving on. If the estimate was simply short and the
+            // engine is still talking, speaking the next chunk would queue behind
+            // it and read the passage twice.
+            this.#cancelCurrent();
+            this.#advance();
+        }, estimated + WATCHDOG_SLACK_MS);
+    }
+
+    #clearWatchdog(): void {
+        if (this.#watchdog !== null) {
+            clearTimeout(this.#watchdog);
+            this.#watchdog = null;
+        }
     }
 
     // ── Skipping ─────────────────────────────────────────────────────────────────
@@ -357,12 +478,10 @@ class SpeechController implements TtsTransport {
     // cancel() (see #detachCurrent), and resume() follows it because an engine left
     // paused would queue the next speak() silently forever, as play() also guards.
     #cancelCurrent(): void {
-        const s = synth();
         this.#detachCurrent();
         this.#current = null;
-        if (!s) return;
-        s.cancel();
-        s.resume();
+        this.#clearWatchdog();
+        this.#resetEngine();
     }
 
     // Detach the in-flight utterance's handlers. cancel() fires onend on the
@@ -375,11 +494,33 @@ class SpeechController implements TtsTransport {
         this.#current.onerror = null;
     }
 
+    // Put the engine back to a state speak() can be trusted from: nothing queued and
+    // not paused. The resume() is the load-bearing half — an engine left paused (by
+    // a stop during a pause, or by an earlier session) swallows every later speak()
+    // silently, which reads as read-aloud being broken with no error anywhere.
+    // Both calls are guarded: a throw here must not take the transport with it.
+    #resetEngine(): void {
+        const s = synth();
+        if (!s) return;
+        try {
+            s.cancel();
+            s.resume();
+        } catch (error) {
+            console.error(
+                'Read aloud could not reset the speech engine',
+                error
+            );
+        }
+    }
+
     pause(): void {
         const s = synth();
         if (!s || !this.isPlaying) return;
         s.pause();
         this.isPaused = true;
+        // A paused chunk is not a stalled one — the deadline would fire partway
+        // through the pause and skip the sentence the writer stopped on.
+        this.#clearWatchdog();
     }
 
     resume(): void {
@@ -387,12 +528,17 @@ class SpeechController implements TtsTransport {
         if (!s) return;
         s.resume();
         this.isPaused = false;
+        // How much of the chunk is left is unknowable, so re-arm for the whole of
+        // it. Waiting longer than necessary costs a delay; waiting too little talks
+        // over the voice.
+        const chunk = this.#chunks[this.#chunkIndex];
+        if (this.isPlaying && chunk) this.#armWatchdog(chunk.text.length);
     }
 
     // Stop playback and clear the highlight (used on unmount / document switch).
     stop(): void {
         this.#teardown(true);
-        synth()?.cancel();
+        this.#resetEngine();
     }
 
     // Natural end of the queue.
@@ -404,7 +550,7 @@ class SpeechController implements TtsTransport {
         const wasPlaying = this.isPlaying;
         // Detach so a pending cancel()/end doesn't re-enter teardown.
         this.#detachCurrent();
-        this.#stopKeepAlive();
+        this.#clearWatchdog();
         this.#clearHighlight();
         // The page stays exactly where the read left it — the writer carries on
         // from what they last heard — but nothing follows it any more.
@@ -489,23 +635,6 @@ class SpeechController implements TtsTransport {
         const text = this.#utterance?.text ?? '';
         const match = /\S+/.exec(text.slice(start));
         return match ? match[0].length : 0;
-    }
-
-    // ── Keepalive ────────────────────────────────────────────────────────────────
-
-    #startKeepAlive(): void {
-        this.#stopKeepAlive();
-        if (typeof window === 'undefined') return;
-        this.#keepAlive = setInterval(() => {
-            if (this.isPlaying && !this.isPaused) synth()?.resume();
-        }, KEEPALIVE_MS);
-    }
-
-    #stopKeepAlive(): void {
-        if (this.#keepAlive !== null) {
-            clearInterval(this.#keepAlive);
-            this.#keepAlive = null;
-        }
     }
 }
 

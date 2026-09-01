@@ -43,13 +43,22 @@ function tone(
 }
 
 // Two notes back-to-back at the given frequencies.
+//
+// A chirp is punctuation, never the point — so a browser that refuses to give us a
+// context (autoplay policy, too many live contexts) must cost the writer the blip
+// and nothing else. Playback calls this on the way into and out of a read, and a
+// throw here would take the whole read with it.
 function chirp(frequencies: [number, number]): void {
-    const context = audioContext();
-    if (!context) return;
-    const now = context.currentTime;
-    const note = 0.09;
-    tone(context, frequencies[0], now, note);
-    tone(context, frequencies[1], now + note, note);
+    try {
+        const context = audioContext();
+        if (!context) return;
+        const now = context.currentTime;
+        const note = 0.09;
+        tone(context, frequencies[0], now, note);
+        tone(context, frequencies[1], now + note, note);
+    } catch (error) {
+        console.error('Read aloud could not play its chirp', error);
+    }
 }
 
 // Rising blip — playback starting.

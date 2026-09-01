@@ -26,11 +26,45 @@ export const SCROLL_CONTAINER_SELECTOR = '[data-tts-scroll]';
 export class ScrollFollower {
     #container: HTMLElement | null = null;
     #animator: ScrollAnimator | null = null;
+    // The latest range asked for, and the frame that will act on it. See follow().
+    #pending: { view: EditorView; range: Range } | null = null;
+    #frame: number | null = null;
 
-    // Bring `range` into view. A no-op when the view is gone, the range no longer
-    // resolves, or the editor isn't inside a scrollable canvas (Storybook).
+    /**
+     * Bring `range` into view, at most once per animation frame.
+     *
+     * Measuring costs two `coordsAtPos` calls and a `scrollHeight` read, each of
+     * which forces layout — and they land immediately after ProseMirror has
+     * rewritten the DOM for the highlight, so nothing is cached. Word boundaries
+     * arrive in bursts far faster than the page can paint, so acting on every one
+     * is layout thrash for frames the writer never sees. Only the newest range
+     * matters by the time a frame runs, so keep that one and drop the rest.
+     */
     follow(view: EditorView, range: Range | null): void {
         if (!range || view.isDestroyed) return;
+        this.#pending = { view, range };
+        if (
+            this.#frame !== null ||
+            typeof requestAnimationFrame === 'undefined'
+        ) {
+            // No rAF (SSR, a test environment) means no frames to coalesce onto —
+            // measure now rather than never scrolling at all.
+            if (this.#frame === null) this.#flush();
+            return;
+        }
+        this.#frame = requestAnimationFrame(() => {
+            this.#frame = null;
+            this.#flush();
+        });
+    }
+
+    // Measure and scroll for the most recent pending range.
+    #flush(): void {
+        const pending = this.#pending;
+        this.#pending = null;
+        if (!pending) return;
+        const { view, range } = pending;
+        if (view.isDestroyed) return;
 
         const container = this.#resolveContainer(view);
         if (!container || !this.#animator) return;
@@ -69,9 +103,16 @@ export class ScrollFollower {
         this.#animator.to(target);
     }
 
-    // Drop the animator and the cached container — paired with the controller's
-    // teardown, so the next read resolves the canvas of whatever editor is mounted.
+    // Drop the animator, the cached container and any frame still owed — paired
+    // with the controller's teardown, so the next read resolves the canvas of
+    // whatever editor is mounted, and a stopped read can't scroll once more after
+    // the fact.
     reset(): void {
+        if (this.#frame !== null) {
+            cancelAnimationFrame(this.#frame);
+            this.#frame = null;
+        }
+        this.#pending = null;
         this.#animator?.destroy();
         this.#animator = null;
         this.#container = null;
