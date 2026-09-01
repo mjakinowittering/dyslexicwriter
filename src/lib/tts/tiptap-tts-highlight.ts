@@ -1,5 +1,6 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
+import type { Transaction } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { EditorView } from '@tiptap/pm/view';
 
@@ -82,4 +83,20 @@ export function setTtsHighlight(
     const tr = view.state.tr.setMeta(ttsHighlightKey, value);
     tr.setMeta('addToHistory', false);
     view.dispatch(tr);
+}
+
+/**
+ * Whether a transaction is one of ours — a highlight move and nothing else.
+ *
+ * A read fires these constantly (per word, where the engine reports boundaries),
+ * and every one wakes TipTap's `onTransaction` subscribers. None of what they
+ * recompute — word count, active formatting, undo/redo availability — can have
+ * changed, because a highlight transaction touches neither the document nor the
+ * selection. Subscribers doing real work should check this and return.
+ *
+ * The plugin key stays private: this is the whole of what callers need, and
+ * exporting the key would invite writing the meta from outside this module.
+ */
+export function isTtsHighlightTransaction(tr: Transaction): boolean {
+    return tr.getMeta(ttsHighlightKey) !== undefined;
 }

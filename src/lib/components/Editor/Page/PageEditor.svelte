@@ -7,7 +7,10 @@
     import { documentExtensions } from '$lib/markdown';
     import type { Font } from '$lib/models/config.model';
     import * as m from '$lib/paraglide/messages';
-    import { TtsHighlightExtension } from '$lib/tts/tiptap-tts-highlight';
+    import {
+        isTtsHighlightTransaction,
+        TtsHighlightExtension
+    } from '$lib/tts/tiptap-tts-highlight';
     import { cn } from '$lib/utils';
 
     let {
@@ -135,7 +138,15 @@
                 // never touches the JSON the markdown is derived from.
                 TtsHighlightExtension
             ],
-            onTransaction: ({ editor: e }) => {
+            // Read-aloud's highlight is a real transaction, dispatched for every
+            // word the engine reports — dozens a second on a document of any size.
+            // It changes neither the document nor the selection, so recounting
+            // words (a full-document textBetween plus a split) and waking the
+            // page's own handler (active formatting, undo/redo availability) is
+            // work with no possible result. Skipping it is what keeps the tab
+            // responsive through a long read.
+            onTransaction: ({ editor: e, transaction }) => {
+                if (isTtsHighlightTransaction(transaction)) return;
                 wordCount = wordsOf(e);
                 onTransaction?.(e);
             },

@@ -69,10 +69,18 @@
 
     // Every exit path flushes. The debounce is an optimisation; these are what
     // actually guarantee a keystroke reaches the disk.
+    //
+    // Speech stops here too. `onDestroy` covers navigating within the app, but it
+    // doesn't run on a real tab close or reload — and Chrome's speech queue
+    // outlives the page that started it, so a read in progress would carry on
+    // talking with nothing left on screen to silence it.
     function onPageHide() {
+        speech.stop();
         void doc.flush();
     }
 
+    // Deliberately does not stop the read: a writer listening while they look at
+    // another window is using the feature, not leaving it.
     function onVisibilityChange() {
         if (document.visibilityState === 'hidden') void doc.flush();
     }
