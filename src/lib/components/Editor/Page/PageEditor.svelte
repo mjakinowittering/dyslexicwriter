@@ -225,26 +225,41 @@
 ></div>
 
 <style>
-    /* Read-aloud playback highlight. Applied to ProseMirror decoration spans (see
+    /* Read-aloud playback highlight — a lit band, rhyming with the LCARS chirps in
+       $lib/tts/chirp.ts. Applied to ProseMirror decoration spans (see
        tiptap-tts-highlight.ts), so the classes are dynamic — :global is required.
        Static colours only: state-driven motion here would be hand-rolled CSS, which
-       the project forbids (highlight advances by decoration change, not transition). */
+       the project forbids (highlight advances by decoration change, not transition).
+
+       Functional colour, so it lives with the component rather than in layout.css —
+       the documented exception that keeps every theme token there at chroma 0.
+
+       One rule set serves both themes. At 0.92 the band all but covers the ground
+       beneath it, so light and dark composite to within a few percent of each other,
+       and the ink is dark on both by definition. The sentence and the word are a
+       tonal pair rather than two alphas of one colour: 0.92 against 1.0 is not a
+       visible step. */
     :global(.tts-sentence) {
-        --tts-tint: rgb(250 204 21 / 0.18);
+        --tts-tint: rgb(255 204 153 / 0.92);
         background-color: var(--tts-tint);
+        color: oklch(0.145 0 0);
         border-radius: 0.15rem;
     }
     :global(.tts-word) {
-        --tts-tint: rgb(250 204 21 / 0.45);
+        --tts-tint: rgb(255 153 0);
         background-color: var(--tts-tint);
+        color: oklch(0.145 0 0);
         border-radius: 0.15rem;
-        box-shadow: 0 0 0 1px rgb(202 138 4 / 0.35);
     }
-    :global(.dark .tts-sentence) {
-        --tts-tint: rgb(250 204 21 / 0.14);
-    }
-    :global(.dark .tts-word) {
-        --tts-tint: rgb(250 204 21 / 0.38);
+
+    /* Ink over anything the band covers. Typography's element rules (strong, a, code,
+       headings) are wrapped in :where(), so they carry the specificity of `.prose`
+       alone — a single-class descendant selector ties with them and wins or loses on
+       source order. Doubling the class settles it, so a bold word inside a spoken
+       sentence can't keep prose-invert's near-white on the lit band. */
+    :global(.tts-sentence.tts-sentence *),
+    :global(.tts-word.tts-word *) {
+        color: oklch(0.145 0 0);
     }
 
     /* The reading font needs the same band drawn differently. A background colour
@@ -264,8 +279,5 @@
         background-size: 100% 1.3em;
         -webkit-box-decoration-break: clone;
         box-decoration-break: clone;
-        /* The word's ring traced the old, taller box, so it cannot follow the
-           band down. The heavier tint is what distinguishes the word here. */
-        box-shadow: none;
     }
 </style>
