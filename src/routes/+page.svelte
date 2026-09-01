@@ -149,7 +149,19 @@
         if (!entry || !root) return;
 
         await mutate(async () => {
-            await deleteDocument(root, entry);
+            try {
+                await deleteDocument(root, entry);
+            } catch (cause) {
+                // Thrown from a dialog callback nobody awaits, so without this it
+                // lands in an unhandled rejection and the writer is told nothing.
+                workspace.error =
+                    cause instanceof DocumentError
+                        ? cause.message
+                        : m.files_read_error();
+            }
+
+            // Rescan either way. A refused delete means this row's `ownsFolder`
+            // was stale, so the tree is showing something that is no longer true.
             await workspace.refresh();
         });
     }

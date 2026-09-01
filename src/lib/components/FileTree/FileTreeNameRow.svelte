@@ -15,19 +15,27 @@
     // depth the thing will live at — so the indentation says where it is going
     // rather than a dialog having to spell it out.
     //
-    // `taken` is the sibling names already in that directory, so a duplicate is
-    // caught before Create is reachable. It is read off the tree, which is a scan
-    // snapshot and can be out of date; the filesystem guard behind createFolder
-    // and createDocument is the actual authority, and this is only here to stop
-    // the writer typing a name that was never going to work.
+    // `takenDocuments` and `takenFolders` are the sibling names already in that
+    // directory, so a duplicate is caught before Create is reachable. They are
+    // read off the tree, which is a scan snapshot and can be out of date; the
+    // filesystem guard behind createFolder and createDocument is the actual
+    // authority, and this is only here to stop the writer typing a name that was
+    // never going to work.
+    //
+    // Both lists matter whichever kind is being named, because a document the app
+    // creates IS a directory — `My Doc/My Doc.md` — so its name collides with a
+    // folder's. Kept apart rather than concatenated only so the error can name
+    // the thing that is actually in the way.
     let {
         kind,
-        taken,
+        takenDocuments,
+        takenFolders,
         onSubmit,
         onCancel
     }: {
         kind: 'folder' | 'document';
-        taken: string[];
+        takenDocuments: string[];
+        takenFolders: string[];
         onSubmit: (name: string) => void;
         onCancel: () => void;
     } = $props();
@@ -40,18 +48,22 @@
     // against what was typed.
     const safe = $derived(sanitiseTitle(value));
     const isBlank = $derived(value.trim().length === 0);
-    const isTaken = $derived(!isBlank && taken.includes(safe));
+    const takenByDocument = $derived(!isBlank && takenDocuments.includes(safe));
+    const takenByFolder = $derived(!isBlank && takenFolders.includes(safe));
+    const isTaken = $derived(takenByDocument || takenByFolder);
 
     // Blank is disabled rather than allowed through: sanitiseTitle never returns
     // an empty string, so a bare Return would otherwise quietly make "Untitled".
     const canCreate = $derived(!isBlank && !isTaken);
 
+    // Document first: where a name is held by both, the document is the row the
+    // writer can see, and the folder behind it is this app's own shape.
     const error = $derived(
-        !isTaken
-            ? ''
-            : kind === 'folder'
+        takenByDocument
+            ? m.files_exists_error({ title: safe })
+            : takenByFolder
               ? m.files_folder_exists_error({ name: safe })
-              : m.files_exists_error({ title: safe })
+              : ''
     );
 
     // The row is opened deliberately, by a menu item or a button, and there is
