@@ -167,15 +167,6 @@ Within each, related items sit next to each other.
       `min-width` in `layout.css`, plus the ProseMirror table internals — `.tableWrapper`
       (horizontal overflow) and `.selectedCell` (cell-selection tint). Column resizing is
       off by design, so `.column-resize-handle` is not needed
-- [ ] Give list markers the read-aloud band — when a spoken sentence falls inside a
-      bullet or numbered list item the text is banded but the marker is not, so the
-      highlight stops short of the line it covers. The cause is structural rather than
-      styling: `tiptap-tts-highlight.ts` emits `Decoration.inline` over text inside
-      `<li><p>…</p></li>`, and `::marker` is generated content on the `<li>` that no
-      inline span can reach. Needs a `Decoration.node` on the enclosing list item when the
-      sentence range covers it, styled from that class in `PageEditor.svelte`'s `<style>`
-      block. Lists come from `StarterKit` (`src/lib/markdown/extensions.ts`), so nothing
-      is added to the shared extension set and the round-trip is unaffected
 - [ ] Ship a real `og:image`. `static/og-image.png` is a 0-byte placeholder, but
       `src/app.html:36` and `:52` already point at it and declare it 1200x630, so
       every link preview of the deployed site resolves to an empty image. The rest
@@ -208,6 +199,19 @@ Within each, related items sit next to each other.
       no outline. `PageEditor.stories.svelte` already renders the highlight in both fonts
       and Storybook runs axe at `test: 'error'` across both themes, so contrast is checked
       for free. Re-render the mocks with it
+- [ ] Carry the read-aloud highlight onto list markers. Nothing is broken here — a
+      bullet or number currently takes Tailwind Typography's default `prose` marker
+      colour, and this is a customisation on top of it: while a spoken sentence sits
+      inside a list item, its marker changes colour too, and returns when playback moves
+      on. The marker takes the colour only, never the band. Doing it is structural rather
+      than styling: `tiptap-tts-highlight.ts` emits `Decoration.inline` over text inside
+      `<li><p>…</p></li>`, and `::marker` is generated content on the `<li>` that no
+      inline span can reach — so it needs a `Decoration.node` on the enclosing list item
+      when the sentence range covers it, styled as `::marker { color: … }` from that
+      class in `PageEditor.svelte`'s `<style>` block, which also keeps the reading-font
+      gradient band off it. Follows the highlight colours above, so do it after. Lists
+      come from `StarterKit` (`src/lib/markdown/extensions.ts`), so nothing is added to
+      the shared extension set and the round-trip is unaffected
 - [ ] Show the read-aloud highlight in the welcome screen's editor preview —
       `WelcomePreview.svelte` draws the transport controls but never the band, so the one
       screen a stranger sees before handing over a folder doesn't show the feature the app
