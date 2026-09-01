@@ -186,19 +186,6 @@ Within each, related items sit next to each other.
 
 ### Features
 
-- [ ] Rework the read-aloud highlight colours to the LCARS-derived lit-band treatment.
-      The current amber wash is not broken — this is a deliberate redesign, and it rhymes
-      with `$lib/tts/chirp.ts`, which already synthesises LCARS-style chirps. Sentence
-      `rgb(255 204 153 / 0.92)`, word `rgb(255 153 0)`, ink `oklch(0.145 0 0)` on both — a
-      tonal pair, because `0.92` against `1.0` is not a visible step. All of it lives in
-      `PageEditor.svelte`'s `<style>` block, which is the documented exception to "theme
-      colours live in `layout.css`" — functional colour stays with the component and
-      `layout.css` stays chroma `0`. Two deletions come with it: the `.dark .tts-*`
-      overrides go (at `0.92` both grounds land within a few percent, so one rule set
-      serves both), and the `.tts-word` ring goes, since a solid block with dark ink needs
-      no outline. `PageEditor.stories.svelte` already renders the highlight in both fonts
-      and Storybook runs axe at `test: 'error'` across both themes, so contrast is checked
-      for free. Re-render the mocks with it
 - [ ] Carry the read-aloud highlight onto list markers. Nothing is broken here — a
       bullet or number currently takes Tailwind Typography's default `prose` marker
       colour, and this is a customisation on top of it: while a spoken sentence sits
