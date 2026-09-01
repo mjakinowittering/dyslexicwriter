@@ -161,7 +161,12 @@ export interface Chunk {
 // Hard cap on a chunk's length. Browsers silently drop utterances that are too long
 // (a whole document never starts speaking) and Chrome cuts playback off around 15s —
 // so text is spoken as a queue of chunks, one utterance each.
-export const MAX_CHUNK_CHARS = 180;
+//
+// The cap is characters but the limit it guards is *time*, so it has to hold at the
+// slowest reading speed the app offers. At TTS_RATE_MIN this is roughly 14s of
+// speech; at 1x, about 10s. The previous 180 was comfortably over the cutoff at
+// anything below 1x, which is exactly where a dyslexic writer sets it.
+export const MAX_CHUNK_CHARS = 140;
 
 // Punctuation a reader already pauses on. The gap between two utterances is audible,
 // so an over-long sentence is broken here where possible — the pause then sounds

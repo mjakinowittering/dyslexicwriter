@@ -16,18 +16,23 @@ import type { TtsTransport } from '$lib/tts/speech-controller.svelte';
 
 // A voice list entry. `SpeechSynthesisVoice` is a browser interface with no
 // constructor, so a literal of the same shape is the only way to name one.
+// `localService` is a real distinction the voice picker draws — an internet voice
+// reports no word boundaries — so it is posable rather than fixed.
 export function fakeVoice(
     name: string,
     lang = 'en-GB',
-    voiceURI = name
+    voiceURI = name,
+    localService = true
 ): SpeechSynthesisVoice {
-    return { default: false, lang, localService: true, name, voiceURI };
+    return { default: false, lang, localService, name, voiceURI };
 }
 
+// Both kinds, so the picker's grouping and its note are visible in a story.
 export const FAKE_VOICES: SpeechSynthesisVoice[] = [
     fakeVoice('Serena'),
     fakeVoice('Daniel'),
-    fakeVoice('Karen', 'en-AU')
+    fakeVoice('Karen', 'en-AU'),
+    fakeVoice('Google UK English Female', 'en-GB', 'google-uk-female', false)
 ];
 
 type TtsOverrides = Partial<
