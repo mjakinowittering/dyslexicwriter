@@ -8,7 +8,7 @@ export type Theme = 'light' | 'dark' | 'system';
 // than Dexie. mode-watcher stays the single source of truth; `read()` reads through
 // to its reactive `userPrefersMode` state so external changes (e.g. the OS
 // preference under 'system') reflect here without a second copy.
-// Dark is the default — see `<ModeWatcher defaultMode="dark" />` in the root layout.
+// Dark is the default — pinned at layout init in `src/routes/+layout.svelte`.
 class ThemeStore {
     // Return the current preferred mode — 'light' | 'dark' | 'system'.
     read(): Theme {
