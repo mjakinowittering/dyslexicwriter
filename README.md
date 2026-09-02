@@ -265,32 +265,6 @@ Within each, related items sit next to each other.
       the mocks with it
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
-- [ ] Clear out the fork leftovers. None of this is broken, which is the problem: it is
-      code and prose describing an app with a server, an `(app)` shell and a nav rail,
-      and a future reader will believe it. In one pass:
-    - `src/lib/stores/theme.store.svelte.ts` — referenced by nothing at all, and it
-      documents itself as delegating persistence to `localStorage` and mentions Dexie
-      and "offline-syncable records", which contradicts `config.json` being the only
-      settings store. Delete the file
-    - `crossfadeDuration` (`config/motion.ts:23`), `titleSchema` and the `Title` type
-      (`models/document.model.ts` — titles go through `sanitiseTitle`, and nothing ever
-      parses one), and the exports used only by their own module or the tests:
-      `flattenDocuments` (whose comment still describes "the config.json index", which
-      was removed), `folderExists`, `takenFolderNames`, `SCAN_DEPTH`, `writeConfig`
-    - Nine unused keys in `messages/en.json`: `content_discard`, `content_save`,
-      `content_save_error`, `content_saved`, `content_saved_notice`,
-      `content_saved_offline_notice`, `content_saving`, `content_title_required`,
-      `files_open`
-    - Comments naming things that do not exist: `PageEditor.svelte:55` ("a late server
-      payload") and `:196-198` ("live SSE/resync refreshes", "ContentBody hands a new
-      object each render"), `config/motion.ts:4,23` ("the nav rail, the AI Chat panel",
-      "entering/leaving /content"), `Tooltip.svelte:13` ("the (app) shell's route
-      crossfade"), `PageEditor.stories.svelte:27` ("limited to what the server can
-      render to markdown")
-    - The read-only branch those `PageEditor` comments describe is reached by one story
-      (`editable: false`) and nothing in the app. Decide it either way — keep it as a
-      documented Storybook-only path, or drop the branch, the `appliedSig` state and
-      the story together
 - [ ] Decide the fate of the tooltip-suppression machinery. It works, and nothing in the
       app uses it: `tooltips.suppress()` is called only from
       `tests/lib/components/Tooltip/Tooltip.svelte.test.ts` and

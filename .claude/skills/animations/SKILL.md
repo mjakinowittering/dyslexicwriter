@@ -29,7 +29,6 @@ Duration and easing come from **`src/lib/config/motion.ts`**:
 ```ts
 export const motionDuration = 700; // ms — one phase; two sequential phases = 1.4s
 export const motionEasing = quintOut;
-export const crossfadeDuration = 1000; // ms — route crossfade, longer than motionDuration
 ```
 
 Import `motionDuration` / `motionEasing` everywhere so every surface moves on one curve and
@@ -98,9 +97,11 @@ with `in:`/`out:` fades. Two gotchas:
   layout. Put them in a `grid grid-cols-1 grid-rows-1` container and give the keyed
   child `col-start-1 row-start-1`.
 
-A route crossfade covers more distance/feel than an in-place panel slide, so it has its
-own `crossfadeDuration` in `motion.ts` (longer than `motionDuration`) rather than sharing
-the rail's timing.
+A route crossfade covers more distance/feel than an in-place panel slide, so it wants a
+duration of its own — longer than `motionDuration` — rather than sharing a panel's
+timing. There is no such constant in `motion.ts` today: this app has two routes and no
+crossfade between them, so add one alongside `motionDuration` if a crossfade is ever
+built.
 
 **Fade the outgoing page out before fading the incoming in.** A simultaneous crossfade
 reads as a muddy dissolve, and sliding a rail that occupies layout space reflows the main

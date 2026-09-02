@@ -9,11 +9,15 @@
     // `$lib/components/Tooltip`, never from `$lib/components/ui/tooltip` (that stays a
     // pristine shadcn shim so it can be re-added by the CLI).
     //
-    // Same API as the shadcn root; it only adds route-transition suppression. Tooltip
-    // content is portaled to <body>, so it sits outside the (app) shell's route
-    // crossfade: without this, clicking a tooltipped control that navigates (the editor's
-    // back button, a nav-rail link) leaves the balloon at full opacity over the fading
-    // page until the outgoing subtree is destroyed.
+    // Same API as the shadcn root; it only adds navigation suppression. Tooltip
+    // content is portaled to <body>, so it outlives the subtree that opened it: a
+    // tooltipped control that navigates — the editor's back button, or a document
+    // row on the Files screen — would otherwise leave its balloon at full opacity
+    // over the outgoing page until that subtree is destroyed.
+    //
+    // Nothing in the app calls `tooltips.suppress()` yet, so this is machinery
+    // waiting on a caller — see the "Decide the fate of the tooltip-suppression
+    // machinery" todo in README.md, which is where it gets wired up or removed.
     let { open = $bindable(false), ...restProps }: TooltipPrimitive.RootProps =
         $props();
 

@@ -1,4 +1,8 @@
-export { readConfig, updateConfig, writeConfig } from './config';
+// What the app reaches for. Deliberately narrower than what the modules export:
+// `writeConfig`, `flattenDocuments`, `folderExists`, `takenFolderNames` and
+// `SCAN_DEPTH` are used inside their own module, or by the OPFS suites, which
+// import them from `./config` and `./documents` directly.
+export { readConfig, updateConfig } from './config';
 export {
     createDocument,
     createFolder,
@@ -8,18 +12,14 @@ export {
     type DocumentLocation,
     ensureSubfolder,
     findDocument,
-    flattenDocuments,
-    folderExists,
     folderIsReachable,
     type FolderNode,
     type OpenedDocument,
     readDocument,
     renameDocument,
-    SCAN_DEPTH,
     scanFolder,
     SUGGESTED_FOLDER_NAME,
     suggestUntitledName,
-    takenFolderNames,
     writeDocument,
     writeImage
 } from './documents';

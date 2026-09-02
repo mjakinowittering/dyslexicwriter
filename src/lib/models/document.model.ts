@@ -1,5 +1,3 @@
-import * as v from 'valibot';
-
 // A document's title doubles as its folder name and the basename of the markdown
 // file inside it, so it is the one piece of user input that becomes a filesystem
 // path. Everything here exists to keep a title from escaping its folder or
@@ -41,13 +39,6 @@ const RESERVED_NAMES = new Set([
     'LPT8',
     'LPT9'
 ]);
-
-export const titleSchema = v.pipe(
-    v.string(),
-    v.trim(),
-    v.minLength(1, 'A document needs a title'),
-    v.maxLength(TITLE_MAX_LENGTH)
-);
 
 // Turn arbitrary user input into something safe to use as a folder name. Always
 // returns a usable name — never an empty string — because the caller is about to
@@ -161,5 +152,3 @@ export function nextUntitledName(taken: ReadonlySet<string>): string {
     while (taken.has(`${UNTITLED} ${n}`)) n += 1;
     return `${UNTITLED} ${n}`;
 }
-
-export type Title = v.InferOutput<typeof titleSchema>;

@@ -1,8 +1,9 @@
 import { quintOut } from 'svelte/easing';
 
-// One phase of the focus-mode slide. Two sequential phases (width, then fade) run
-// back-to-back, so total motion = 2 × this. Shared by the nav rail, the AI Chat panel,
-// and the editor document-width tween so all three move on one easing curve. See the
+// One phase of the two-phase reveal. Two sequential phases (width, then fade) run
+// back-to-back, so total motion = 2 × this. Shared by the editor's settings panel,
+// which is what runs both phases, its document-width tween, and the deliberate
+// scroll back to the top of a document — so all three move on one curve. See the
 // `animations` skill.
 export const motionDuration = 700; // ms
 export const motionEasing = quintOut;
@@ -18,7 +19,3 @@ export const disclosureDuration = 180; // ms
 // nudge would never settle at all. The deliberate scroll back to the top is a
 // single long move with nothing chasing it, so that one uses `motionDuration`.
 export const followScrollDuration = 450; // ms
-
-// Route crossfade (entering/leaving /content). Longer than a single slide phase so the
-// page dissolve eases out a few beats behind the nav rail. See the `animations` skill.
-export const crossfadeDuration = 1000; // ms
