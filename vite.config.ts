@@ -14,7 +14,7 @@ const dirname =
         : path.dirname(fileURLToPath(import.meta.url));
 
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
     plugins: [
         tailwindcss(),
         sveltekit(),
@@ -23,9 +23,38 @@ export default defineConfig({
             outdir: './src/lib/paraglide'
         })
     ],
+    // Under test only, stop Vite forwarding window `error` events. Vitest has
+    // its own unhandled-error path — `onUnhandledError` below, which fails the
+    // run on a real one — so Vite's copy is a duplicate that prints a stack for
+    // benign browser notifications as well. `npm run dev` keeps the forwarding:
+    // there, it is the only thing reporting them.
+    server:
+        mode === 'test'
+            ? { forwardConsole: { unhandledErrors: false } }
+            : undefined,
     test: {
         expect: {
             requireAssertions: true
+        },
+        // "ResizeObserver loop completed with undelivered notifications" is
+        // the browser telling itself a layout pass ran long; nothing in src/
+        // constructs a ResizeObserver, and it only surfaces when the browser
+        // projects run together. @vitest/browser reports it as an *unhandled*
+        // error, complete with a stack, so a green run reads like a failing
+        // one. Matched on the exact message — a real unhandled error still
+        // fails the run.
+        //
+        // The other known-benign noise, bits-ui's `derived_inert`, is
+        // silenced in the browser instead: see
+        // `.storybook/silence-known-warnings.ts` for why it cannot be done
+        // from here.
+        onUnhandledError(error) {
+            if (
+                typeof error.message === 'string' &&
+                error.message.includes('ResizeObserver loop completed')
+            ) {
+                return false;
+            }
         },
         // Count the whole source tree, not just the files a test happened to
         // import. Without `include`, v8 reports on imported modules alone — a
@@ -108,4 +137,4 @@ export default defineConfig({
             }))
         ]
     }
-});
+}));

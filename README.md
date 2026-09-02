@@ -310,12 +310,3 @@ Within each, related items sit next to each other.
       (`workspace.svelte.ts:127-131`), so an unplugged drive lands on a "ready" Files
       screen showing a read error rather than back at the picker. A backoff retry for the
       first, the existing check for the second
-- [ ] Small chores, none urgent, all one-liners: `usesCommandKey` (`utils/shortcut.ts`)
-      reads deprecated `navigator.platform`; `ToolbarVoiceSettings`'s 400ms persist timer
-      is never cleared on destroy, so an unmount mid-debounce still writes `config.json`;
-      the browser test run emits `derived_inert` warnings and an unhandled "ResizeObserver
-      loop completed with undelivered notifications"; `.claude/settings.local.json` fails
-      `npm run lint` locally, since the repo tracks `.claude/skills/` but ignores nothing
-      under `.claude/` and only a global gitignore keeps it out of git; and
-      `WelcomePreview.svelte:140-142` carries the repo's only three ESLint warnings
-      (`close`, `minimise`, `maximise` as `tailwindcss/no-custom-classname`)

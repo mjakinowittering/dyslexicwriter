@@ -15,6 +15,8 @@ import { setProjectAnnotations } from 'storybook/preview-api';
 // @ts-expect-error — virtual module, no types on disk
 import { getProjectAnnotations } from 'virtual:/@storybook/builder-vite/project-annotations.js';
 
+import './silence-known-warnings';
+
 setProjectAnnotations([
     getProjectAnnotations(),
     { initialGlobals: { theme: 'dark' } }
