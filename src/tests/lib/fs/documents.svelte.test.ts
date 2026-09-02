@@ -523,6 +523,46 @@ describe('renameDocument', () => {
         expect(entry.folder).toBe('escaped');
         expect(await folderExists(root, 'escaped')).toBe(true);
     });
+
+    // `ownsFolder` reaches rename as a snapshot — from the moment the document
+    // was opened. The folder-document path ends in a RECURSIVE removeEntry after
+    // copying files only, so anything that appeared in between would be destroyed
+    // unread. The directory itself is asked again before that happens.
+    it('renames only the file when the folder has gained a subdirectory', async () => {
+        await writeDocument(root, folderDoc('Chapter'), fromMarkdown('body'));
+        // The writer, a file manager or a sync client, after the last scan.
+        await writeRaw('Chapter/Drafts', 'earlier.md', 'earlier');
+
+        const entry = await renameDocument(
+            root,
+            folderDoc('Chapter'),
+            'Renamed'
+        );
+
+        // Corrected, not refused: this is what a fresh scan would have made it do.
+        expect(entry.ownsFolder).toBe(false);
+        expect(entry.folder).toBe('Chapter');
+        expect(entry.file).toBe('Renamed.md');
+        expect(await readFile('Chapter', 'Renamed.md')).toBe('body');
+        expect(await fileExists('Chapter', 'Chapter.md')).toBe(false);
+        // The whole point: nothing was removed recursively.
+        expect(await readFile('Chapter/Drafts', 'earlier.md')).toBe('earlier');
+    });
+
+    it('renames only the file when a second document has appeared beside it', async () => {
+        await writeDocument(root, folderDoc('Chapter'), fromMarkdown('body'));
+        await writeRaw('Chapter', 'Notes.md', 'notes');
+
+        const entry = await renameDocument(
+            root,
+            folderDoc('Chapter'),
+            'Renamed'
+        );
+
+        expect(entry.ownsFolder).toBe(false);
+        expect(await readFile('Chapter', 'Renamed.md')).toBe('body');
+        expect(await readFile('Chapter', 'Notes.md')).toBe('notes');
+    });
 });
 
 describe('writeImage', () => {
@@ -585,6 +625,61 @@ describe('deleteDocument', () => {
         expect(await fileExists('Notes', 'One.md')).toBe(false);
         expect(await readFile('Notes', 'Two.md')).toBe('two');
     });
+
+    // Where rename can carry on under a corrected flag, delete cannot: there is
+    // no trash behind `removeEntry({ recursive: true })`, and the writer confirmed
+    // against copy naming a folder that no longer describes what is in there.
+    it('refuses when the folder has gained a subdirectory since the scan', async () => {
+        await writeDocument(root, folderDoc('Doomed'), fromMarkdown('body'));
+        await writeRaw('Doomed/Drafts', 'earlier.md', 'earlier');
+
+        await expect(
+            deleteDocument(root, folderDoc('Doomed'))
+        ).rejects.toBeInstanceOf(DocumentError);
+
+        // Nothing at all was removed.
+        expect(await readFile('Doomed', 'Doomed.md')).toBe('body');
+        expect(await readFile('Doomed/Drafts', 'earlier.md')).toBe('earlier');
+    });
+
+    // Stricter than the scan on purpose: `listDirectory` skips dot-entries, which
+    // is right when walking for documents and wrong here, because a recursive
+    // remove takes them regardless.
+    it('refuses over a dot-directory the scan would have skipped', async () => {
+        await writeDocument(root, folderDoc('Doomed'), fromMarkdown('body'));
+        await writeRaw('Doomed/.versions', 'old.md', 'old');
+
+        await expect(
+            deleteDocument(root, folderDoc('Doomed'))
+        ).rejects.toBeInstanceOf(DocumentError);
+
+        expect(await readFile('Doomed/.versions', 'old.md')).toBe('old');
+    });
+
+    it('refuses when a second document has appeared in the folder', async () => {
+        await writeDocument(root, folderDoc('Doomed'), fromMarkdown('body'));
+        await writeRaw('Doomed', 'Notes.md', 'notes');
+
+        await expect(
+            deleteDocument(root, folderDoc('Doomed'))
+        ).rejects.toBeInstanceOf(DocumentError);
+
+        expect(await readFile('Doomed', 'Notes.md')).toBe('notes');
+    });
+
+    // The re-check must not be so strict it refuses a genuine folder-document.
+    it('still deletes a folder holding only the document and its images', async () => {
+        await writeDocument(root, folderDoc('Doomed'), fromMarkdown('x'));
+        await writeImage(
+            root,
+            'Doomed',
+            new File(['b'], 'img.png', { type: 'image/png' })
+        );
+
+        await deleteDocument(root, folderDoc('Doomed'));
+
+        expect(await folderExists(root, 'Doomed')).toBe(false);
+    });
 });
 
 describe('createFolder', () => {
@@ -646,34 +741,72 @@ describe('deleteFolder', () => {
 });
 
 describe('createDocument', () => {
-    it('creates a document inside a folder the user chose', async () => {
+    // Every document the app creates owns its folder, wherever it is made —
+    // images belong to the document that uses them, and only a folder of its own
+    // can hold them.
+    it('gives the document a folder of its own inside the folder chosen', async () => {
         await createFolder(root, '', 'Drafts');
 
         const entry = await createDocument(root, 'Drafts', 'Chapter One');
 
+        expect(entry.folder).toBe('Drafts/Chapter One');
         expect(entry.file).toBe('Chapter One.md');
-        expect(await fileExists('Drafts', 'Chapter One.md')).toBe(true);
+        expect(entry.ownsFolder).toBe(true);
+        expect(await fileExists('Drafts/Chapter One', 'Chapter One.md')).toBe(
+            true
+        );
+        // Not left flat beside its siblings, where its images would be shared.
+        expect(await fileExists('Drafts', 'Chapter One.md')).toBe(false);
     });
 
-    it('shows up in the next scan, inside the folder it was made in', async () => {
+    it('shows up in the next scan as ONE row, inside the folder it was made in', async () => {
         await createFolder(root, '', 'Drafts');
         await createDocument(root, 'Drafts', 'Chapter One');
 
-        // Unlike an empty folder, an empty document needs nothing special to
-        // survive: the scan lists any .md regardless of what is in it.
+        // `onlyDocument` collapses `X/X.md` into its parent, so the Files screen
+        // is unchanged by the nesting: one document row under Drafts, and no
+        // disclosure to open first.
         const tree = await scanFolder(root);
-        expect(
-            folderNamed(tree, 'Drafts')?.documents.map(documentPath)
-        ).toEqual(['Drafts/Chapter One.md']);
+        const drafts = folderNamed(tree, 'Drafts');
+        expect(drafts?.documents.map(documentPath)).toEqual([
+            'Drafts/Chapter One/Chapter One.md'
+        ]);
+        expect(drafts?.folders).toEqual([]);
     });
 
-    it('refuses a name already taken in that folder', async () => {
+    it('keeps its images to itself', async () => {
+        await createFolder(root, '', 'Drafts');
+        await writeRaw('Drafts', 'Sibling.md', 'sibling');
+        const entry = await createDocument(root, 'Drafts', 'Chapter One');
+
+        await writeImage(
+            root,
+            entry.folder,
+            new File(['png'], 'diagram.png', { type: 'image/png' })
+        );
+
+        expect(await readFile('Drafts/Chapter One', 'diagram.png')).toBe('png');
+        expect(await fileExists('Drafts', 'diagram.png')).toBe(false);
+    });
+
+    it('refuses a name already held by a markdown file', async () => {
         await writeRaw('Notes', 'One.md', 'one');
 
         await expect(createDocument(root, 'Notes', 'One')).rejects.toThrow(
             DocumentError
         );
         expect(await readFile('Notes', 'One.md')).toBe('one');
+    });
+
+    // New with the nesting: the name now claims a directory too, so a folder
+    // already sitting there is a collision it never used to be.
+    it('refuses a name already held by a directory, touching nothing in it', async () => {
+        await writeRaw('Notes/One', 'whatever.md', 'theirs');
+
+        await expect(createDocument(root, 'Notes', 'One')).rejects.toThrow(
+            DocumentError
+        );
+        expect(await readFile('Notes/One', 'whatever.md')).toBe('theirs');
     });
 });
 

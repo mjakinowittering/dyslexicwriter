@@ -192,31 +192,6 @@ Within each, related items sit next to each other.
       claiming the event, and routing it through the same `onDropImage` → `doc.addImage`
       path so the file lands in the document's own directory. The insertion position is
       the caret rather than `posAtCoords`; everything else is the drop handler's shape
-- [ ] Give a document created from a folder row its own folder, like every other document
-      the app creates. `createDocument` (`documents.ts:536-561`) writes the markdown
-      straight into the chosen folder with `ownsFolder: false`, so `Chapters/My Doc.md`
-      keeps its images at `Chapters/diagram.png`, shared with every sibling document in
-      there — the document cannot be moved as a unit, and renaming or deleting it leaves
-      its images behind. The editor's "New document" already creates `My Doc/My Doc.md`
-      (`document.svelte.ts:47-50`), and image self-containment is the whole reason that
-      shape exists; the folder-row path is the app creating a document under the rules
-      meant for documents it merely found. **Decision taken: always nest** — make it
-      `<folder>/<Title>/<Title>.md` with `ownsFolder: true`, folder created first and the
-      file inside it second, the same order the first-save path uses. The Files screen
-      does not change: `onlyDocument` (`documents.ts:294`) already collapses `X/X.md` into
-      a single row, so it still reads as one document under that folder. Three things go
-      with it: the duplicate check currently tests `entryExists(dir, fileName, 'file')`
-      only and must refuse a **directory** of that name too, the way `createFolder`
-      (`:768-792`) checks both; `FileTree.svelte:90-92` passes only document titles as
-      `taken` for a document naming row, so a name colliding with an existing folder is
-      caught nowhere but the write; and CLAUDE.md states the old rule in three places (the
-      Data Model table, `:227-229`, `:436-437`) so it changes in the same commit. Scope:
-      file-documents stay exactly as they are — they are what the scan **finds** in a
-      writer's existing tree, and every `ownsFolder` branch in rename, delete and image
-      writes is untouched. The known cost was weighed and accepted: a writer keeping a
-      deliberately flat `Chapters/One.md, Two.md` who adds a third from the app gets
-      `Chapters/Three/Three.md`, which looks out of step with its neighbours in a file
-      manager even though the app shows them alike
 - [ ] Fix the double rename fired by the title field. `edit/+page.svelte:146-147` binds
       both `onchange` and `onblur` to `doc.rename(title)`, and for a text input `change`
       fires immediately before `blur` — so both run. The guard in `rename()`
@@ -226,16 +201,6 @@ Within each, related items sit next to each other.
       spurious "already exists", or the two race the `removeEntry` of the old file. One
       trigger is enough — `change` already fires on blur — or the store tracks the rename
       in flight and coalesces
-- [ ] Re-derive `ownsFolder` from the directory before the destructive half of rename and
-      delete. `renameFolderDocument` (`documents.ts:659-698`) copies **files only** out of
-      the source folder and then calls `removeEntry(sourceName, { recursive: true })`;
-      `deleteDocument` (`:734-756`) deletes recursively on the same flag. Both take
-      `ownsFolder` from a scan that may be minutes old — the Files screen rescans on mount
-      and window focus, nothing more — so a subdirectory added to that folder since (by
-      the writer, a file manager, a sync client) is deleted and never copied. The scan
-      recomputes `ownsItsFolder` for exactly this reason; the write paths should too, by
-      re-listing the directory immediately before the destructive step and refusing when
-      it no longer holds. This is the one item on this list that can lose writing
 - [ ] Tell a missing `config.json` apart from an unreadable one. `readConfig`
       (`fs/config.ts:17-27`) catches everything and returns `defaultConfig()`, so first
       run and a real read failure (permission revoked mid-session, drive unplugged) are

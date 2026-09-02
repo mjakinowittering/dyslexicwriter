@@ -87,9 +87,15 @@
             kind={namingHere.kind}
             onCancel={onNamingCancel}
             onSubmit={onNamingSubmit}
-            taken={namingHere.kind === 'folder'
-                ? node.folders.map((folder) => folder.name)
-                : node.documents.map((entry) => entry.title)}
+            takenDocuments={namingHere.kind === 'document'
+                ? node.documents.map((entry) => entry.title)
+                : // A folder-document is a real directory of that name on disk,
+                  // so it blocks a folder. A file-document is `One.md` and never
+                  // did.
+                  node.documents
+                      .filter((entry) => entry.ownsFolder)
+                      .map((entry) => entry.title)}
+            takenFolders={node.folders.map((folder) => folder.name)}
         />
     {/if}
 

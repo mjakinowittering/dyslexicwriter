@@ -10,7 +10,8 @@
         tags: ['autodocs'],
         argTypes: {
             kind: { control: false },
-            taken: { control: false },
+            takenDocuments: { control: false },
+            takenFolders: { control: false },
             onSubmit: { control: false },
             onCancel: { control: false }
         },
@@ -30,7 +31,12 @@
 
 <Story
     name="Folder"
-    args={{ kind: 'folder', taken: ['Chapters'], ...handlers }}
+    args={{
+        kind: 'folder',
+        takenDocuments: [],
+        takenFolders: ['Chapters'],
+        ...handlers
+    }}
     play={async ({ canvas }) => {
         const field = canvas.getByRole('textbox', { name: 'Folder name' });
         await expect(field).toHaveFocus();
@@ -55,7 +61,12 @@
 
 <Story
     name="Document"
-    args={{ kind: 'document', taken: ['Two'], ...handlers }}
+    args={{
+        kind: 'document',
+        takenDocuments: ['Two'],
+        takenFolders: [],
+        ...handlers
+    }}
     play={async ({ canvas }) => {
         // The extension is shown rather than typed — it is part of the filename.
         await expect(canvas.getByText('.md')).toBeInTheDocument();
@@ -74,7 +85,12 @@
 
 <Story
     name="Name Taken"
-    args={{ kind: 'document', taken: ['Two'], ...handlers }}
+    args={{
+        kind: 'document',
+        takenDocuments: ['Two'],
+        takenFolders: [],
+        ...handlers
+    }}
     play={async ({ canvas }) => {
         const field = canvas.getByRole('textbox', { name: 'Document name' });
         await userEvent.type(field, 'Two');
@@ -89,6 +105,36 @@
             canvas.getByRole('button', { name: 'Create' })
         ).toBeDisabled();
         await expect(field).toHaveAttribute('aria-invalid', 'true');
+    }}
+>
+    {#snippet template(args)}
+        <ul class="bg-background w-full max-w-2xl p-6">
+            <FileTreeNameRow {...args} />
+        </ul>
+    {/snippet}
+</Story>
+
+<Story
+    name="Name Taken By A Folder"
+    args={{
+        kind: 'document',
+        takenDocuments: [],
+        takenFolders: ['Chapters'],
+        ...handlers
+    }}
+    play={async ({ canvas }) => {
+        const field = canvas.getByRole('textbox', { name: 'Document name' });
+        await userEvent.type(field, 'Chapters');
+
+        // A document the app creates is a directory of its own name, so a folder
+        // already sitting there blocks it. The error names the folder rather than
+        // claiming a document is in the way.
+        await expect(
+            canvas.getByText('A folder called "Chapters" already exists')
+        ).toBeInTheDocument();
+        await expect(
+            canvas.getByRole('button', { name: 'Create' })
+        ).toBeDisabled();
     }}
 >
     {#snippet template(args)}
