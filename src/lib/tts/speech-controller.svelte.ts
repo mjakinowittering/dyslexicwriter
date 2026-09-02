@@ -50,6 +50,13 @@ const CHARS_PER_SECOND = 12;
 // chained on that one event.
 const WATCHDOG_SLACK_MS = 8_000;
 
+// How many `voiceschanged` fires in a row may find the same voice list before we
+// stop answering them (see loadVoices). A real engine settles in two or three
+// enumerations; past that the fires are our own getVoices() echoing back, and
+// answering them is the loop that fills the tab's memory. Re-reading a list that
+// has not changed is a no-op anyway, so a cap costs nothing when it is wrong.
+const MAX_UNCHANGED_VOICE_READS = 3;
+
 function synth(): SpeechSynthesis | null {
     if (typeof window === 'undefined') return null;
     return window.speechSynthesis ?? null;
@@ -92,17 +99,23 @@ export function pickDefaultVoice(
     );
 }
 
-// Whether two voice lists name the same voices in the same order. Chrome hands
-// back a fresh array of fresh objects from every getVoices() call, so identity
-// says nothing — see loadVoices().
+// Whether two voice lists name the same voices. Chrome hands back a fresh array
+// of fresh objects from every getVoices() call, so identity says nothing — see
+// loadVoices().
+//
+// Deliberately order-insensitive. Chrome assembles the list from two asynchronous
+// sources (SAPI and the bundled Google TTS extension) and a re-enumeration can
+// hand the same voices back in a different order; comparing position by position
+// called that a change, reassigned the $state and invalidated every reader — the
+// voice picker's two groups and its label — for a list nobody had altered. The
+// order we keep is the one we already showed, which is also the steadier picker.
 function sameVoices(
     a: SpeechSynthesisVoice[],
     b: SpeechSynthesisVoice[]
 ): boolean {
-    return (
-        a.length === b.length &&
-        a.every((voice, i) => voice.voiceURI === b[i].voiceURI)
-    );
+    if (a.length !== b.length) return false;
+    const uris = new Set(a.map((voice) => voice.voiceURI));
+    return b.every((voice) => uris.has(voice.voiceURI));
 }
 
 /**
@@ -192,32 +205,47 @@ class SpeechController implements TtsTransport {
     #voicesChanged: (() => void) | null = null;
     // True while the handler below is running. See loadVoices().
     #readingVoices = false;
+    // Consecutive reads that found nothing new — the loop breaker. See loadVoices().
+    #unchangedVoiceReads = 0;
 
     /**
      * Populate the voice list, and keep it current. getVoices() is empty until the
      * engine's async load fires, so we read it now and again whenever the engine
      * says the list has changed.
      *
-     * Both guards here exist because of Chrome on Windows, where the list is
-     * assembled from two asynchronous sources (SAPI and the bundled Google TTS
-     * component extension) and is re-enumerated as playback starts:
+     * All three guards exist because of Chrome, where the list is assembled from two
+     * asynchronous sources (SAPI and the bundled Google TTS component extension) and
+     * is re-enumerated around playback — starting a read, pausing one, cancelling to
+     * skip, choosing a different voice:
      *
-     * - **Re-entrancy.** getVoices() can itself raise `voiceschanged`. Handling that
-     *   from inside the handler is an unbounded loop that pegs the tab — the whole
-     *   window stops responding partway through a read.
+     * - **Re-entrancy.** getVoices() can itself raise `voiceschanged`.
      * - **Identity.** Every getVoices() call returns a fresh array of fresh objects,
      *   so assigning unconditionally invalidates every reader of this `$state` on a
      *   fire that changed nothing. Assign only when the list really differs.
+     * - **Settling.** The one that actually terminates the loop. `voiceschanged` is
+     *   dispatched as a *task*, not synchronously, so the re-entrancy flag above is
+     *   already back to false by the time our own read's echo arrives: read → event
+     *   → read → event, unbounded, allocating a fresh array of fresh voice objects
+     *   every turn until the tab is unusable. Nothing in the event says who caused
+     *   it, so the only thing that can end it is the answer — a read that finds
+     *   nothing new earns no further reads. The count resets the moment the list
+     *   really does change, so an engine still loading its voices stays followed.
      */
     loadVoices(): void {
         const s = synth();
         if (!s || this.#voicesChanged) return;
         const apply = (): void => {
             if (this.#readingVoices) return;
+            if (this.#unchangedVoiceReads >= MAX_UNCHANGED_VOICE_READS) return;
             this.#readingVoices = true;
             try {
                 const next = s.getVoices();
-                if (!sameVoices(this.voices, next)) this.voices = next;
+                if (sameVoices(this.voices, next)) {
+                    this.#unchangedVoiceReads += 1;
+                } else {
+                    this.voices = next;
+                    this.#unchangedVoiceReads = 0;
+                }
             } finally {
                 this.#readingVoices = false;
             }
@@ -234,6 +262,9 @@ class SpeechController implements TtsTransport {
         if (!s || !this.#voicesChanged) return;
         s.removeEventListener('voiceschanged', this.#voicesChanged);
         this.#voicesChanged = null;
+        // A later loadVoices() — the editor remounting on a document switch — is a
+        // fresh screen asking a fresh question, not an echo of the last one.
+        this.#unchangedVoiceReads = 0;
     }
 
     // Snapshot the current preferences for persistence.
@@ -390,6 +421,16 @@ class SpeechController implements TtsTransport {
             this.#finish();
             return;
         }
+        // A pause that ended the chunk instead of holding it lands here — Chrome
+        // does that for a remote voice, and so does Chrome on Linux generally. The
+        // engine is paused, so speaking now would queue into it: silent until the
+        // writer presses play, and then a sentence ahead of the highlight. Leave
+        // the index on the chunk we owe and let resume() speak it.
+        if (this.isPaused) {
+            this.#detachCurrent();
+            this.#current = null;
+            return;
+        }
         this.#speakChunk();
     }
 
@@ -515,9 +556,13 @@ class SpeechController implements TtsTransport {
 
     pause(): void {
         const s = synth();
-        if (!s || !this.isPlaying) return;
-        s.pause();
+        if (!s || !this.isPlaying || this.isPaused) return;
+        // Flagged *before* pause(), not after. Chrome ends the current utterance
+        // rather than holding it for a remote voice, and that `end` re-enters
+        // #advance() synchronously from inside this call — where it has to see the
+        // read as already paused, or it speaks the next chunk into a paused engine.
         this.isPaused = true;
+        s.pause();
         // A paused chunk is not a stalled one — the deadline would fire partway
         // through the pause and skip the sentence the writer stopped on.
         this.#clearWatchdog();
@@ -526,8 +571,19 @@ class SpeechController implements TtsTransport {
     resume(): void {
         const s = synth();
         if (!s) return;
-        s.resume();
         this.isPaused = false;
+
+        // Nothing in flight means the pause ended the chunk rather than holding it
+        // (see #advance) — there is nothing for resume() to lift, so speak the
+        // chunk we stopped on. #resetEngine clears the paused state first, or the
+        // speak() queues silently forever.
+        if (this.isPlaying && !this.#current) {
+            this.#resetEngine();
+            this.#speakChunk();
+            return;
+        }
+
+        s.resume();
         // How much of the chunk is left is unknowable, so re-arm for the whole of
         // it. Waiting longer than necessary costs a delay; waiting too little talks
         // over the voice.

@@ -1,5 +1,6 @@
 <script lang="ts">
     import { PreferenceHorizontalIcon } from '@hugeicons/core-free-icons';
+    import { onDestroy } from 'svelte';
 
     import Icon from '$lib/components/Icon/Icon.svelte';
     import * as Tooltip from '$lib/components/Tooltip';
@@ -46,8 +47,22 @@
     let timer: ReturnType<typeof setTimeout> | undefined;
     function persistDebounced(): void {
         clearTimeout(timer);
-        timer = setTimeout(() => persist(controller.preferences), 400);
+        timer = setTimeout(() => {
+            timer = undefined;
+            persist(controller.preferences);
+        }, 400);
     }
+
+    // The debounce is an optimisation; this is what makes the write actually
+    // happen. Leaving the editor within 400ms of choosing a voice — Back, or a
+    // document switch — would otherwise drop the choice on the floor, and the
+    // pending timer would fire from a destroyed component. Flush, don't cancel.
+    onDestroy(() => {
+        if (timer === undefined) return;
+        clearTimeout(timer);
+        timer = undefined;
+        persist(controller.preferences);
+    });
 
     // Select uses '' as the sentinel for "suggested default" (voiceUri = null).
     const voiceValue = $derived(controller.voiceUri ?? '');
