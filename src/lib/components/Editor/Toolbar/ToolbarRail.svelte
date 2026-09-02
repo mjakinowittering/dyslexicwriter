@@ -2,8 +2,8 @@
     import { ArrowLeft01Icon } from '@hugeicons/core-free-icons';
 
     import Icon from '$lib/components/Icon/Icon.svelte';
-    import * as Tooltip from '$lib/components/Tooltip';
     import Button from '$lib/components/ui/button/button.svelte';
+    import * as Tooltip from '$lib/components/ui/tooltip';
 
     import * as m from '$lib/paraglide/messages';
 

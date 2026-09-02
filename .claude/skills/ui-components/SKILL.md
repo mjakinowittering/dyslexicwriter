@@ -74,16 +74,6 @@ Display & Media: Aspect Ratio, Avatar, Card, Carousel, Chart, Data Table, Item, 
 
 Misc: Collapsible, Pagination, Range Calendar, Toggle, Toggle Group
 
-### Tooltip — import from `$lib/components/Tooltip`
-
-The one exception to "import from `$lib/components/ui/…`". Tooltip content is portaled to
-`<body>`, so a balloon outlives the route crossfade and hangs over the fading page. The
-project barrel `$lib/components/Tooltip` re-exports the shadcn `Trigger`/`Content`/
-`Provider`/`Portal` unchanged and swaps in a `Root` that dismisses on navigation via the
-`tooltips` registry (see the `client-stores` skill). Same API, same markup — only the
-import path differs. Never import tooltips from `$lib/components/ui/tooltip` directly:
-that shim stays pristine so `npx shadcn-svelte@latest add tooltip` can re-add it.
-
 ### MCP Server (optional)
 
 A multi-framework MCP server is available via `@jpisnice/shadcn-ui-mcp-server`. Install it for direct component source code and demo access:

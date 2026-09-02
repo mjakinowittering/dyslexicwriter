@@ -291,17 +291,6 @@ Within each, related items sit next to each other.
       (`editable: false`) and nothing in the app. Decide it either way — keep it as a
       documented Storybook-only path, or drop the branch, the `appliedSig` state and
       the story together
-- [ ] Decide the fate of the tooltip-suppression machinery. It works, and nothing in the
-      app uses it: `tooltips.suppress()` is called only from
-      `tests/lib/components/Tooltip/Tooltip.svelte.test.ts` and
-      `stories/Tooltip/Tooltip.stories.svelte`, and `use:tooltipSuppression` appears only
-      in the test harness and that story. It was written for a portaled balloon hanging
-      over a route crossfade in an `(app)` shell with a nav rail — this app has two routes
-      and no crossfade. Either wire it to the two real navigations (the editor's back
-      button, opening a document from the Files screen) or delete all five places it
-      lives: `stores/tooltips.svelte.ts`, `actions/tooltip-suppression.svelte.ts`, the
-      `$effect` and `disabled` in `components/Tooltip/Tooltip.svelte`, the rule at
-      `layout.css:239-246`, and the test and story that are its only callers
 - [ ] Cover the workspace store and the `SpeechController` with tests. These are the two
       most intricate stateful modules in the app and the two thinnest in the suite.
       `workspace.svelte.ts` sits at **28%**: `leaveFolder`, `isEmpty` and `touch` are
