@@ -309,11 +309,12 @@
     <!-- Wider than the cards need: the editor preview below them takes the extra
          measure, and Welcome's own Empty.Content keeps the cards at `max-w-2xl`.
 
-         `overflow-y-auto` for the same reason the Files list has it. This screen
-         is built to be one screenful and the preview shrinks to keep it that
-         way, but the title, cards and hint have a floor, and in a short enough
-         window they pass it. Without this they spill out of the branch and paint
-         over the footer; with it they scroll inside it and the chrome stays put. -->
+         `overflow-y-auto` for the same reason the Files list has it. Nothing in
+         this branch resizes itself to fit the window — the preview is drawn at
+         the column's full width and stands as tall as its own contents — so on
+         a short screen it simply runs past the fold. Without this it would
+         spill out of the branch and paint over the footer; with it the screen
+         scrolls inside it and the chrome stays put. -->
     <div
         class="mx-auto flex min-h-0 w-full flex-1 overflow-y-auto px-6 md:max-w-5xl"
     >
