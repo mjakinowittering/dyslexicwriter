@@ -3,12 +3,12 @@
     import { onDestroy } from 'svelte';
 
     import Icon from '$lib/components/Icon/Icon.svelte';
-    import * as Tooltip from '$lib/components/Tooltip';
     import { Button } from '$lib/components/ui/button';
     import { Label } from '$lib/components/ui/label';
     import * as Popover from '$lib/components/ui/popover';
     import * as Select from '$lib/components/ui/select';
     import * as ToggleGroup from '$lib/components/ui/toggle-group';
+    import * as Tooltip from '$lib/components/ui/tooltip';
 
     import { defaultPreferences } from '$lib/models/config.model';
     import { TTS_RATE_MAX, TTS_RATE_MIN } from '$lib/models/tts.model';

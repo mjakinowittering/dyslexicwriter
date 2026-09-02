@@ -3,8 +3,8 @@
     import type { Editor } from '@tiptap/core';
 
     import Icon from '$lib/components/Icon/Icon.svelte';
-    import * as Tooltip from '$lib/components/Tooltip';
     import * as ToggleGroup from '$lib/components/ui/toggle-group';
+    import * as Tooltip from '$lib/components/ui/tooltip';
 
     import * as m from '$lib/paraglide/messages';
     import { speech } from '$lib/tts/speech-controller.svelte';
