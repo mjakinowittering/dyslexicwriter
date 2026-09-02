@@ -33,6 +33,12 @@ const APPLE_ORDER = ['Ctrl', 'Alt', 'Shift', 'Mod'];
  * when it decides whether `Mod` binds to Meta or Control. Inlined rather than
  * imported so this module (and its test) stays clear of the editor bundle; if
  * TipTap's test ever changes, this has to follow it.
+ *
+ * `navigator.platform` is deprecated, and it stays anyway: TipTap reads it too,
+ * so matching it is the whole point. Detecting the platform some better way —
+ * `userAgentData.platform` — would be correct in isolation and wrong here the
+ * first time the two disagreed, because the tooltip would then name a key the
+ * keymap doesn't bind. The mirror is worth more than the modern API.
  */
 export function usesCommandKey(): boolean {
     if (typeof navigator === 'undefined') return false;
