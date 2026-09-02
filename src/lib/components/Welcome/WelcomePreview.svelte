@@ -29,7 +29,6 @@
     import Icon from '$lib/components/Icon/Icon.svelte';
 
     import * as m from '$lib/paraglide/messages';
-    import { cn } from '$lib/utils';
     import calculateReadingTime from '$lib/utils/calculateReadingTime';
 
     // A picture of the editor, on the welcome screen, so it is obvious what the
@@ -47,9 +46,14 @@
     // grid as everything else. It stays an independent mock: it shares no sizes
     // with the editor and must not try to.
     //
-    // Sized by the screen it sits on rather than by a height of its own: it
-    // keeps a 16:9 window shape and takes its width from the height the welcome
-    // stack leaves it, so this screen fits the window instead of scrolling it.
+    // Full width, and as tall as its contents make it. No aspect ratio: tying
+    // the window to 16:9 meant its width came from whatever vertical space the
+    // welcome stack left over, and on a laptop-height screen that was nothing —
+    // a 1920x1080 laptop at Windows' 125% scaling left it on its minimum with
+    // most of the toolbar dropped. Nothing here is sized against the viewport
+    // any more: the width is the column's and the height is whatever the rows
+    // add up to. A window too short to hold it scrolls.
+    //
     // The page inside runs on under the status bar, which is what a page looks
     // like when it carries on below the fold.
 
@@ -60,33 +64,18 @@
     // Every group the editor's toolbar has, in its order. Joined, bordered
     // segments — `Format.Group` passes `variant="outline"`.
     //
-    // The row cannot hold all six until the window is wide enough, so groups
-    // drop off it as the window narrows — measured against the window's own
-    // width (`@`), not the viewport's, because the mock is sized from the height
-    // it is given and is routinely a good deal narrower than the screen it is
-    // drawn on. Each threshold is the row width the group completes.
-    //
-    // They go from the right, the order the toolbar reads in — except the
-    // headings, dropped first at the bottom end: four controls wide, and the
-    // only group that buys back enough room to keep anything else.
-    type FormatGroup = { icons: IconSvgElement[]; class?: string };
-
-    const FORMAT_GROUPS: FormatGroup[] = [
-        { icons: [Undo03Icon, Redo03Icon] },
-        {
-            class: 'hidden @[31rem]:flex',
-            icons: [Heading01Icon, Heading02Icon, Heading03Icon, Heading04Icon]
-        },
-        { icons: [TextBoldIcon, TextItalicIcon] },
-        {
-            class: 'hidden @[43rem]:flex',
-            icons: [LeftToRightListBulletIcon, LeftToRightListNumberIcon]
-        },
-        {
-            class: 'hidden @[43rem]:flex',
-            icons: [LeftToRightBlockQuoteIcon, MinusSignIcon]
-        },
-        { class: 'hidden @[51rem]:flex', icons: [TableIcon, Image01Icon] }
+    // All six, always. The window is only ever drawn at the column's full width
+    // from `lg` up — comfortably more than the row needs — and hidden below
+    // that, so there is no longer a size at which a group has to be given up.
+    // The three container queries that used to drop them are gone with the
+    // ratio that made the window narrow in the first place.
+    const FORMAT_GROUPS: IconSvgElement[][] = [
+        [Undo03Icon, Redo03Icon],
+        [Heading01Icon, Heading02Icon, Heading03Icon, Heading04Icon],
+        [TextBoldIcon, TextItalicIcon],
+        [LeftToRightListBulletIcon, LeftToRightListNumberIcon],
+        [LeftToRightBlockQuoteIcon, MinusSignIcon],
+        [TableIcon, Image01Icon]
     ];
     const TRANSPORT: IconSvgElement[] = [
         PreviousIcon,
@@ -97,8 +86,8 @@
     ];
 </script>
 
-{#snippet group(icons: IconSvgElement[], className?: string)}
-    <span class={cn('flex items-center rounded-md', className)}>
+{#snippet group(icons: IconSvgElement[])}
+    <span class="flex items-center rounded-md">
         {#each icons as icon (icon)}
             <span
                 class="border-input inline-flex h-7 min-w-7 items-center justify-center border border-l-0 px-2 first:rounded-l-md first:border-l last:rounded-r-md"
@@ -109,27 +98,23 @@
     </span>
 {/snippet}
 
-<!-- The slot the window sits in, and the size container it is measured
-     against. It carries the window's own shape so it never claims height the
-     window cannot use — it shrinks when the screen is short, but it does not
-     grow, which is what would otherwise leave a dead band above and below the
-     window on a tall screen. Hidden below `sm`, where there is no width for it
-     to read as anything and the two cards are the whole job anyway. -->
-<div
-    aria-hidden="true"
-    class="@container-size hidden aspect-video min-h-0 w-full items-center justify-center sm:flex"
->
-    <!-- The window keeps a screen's shape at every size — `aspect-video`, with
-         the width taken from the slot's height so the whole thing scales to fit
-         rather than letterboxing. `26rem` is the floor: below that the toolbar
-         has nothing left to give up, so a window that short scrolls instead.
+<!-- Shown from `lg`, where the column is wide enough for the whole toolbar,
+     and hidden below it — on a phone or a tablet held in portrait the two cards
+     are the whole job, and a mock this narrow would read as a smudge rather
+     than as an editor. It is shown or hidden, never resized.
 
-         An inline-size container in its own right, which is what the toolbar
-         groups below reveal against: the mock is routinely half the width of
-         the viewport, so viewport breakpoints would show controls it has no
-         room for. -->
+     `shrink-0` because the stack above it is a flex column: without it a short
+     window would squeeze the window's height back out of it, which is the
+     scaling this component no longer does. It runs off the bottom of a short
+     window instead, and the screen scrolls. -->
+<div aria-hidden="true" class="hidden w-full shrink-0 lg:block">
+    <!-- The window. Full width of the column, and as tall as its own parts make
+         it. Nothing here is measured against anything: no ratio, no container
+         queries, no floor, no height of its own.
+
+         `overflow-hidden` is what rounds the corners off the rows inside. -->
     <div
-        class="border-border bg-background shadow-sheet @container relative flex aspect-video w-[min(100%,max(26rem,calc(16/9*100cqh)))] flex-col overflow-hidden rounded-xl border"
+        class="border-border bg-background shadow-sheet relative flex w-full flex-col overflow-hidden rounded-xl border"
     >
         <!-- The title bar. The three lights are the one colour here that is not a
              token — see the <style> block. -->
@@ -179,15 +164,11 @@
                 </div>
 
                 <div class="flex items-center gap-2 px-2.5 pb-1.5">
-                    <!-- `gap-3` until the row is carrying all six groups,
-                         where the editor's own `space-x-5` is what the spacing
-                         is drawn from. -->
-                    <span class="flex flex-1 items-start gap-3 @[51rem]:gap-4">
-                        {#each FORMAT_GROUPS as formatGroup, i (i)}
-                            {@render group(
-                                formatGroup.icons,
-                                formatGroup.class
-                            )}
+                    <!-- `gap-4`, drawn from the editor's own `space-x-5`: the
+                         row always carries all six groups now. -->
+                    <span class="flex flex-1 items-start gap-4">
+                        {#each FORMAT_GROUPS as icons, i (i)}
+                            {@render group(icons)}
                         {/each}
                     </span>
                     <span class="ml-auto">{@render group(TRANSPORT)}</span>
@@ -195,24 +176,24 @@
             </div>
         </div>
 
-        <!-- Canvas (the well) → sheet (the paper). The well takes whatever the
-             chrome above it leaves of the window. `overflow-hidden` is
-             load-bearing twice over: it crops the page, and it is what lets a
-             flex child shrink past its own content — without it the sheet
-             would push the window taller than the screen shape it is meant to
-             keep.
+        <!-- Canvas (the well) → sheet (the paper). Neither has a height: the
+             well is as deep as the page inside it, the page is as long as the
+             writing on it, and the window is the sum of that and the two chrome
+             rows above. Nothing is cropped to fit and nothing is scaled — on a
+             window with no room for all of it the component simply runs on past
+             the fold and the welcome screen scrolls.
 
-             The sheet fills the well, which runs on under the status bar, so
-             the page has no visible bottom edge — it carries on below the fold
-             the way a real one does. `p-16` on a `max-w-xl` page is about the
-             margin a page is set with, and shallow enough that the title still
-             shows when the well is only a band a few lines deep.
+             No bottom padding on the well, so the sheet's last inch sits under
+             the status bar and the page has no visible bottom edge — it carries
+             on the way a real one does. `p-16` is about the margin a page is
+             set with, and deep enough at the foot that what the status bar
+             covers is margin rather than writing.
 
              `reading-font` on the sheet alone, as PageEditor does it: the
              writing is in OpenDyslexic, the chrome around it stays in Geist. -->
-        <div class="bg-canvas flex-1 overflow-hidden px-12 pt-8">
+        <div class="bg-canvas px-12 pt-8">
             <div
-                class="border-border bg-sheet shadow-sheet reading-font mx-auto size-full max-w-xl rounded-xl border p-16"
+                class="border-border bg-sheet shadow-sheet reading-font mx-auto w-full max-w-xl rounded-xl border p-16"
             >
                 <h3 class="mb-5 text-2xl leading-tight font-semibold">
                     {m.welcome_preview_title()}
