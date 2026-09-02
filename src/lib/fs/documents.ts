@@ -151,6 +151,49 @@ function ownsItsFolder(
     );
 }
 
+// The same question, asked of the directory itself a moment before something
+// irreversible happens to it.
+//
+// `ownsFolder` on a DocumentLocation is always a snapshot: the Files screen's
+// comes from a scan that only re-runs on mount and window focus, and the
+// editor's from the moment the document was opened. A subdirectory added in
+// between — by the writer, a file manager, a sync client — is invisible to both,
+// and the two destructive paths act on the flag alone: rename copies FILES out
+// and then removes the source recursively, delete removes the folder outright.
+// Either one silently takes that subdirectory with it.
+//
+// Stricter than `ownsItsFolder` in one respect, deliberately: it walks the
+// directory rather than going through `listDirectory`, so dot-directories count
+// too. Skipping them is right for a scan — nobody keeps a chapter in one — and
+// wrong here, because `removeEntry({ recursive: true })` takes them regardless.
+// Images are unaffected; they are neither markdown nor directories.
+async function stillOwnsFolder(
+    dir: FileSystemDirectoryHandle,
+    location: DocumentLocation
+): Promise<boolean> {
+    if (location.folder === '') return false;
+    if (titleFromFileName(location.file) !== lastSegment(location.folder)) {
+        return false;
+    }
+
+    let markdown = 0;
+    let found = false;
+
+    for await (const entry of dir.values()) {
+        if (entry.kind === 'directory') return false;
+        if (!entry.name.endsWith(MARKDOWN_EXTENSION)) continue;
+
+        markdown += 1;
+        if (markdown > 1) return false;
+        // And it has to be THIS document's file. One markdown file that is not
+        // the one we came to act on means the document was renamed outside the
+        // app, and the file sitting there belongs to something else.
+        found = entry.name === location.file;
+    }
+
+    return found;
+}
+
 // Did this fail because the thing we were reading is no longer there?
 //
 // The folder is live, and a listing is only ever a snapshot: an entry it saw can
@@ -526,9 +569,18 @@ export async function writeDocument(
 //
 // Unlike the editor's "New document" — which stays in memory until there is
 // something worth writing — this one is written immediately: the writer has
-// already typed the name and expects to see the row appear in that folder. The
-// file lands beside whatever else is in there, so it is a file-document; the
-// only shape the app creates for itself remains the top-level folder-document.
+// already typed the name and expects to see the row appear in that folder.
+//
+// It gets a folder of its own, `<folder>/<Title>/<Title>.md`, because that is
+// the shape the app creates for every document it makes — images belong to the
+// document that uses them, and only a folder of its own can hold them. Written
+// flat, `Chapters/My Doc.md` would keep its images at `Chapters/diagram.png`,
+// shared with every sibling in there: not movable as a unit, and renaming or
+// deleting it would strand them. Flat markdown files are what the scan FINDS in
+// a writer's existing tree, not something this app should be adding to it.
+//
+// The Files screen is unchanged by this: `onlyDocument` collapses `X/X.md` into
+// a single row, so it still reads as one document under the chosen folder.
 //
 // The name is checked against the directory here rather than trusted from the
 // tree: the tree is a scan snapshot and can always be out of date by the time
@@ -542,21 +594,48 @@ export async function createDocument(
     const fileName = fileNameFor(target);
 
     const dir = await resolveDirectory(root, folder);
-    if (await entryExists(dir, fileName, 'file')) {
-        throw new DocumentError(m.files_exists_error({ title: target }));
-    }
+    await refuseTakenName(dir, target, fileName);
 
-    // `ownsFolder: false` is not a claim, it is a placeholder — the scan that
-    // follows recomputes it off the real directory listing, which is the only
-    // authority for it. A document named after the folder it is created in will
-    // come back owning it, and should.
+    // Folder first, file inside it second — `writeDocument` resolves the
+    // directory with `create: true` before it opens the file handle, which is
+    // the same order the editor's first save uses.
     return writeDocument(
         root,
-        { folder, file: fileName, ownsFolder: false },
+        {
+            folder: joinPath(folder, target),
+            file: fileName,
+            ownsFolder: true
+        },
         {
             type: 'doc',
             content: [{ type: 'paragraph' }]
         }
+    );
+}
+
+// Refuse before writing, never work around a collision afterwards.
+//
+// The name now claims a DIRECTORY as well as a file, so both have to be free —
+// and the message has to say which one is in the way. A directory holding the
+// markdown file named after it is another document, and reads as one on the
+// Files screen; a directory holding anything else is the writer's own folder,
+// and calling it a document would be a lie.
+async function refuseTakenName(
+    dir: FileSystemDirectoryHandle,
+    target: string,
+    fileName: string
+): Promise<void> {
+    if (await entryExists(dir, fileName, 'file')) {
+        throw new DocumentError(m.files_exists_error({ title: target }));
+    }
+
+    if (!(await entryExists(dir, target, 'directory'))) return;
+
+    const existing = await dir.getDirectoryHandle(target);
+    throw new DocumentError(
+        (await entryExists(existing, fileName, 'file'))
+            ? m.files_exists_error({ title: target })
+            : m.files_folder_exists_error({ name: target })
     );
 }
 
@@ -615,11 +694,20 @@ async function renameFolderDocument(
     const parentDir = await resolveDirectory(root, parent);
     const sourceName = lastSegment(location.folder);
 
+    const source = await parentDir.getDirectoryHandle(sourceName);
+
+    // The flag that got us here is a snapshot, and the step at the end of this
+    // function is a recursive delete. Ask the directory itself before trusting
+    // it — and where it says no, rename the markdown file alone instead of
+    // refusing: that is exactly what a fresh scan would have made `renameDocument`
+    // do, nothing is copied, and nothing is removed recursively.
+    if (!(await stillOwnsFolder(source, location))) {
+        return renameFileDocument(root, location, target, fileName);
+    }
+
     if (await entryExists(parentDir, target, 'directory')) {
         throw new DocumentError(m.files_exists_error({ title: target }));
     }
-
-    const source = await parentDir.getDirectoryHandle(sourceName);
 
     // 1. The new folder.
     const destination = await parentDir.getDirectoryHandle(target, {
@@ -680,6 +768,13 @@ async function renameFileDocument(
 // Remove a document. A folder-document takes its folder with it; a file-document
 // takes only itself, leaving its neighbours and the folder alone. The Files screen
 // confirms with copy that says which of the two is about to happen.
+//
+// The folder case is checked against the directory first. Rename can carry on
+// under a corrected flag when the snapshot has gone stale; this cannot. There is
+// no trash behind `removeEntry({ recursive: true })`, and the writer confirmed
+// against copy — "removes the folder and everything in it" — that no longer
+// describes what is in there. Refusing costs them a refresh; the alternative
+// costs them whatever was added.
 export async function deleteDocument(
     root: FileSystemDirectoryHandle,
     location: DocumentLocation
@@ -692,6 +787,16 @@ export async function deleteDocument(
                 root,
                 parentPath(location.folder)
             );
+            const dir = await parentDir.getDirectoryHandle(
+                lastSegment(location.folder)
+            );
+
+            if (!(await stillOwnsFolder(dir, location))) {
+                throw new DocumentError(
+                    m.files_delete_changed_error({ title })
+                );
+            }
+
             await parentDir.removeEntry(lastSegment(location.folder), {
                 recursive: true
             });
@@ -700,6 +805,9 @@ export async function deleteDocument(
             await dir.removeEntry(location.file);
         }
     } catch (cause) {
+        // The refusal above already says exactly what happened; rewrapping it as
+        // "Couldn't delete" would throw that away.
+        if (cause instanceof DocumentError) throw cause;
         throw new DocumentError(m.files_delete_error({ title }), { cause });
     }
 }

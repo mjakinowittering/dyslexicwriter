@@ -73,6 +73,7 @@
     "files_change_folder": "Change folder",
     "files_create": "Create",
     "files_delete": "Delete",
+    "files_delete_changed_error": "Couldn't delete \"{title}\" — its folder has changed",
     "files_delete_description": "This removes the folder and everything in it from your disk, and cannot be undone.",
     "files_delete_error": "Couldn't delete \"{title}\"",
     "files_delete_file_description": "This removes the file from your disk, and cannot be undone.",

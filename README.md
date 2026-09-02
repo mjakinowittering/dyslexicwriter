@@ -183,22 +183,59 @@ Within each, related items sit next to each other.
       it. Hear it. Keep it."; and `src/app.html:42`'s `og:image:alt` still carries the old
       "write, and hear it back", so it changes in the same commit or the alt text
       describes a different picture. Re-render the mock once the highlight colours land
+- [ ] Handle a pasted image the way a dropped one is handled. `PageEditor.svelte` wires
+      `handleDrop` only, but its own prop doc (`:33`) and `writeImage`'s comment
+      (`documents.ts:812`) both say "dropped or pasted" — and `allowBase64: false` on the
+      Image extension means a pasted image is discarded rather than degrading to a data
+      URI, so nothing appears and nothing says why. Add `handlePaste` alongside
+      `handleDrop`, taking the first `image/*` item off `event.clipboardData.files`,
+      claiming the event, and routing it through the same `onDropImage` → `doc.addImage`
+      path so the file lands in the document's own directory. The insertion position is
+      the caret rather than `posAtCoords`; everything else is the drop handler's shape
+- [ ] Fix the double rename fired by the title field. `edit/+page.svelte:146-147` binds
+      both `onchange` and `onblur` to `doc.rename(title)`, and for a text input `change`
+      fires immediately before `blur` — so both run. The guard in `rename()`
+      (`document.svelte.ts:232`) is `target === this.title`, and `this.title` is only
+      updated _after_ `await renameDocument(...)` resolves, so the second call passes it
+      and starts a concurrent rename against the same location. The writer sees a
+      spurious "already exists", or the two race the `removeEntry` of the old file. One
+      trigger is enough — `change` already fires on blur — or the store tracks the rename
+      in flight and coalesces
+- [ ] Tell a missing `config.json` apart from an unreadable one. `readConfig`
+      (`fs/config.ts:17-27`) catches everything and returns `defaultConfig()`, so first
+      run and a real read failure (permission revoked mid-session, drive unplugged) are
+      indistinguishable: `#adopt` loads defaults, flips the theme, and the next
+      `setTheme`/`setFont`/`setTtsPreferences` writes those defaults straight over the
+      user's real settings file. The per-key Valibot layering in `config.model.ts` exists
+      to stop one bad key costing every other preference — this catch-all undoes it a
+      level up. Fall back silently on `NotFoundError` alone; surface anything else and
+      refuse to write back over a file that could not be read
+- [ ] Route the reading-time copy through Paraglide.
+      `src/lib/utils/calculateReadingTime.ts` builds `"3 minutes"`, `"45 seconds"` and
+      `"1 hour 20 minutes"` in code, and `StatusbarTimeToRead.svelte` injects the result
+      into `m.content_read_time({ time })` — English hardcoded in a util and smuggled
+      through a message key. Return the parts (`{ hours, minutes, seconds }`) and let
+      message keys own the words and the plurals, the way every other string in the app
+      already works. `WelcomePreview.svelte:58` is the other call site
+- [ ] Reopen the document when `?doc=` changes. `path` is `$derived` from `page.url`
+      (`edit/+page.svelte:42`) but read only inside `onMount`, and same-route navigation
+      does not remount the page — so `/edit?doc=A` → `/edit?doc=B` would leave document A
+      open under a URL naming B. Latent: nothing in the app navigates that way today, both
+      routes into the editor come through a mount. It is armed for the first "open in
+      editor" link added anywhere, so an `$effect` on `path` that opens (after flushing
+      the current document) is the fix, not a note to remember
+- [ ] Guard the document store against a late `close()` landing on the next document.
+      `onDestroy` runs `void doc.close()` un-awaited (`edit/+page.svelte:93`) and
+      `close()` is `await flush(); #reset()`. If a `doc.open()` starts while that flush is
+      still in flight, the flush's continuation writes the _old_ document's
+      `location`/`saveState`/`savedAt` back into the store (`document.svelte.ts:204-207`)
+      and the trailing `#reset()` then wipes the newly-loaded one — leaving the editor
+      empty, or worse, pointed at the previous document's file. Same latency as the item
+      above and the same store: an epoch counter bumped by `#reset()` and checked after
+      every await would close both. Sits next to it deliberately
 
 ### Features
 
-- [ ] Rework the read-aloud highlight colours to the LCARS-derived lit-band treatment.
-      The current amber wash is not broken — this is a deliberate redesign, and it rhymes
-      with `$lib/tts/chirp.ts`, which already synthesises LCARS-style chirps. Sentence
-      `rgb(255 204 153 / 0.92)`, word `rgb(255 153 0)`, ink `oklch(0.145 0 0)` on both — a
-      tonal pair, because `0.92` against `1.0` is not a visible step. All of it lives in
-      `PageEditor.svelte`'s `<style>` block, which is the documented exception to "theme
-      colours live in `layout.css`" — functional colour stays with the component and
-      `layout.css` stays chroma `0`. Two deletions come with it: the `.dark .tts-*`
-      overrides go (at `0.92` both grounds land within a few percent, so one rule set
-      serves both), and the `.tts-word` ring goes, since a solid block with dark ink needs
-      no outline. `PageEditor.stories.svelte` already renders the highlight in both fonts
-      and Storybook runs axe at `test: 'error'` across both themes, so contrast is checked
-      for free. Re-render the mocks with it
 - [ ] Carry the read-aloud highlight onto list markers. Nothing is broken here — a
       bullet or number currently takes Tailwind Typography's default `prose` marker
       colour, and this is a customisation on top of it: while a spoken sentence sits
@@ -228,3 +265,68 @@ Within each, related items sit next to each other.
       the mocks with it
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
+- [ ] Clear out the fork leftovers. None of this is broken, which is the problem: it is
+      code and prose describing an app with a server, an `(app)` shell and a nav rail,
+      and a future reader will believe it. In one pass:
+    - `src/lib/stores/theme.store.svelte.ts` — referenced by nothing at all, and it
+      documents itself as delegating persistence to `localStorage` and mentions Dexie
+      and "offline-syncable records", which contradicts `config.json` being the only
+      settings store. Delete the file
+    - `crossfadeDuration` (`config/motion.ts:23`), `titleSchema` and the `Title` type
+      (`models/document.model.ts` — titles go through `sanitiseTitle`, and nothing ever
+      parses one), and the exports used only by their own module or the tests:
+      `flattenDocuments` (whose comment still describes "the config.json index", which
+      was removed), `folderExists`, `takenFolderNames`, `SCAN_DEPTH`, `writeConfig`
+    - Nine unused keys in `messages/en.json`: `content_discard`, `content_save`,
+      `content_save_error`, `content_saved`, `content_saved_notice`,
+      `content_saved_offline_notice`, `content_saving`, `content_title_required`,
+      `files_open`
+    - Comments naming things that do not exist: `PageEditor.svelte:55` ("a late server
+      payload") and `:196-198` ("live SSE/resync refreshes", "ContentBody hands a new
+      object each render"), `config/motion.ts:4,23` ("the nav rail, the AI Chat panel",
+      "entering/leaving /content"), `Tooltip.svelte:13` ("the (app) shell's route
+      crossfade"), `PageEditor.stories.svelte:27` ("limited to what the server can
+      render to markdown")
+    - The read-only branch those `PageEditor` comments describe is reached by one story
+      (`editable: false`) and nothing in the app. Decide it either way — keep it as a
+      documented Storybook-only path, or drop the branch, the `appliedSig` state and
+      the story together
+- [ ] Decide the fate of the tooltip-suppression machinery. It works, and nothing in the
+      app uses it: `tooltips.suppress()` is called only from
+      `tests/lib/components/Tooltip/Tooltip.svelte.test.ts` and
+      `stories/Tooltip/Tooltip.stories.svelte`, and `use:tooltipSuppression` appears only
+      in the test harness and that story. It was written for a portaled balloon hanging
+      over a route crossfade in an `(app)` shell with a nav rail — this app has two routes
+      and no crossfade. Either wire it to the two real navigations (the editor's back
+      button, opening a document from the Files screen) or delete all five places it
+      lives: `stores/tooltips.svelte.ts`, `actions/tooltip-suppression.svelte.ts`, the
+      `$effect` and `disabled` in `components/Tooltip/Tooltip.svelte`, the rule at
+      `layout.css:239-246`, and the test and story that are its only callers
+- [ ] Cover the workspace store and the `SpeechController` with tests. These are the two
+      most intricate stateful modules in the app and the two thinnest in the suite.
+      `workspace.svelte.ts` sits at **28%**: `leaveFolder`, `isEmpty` and `touch` are
+      tested, while `restore`, `reopen`, `chooseFolder`, `#adopt`, `refresh`'s error path,
+      `toggle`, `#replayOpened`'s `for(;;)` loop and `#persist` are not — that is folder
+      adoption, permission recovery and every preference write. `speech-controller`
+      covers `pickDefaultVoice` and nothing else, so the chunk queue, the watchdog,
+      skip/seek and teardown are untested — the exact machinery behind the tab-freeze
+      fixed in `7cc5f80`. `doc.rename` and `doc.addImage` (`document.svelte.ts:228-280`)
+      and `ensurePermission` are uncovered too. The OPFS harness in `tests/support/`
+      already does the hard part for the first of these
+- [ ] Stop the write path giving up quietly, in two places. A failed autosave sets
+      `#dirty = true` and re-arms no timer (`document.svelte.ts:214-219`), so nothing
+      retries until the next keystroke or exit path — a writer who hits a transient
+      failure and then stops typing is relying on `pagehide` alone. And `restore()` adopts
+      a stored handle without the `folderIsReachable` check `reopen()` runs
+      (`workspace.svelte.ts:127-131`), so an unplugged drive lands on a "ready" Files
+      screen showing a read error rather than back at the picker. A backoff retry for the
+      first, the existing check for the second
+- [ ] Small chores, none urgent, all one-liners: `usesCommandKey` (`utils/shortcut.ts`)
+      reads deprecated `navigator.platform`; `ToolbarVoiceSettings`'s 400ms persist timer
+      is never cleared on destroy, so an unmount mid-debounce still writes `config.json`;
+      the browser test run emits `derived_inert` warnings and an unhandled "ResizeObserver
+      loop completed with undelivered notifications"; `.claude/settings.local.json` fails
+      `npm run lint` locally, since the repo tracks `.claude/skills/` but ignores nothing
+      under `.claude/` and only a global gitignore keeps it out of git; and
+      `WelcomePreview.svelte:140-142` carries the repo's only three ESLint warnings
+      (`close`, `minimise`, `maximise` as `tailwindcss/no-custom-classname`)

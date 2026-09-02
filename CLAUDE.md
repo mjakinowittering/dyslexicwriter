@@ -156,16 +156,25 @@ levels down, and all of it is theirs to open.
 That gives **two kinds of document**, and every filesystem operation branches on
 which it is:
 
-| Kind                | Is                                                        | Rename                                    | Delete                 | Images    |
-| ------------------- | --------------------------------------------------------- | ----------------------------------------- | ---------------------- | --------- |
-| **folder-document** | `X/X.md`, alone in its folder — the shape the app creates | moves the whole folder, inside its parent | removes it recursively | inside it |
-| **file-document**   | a markdown file sitting among others, at any depth        | renames the file alone                    | removes only the file  | beside it |
+| Kind                | Is                                                             | Rename                                    | Delete                 | Images    |
+| ------------------- | -------------------------------------------------------------- | ----------------------------------------- | ---------------------- | --------- |
+| **folder-document** | `X/X.md`, alone in its folder — every document the app creates | moves the whole folder, inside its parent | removes it recursively | inside it |
+| **file-document**   | a markdown file sitting among others, at any depth             | renames the file alone                    | removes only the file  | beside it |
 
 `ownsFolder` is what separates them, and it is **recomputed by every scan**, never
 trusted from the config cache. A folder only qualifies when it holds exactly that one
 markdown file and no subdirectories — both conditions exist for delete, which is
 recursive: a folder with anything else in it must never qualify, or deleting one
 document takes its neighbours with it.
+
+A scan is not recent enough for the two destructive paths. Rename and delete
+**re-derive `ownsFolder` from the directory itself** immediately before the step that
+destroys anything, because the flag they were handed is a snapshot — the Files screen's
+from the last scan, the editor's from when the document was opened — and a subdirectory
+added since would otherwise be removed recursively without ever being copied. Where the
+claim no longer holds, rename falls through to the file-document path and renames the
+markdown file alone; delete refuses outright, because there is no trash behind it and
+the writer confirmed against copy that no longer describes the folder.
 
 The scan walks **three directory levels** below the working folder. A directory the
 cap stops at comes back unloaded and the Files screen shows it closed; expanding it
@@ -224,9 +233,13 @@ in-code constants when malformed.
   as `Untitled`, incrementing to `Untitled 2`, `Untitled 3`… when a folder of that name
   already exists. Nothing is written to disk until there is something to write.
 - **First save creates the folder, then the file inside it** — `My Chapter/My Chapter.md`,
-  always a top-level folder-document. A document created from a folder row on the Files
-  screen is the other case: it is named before it is made and written straight away, as
-  a file-document inside the folder chosen for it.
+  a top-level folder-document. A document created from a folder row on the Files screen
+  differs only in when: it is named before it is made and written straight away, as
+  `<folder>/<Title>/<Title>.md` inside the folder chosen for it. Same shape, same
+  ordering, one level down. **Every document the app creates owns its folder** — images
+  belong to the document that uses them, and only a folder of its own can hold them.
+  Flat markdown files are what the scan _finds_ in a writer's tree, never what the app
+  adds to it.
 - **Rename is folder first, then the file inside it**, so a failure halfway through can
   never leave a folder and file whose names disagree. A file-document renames only its
   file — its folder and any images beside it belong to the user, not to that document.
@@ -430,12 +443,17 @@ project has no environment configuration.
   folder itself. `sanitiseTitle` owns each **segment** as it is created; a path is
   never parsed out of user input, and the resolver refuses `.` and `..` regardless
 - `ownsFolder` is **recomputed by every scan** — it decides whether delete removes a
-  folder recursively or a single file
-- A new document from the editor stays **in memory until first save**, named `Untitled`,
-  `Untitled 2`, … by probing for an existing folder of that name, and lands as a
-  top-level folder-document. One created from a folder row on the Files screen is named
-  first and written immediately, as a file-document inside that folder — the duplicate
-  name is refused **before** the write, never worked around afterwards
+  folder recursively or a single file — and **re-derived from the directory again**
+  immediately before rename's or delete's destructive step, because the flag they were
+  handed is a snapshot and a subdirectory added since would be destroyed unread. Where
+  it no longer holds, rename renames the markdown file alone and delete refuses
+- **Every document the app creates is a folder-document.** From the editor it stays
+  **in memory until first save**, named `Untitled`, `Untitled 2`, … by probing for an
+  existing folder of that name, and lands at the top level. One created from a folder
+  row on the Files screen is named first and written immediately, as
+  `<folder>/<Title>/<Title>.md` inside that folder — so its images stay its own. Either
+  way the name is refused **before** the write, against a **file and a directory** of
+  that name both, never worked around afterwards
 - Any node or mark added to the editor must be taught to **both** `toMarkdown` **and**
   `fromMarkdown` in the **same commit** — the two converters and the editor's extension
   list share one exported array and must never drift
