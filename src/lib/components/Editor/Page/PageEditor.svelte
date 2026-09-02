@@ -51,14 +51,11 @@
     } = $props();
 
     let editorElement = $state<HTMLElement>();
-    // Editable only: true once the incoming `content` has seeded the doc, so a late
-    // server payload can't clobber in-progress typing.
+    // True once the incoming `content` has seeded the doc. A document is read off
+    // disk asynchronously, so it usually arrives after mount; this marks the seed as
+    // done so a later echo of the same prop can't overwrite what has been typed
+    // since.
     let loaded = $state(false);
-    // Read-only only: signature of the document last applied to the editor. Read-only
-    // has no draft/cursor to protect and its `content` can arrive or change after
-    // mount (async load, cross-tab refresh) — so it re-applies reactively rather than
-    // seeding once, which made population depend on fragile mount timing.
-    let appliedSig = $state<string | null>(null);
 
     function wordsOf(instance: Editor): number {
         return (
@@ -159,19 +156,18 @@
         if (!editorElement) return;
         editor = createEditor(editorElement, content);
         // Seed the count from content already present at mount so the reading-time
-        // estimate doesn't pop in on the first transaction. `loaded` marks the
-        // editable seed as done (the read-only sync effect keys off `appliedSig`
-        // instead, and still (re)applies content post-mount). Editable mounts usually
-        // start empty (content arrives async), where this is a harmless 0.
+        // estimate doesn't pop in on the first transaction, and mark the seed as
+        // done. A mount usually starts empty — the document is still being read off
+        // disk — where this is a harmless 0 and the effect below does the seeding.
         if (content !== null) {
             loaded = true;
             wordCount = wordsOf(editor);
         }
     });
 
-    // Editable: seed the editor once when the initial document arrives after mount.
-    // emitUpdate: false keeps this load from marking the page dirty; the `loaded`
-    // guard stops a later echo from overwriting in-progress typing.
+    // Seed the editor once when the document arrives after mount. emitUpdate: false
+    // keeps this load from marking the page dirty; the `loaded` guard stops a later
+    // echo from overwriting in-progress typing.
     //
     // addToHistory: false is the one that matters. setContent only sets the
     // `preventUpdate` meta, so without this the document's own arrival is an
@@ -189,26 +185,6 @@
                 .run();
             if (editor) wordCount = wordsOf(editor);
             loaded = true;
-        });
-    });
-
-    // Read-only: keep the rendered document in sync with `content` reactively, so it
-    // populates regardless of mount timing and reflects live SSE/resync refreshes
-    // in place (no remount flicker). The signature guard skips redundant setContent
-    // when the document is unchanged (ContentBody hands a new object each render).
-    $effect(() => {
-        if (editable || !editor || content === null) return;
-        const incoming = content;
-        const sig = JSON.stringify(incoming);
-        if (sig === appliedSig) return;
-        untrack(() => {
-            editor
-                ?.chain()
-                .setMeta('addToHistory', false)
-                .setContent(incoming, { emitUpdate: false })
-                .run();
-            if (editor) wordCount = wordsOf(editor);
-            appliedSig = sig;
         });
     });
 

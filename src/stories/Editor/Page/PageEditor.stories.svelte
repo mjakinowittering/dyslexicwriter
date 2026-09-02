@@ -24,7 +24,7 @@
             docs: {
                 description: {
                     component:
-                        'TipTap-backed rich-text editor. TipTap JSON (`content`) is the source of truth; the node/mark set is limited to what the server can render to markdown. Used editable for authoring and read-only (via ContentBody) for display.'
+                        'TipTap-backed rich-text editor, and the writing surface of the app. TipTap JSON (`content`) is the editing source of truth; the node/mark set is limited to what survives the markdown round-trip, since markdown is what lands on disk — see `$lib/markdown`. Seeded once when the document arrives, which is normally after mount: reading it off the filesystem is asynchronous.'
                 }
             }
         }
@@ -230,26 +230,6 @@
     {#snippet template(args)}
         <div class="bg-background min-h-96 w-full p-6">
             <PageEditor {...args} bind:editor={dyslexicEditor} />
-        </div>
-    {/snippet}
-</Story>
-
-<Story
-    name="Read Only"
-    args={{ editable: false, content: sample }}
-    play={async ({ canvas }) => {
-        // Same document, but ProseMirror hands over a surface that can't be typed into.
-        await expect(
-            canvas.getByRole('heading', { name: 'Getting started' })
-        ).toBeInTheDocument();
-        await expect(
-            canvas.getByRole('textbox').getAttribute('contenteditable')
-        ).toBe('false');
-    }}
->
-    {#snippet template(args)}
-        <div class="bg-background min-h-96 w-full p-6">
-            <PageEditor {...args} />
         </div>
     {/snippet}
 </Story>

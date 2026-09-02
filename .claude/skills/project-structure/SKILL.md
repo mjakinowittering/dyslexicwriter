@@ -63,7 +63,6 @@ src/
 │   ├── stores/
 │   │   ├── workspace.svelte.ts       // folder handle, config, document index, status machine
 │   │   ├── document.svelte.ts        // the open document: autosave, flush, rename, images
-│   │   ├── theme.store.svelte.ts     // thin wrapper over mode-watcher
 │   │   └── tooltips.svelte.ts        // tooltip suppression registry
 │   │
 │   ├── tts/                          // read-aloud — see the content-tts skill

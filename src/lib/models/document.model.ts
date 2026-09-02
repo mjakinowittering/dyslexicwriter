@@ -42,13 +42,6 @@ const RESERVED_NAMES = new Set([
     'LPT9'
 ]);
 
-export const titleSchema = v.pipe(
-    v.string(),
-    v.trim(),
-    v.minLength(1, 'A document needs a title'),
-    v.maxLength(TITLE_MAX_LENGTH)
-);
-
 // Turn arbitrary user input into something safe to use as a folder name. Always
 // returns a usable name — never an empty string — because the caller is about to
 // create a directory with it.
@@ -161,5 +154,3 @@ export function nextUntitledName(taken: ReadonlySet<string>): string {
     while (taken.has(`${UNTITLED} ${n}`)) n += 1;
     return `${UNTITLED} ${n}`;
 }
-
-export type Title = v.InferOutput<typeof titleSchema>;
