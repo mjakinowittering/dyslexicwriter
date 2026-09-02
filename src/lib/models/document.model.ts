@@ -1,5 +1,3 @@
-import * as v from 'valibot';
-
 // A document's title doubles as its folder name and the basename of the markdown
 // file inside it, so it is the one piece of user input that becomes a filesystem
 // path. Everything here exists to keep a title from escaping its folder or
