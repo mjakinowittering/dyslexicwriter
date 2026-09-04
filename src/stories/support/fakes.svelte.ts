@@ -78,9 +78,16 @@ export function makeTts(overrides: TtsOverrides = {}): FakeTtsTransport {
     return new FakeTtsTransport(overrides);
 }
 
+// The readable state of the preference store, which is all a story sets: the two
+// setters write through on their own.
+type PreferenceOverrides = Partial<
+    Pick<PreferenceStore, 'theme' | 'font' | 'settingsUnreadable'>
+>;
+
 class FakePreferenceStore implements PreferenceStore {
     theme = $state<Theme>('light');
     font = $state<Font>('sans');
+    settingsUnreadable = $state(false);
 
     // The spies write through as the real store does, so a story stays in step
     // with the control the user just moved.
@@ -92,15 +99,13 @@ class FakePreferenceStore implements PreferenceStore {
         this.font = font;
     }).mockName('setFont');
 
-    constructor(
-        overrides: Partial<Pick<PreferenceStore, 'theme' | 'font'>> = {}
-    ) {
+    constructor(overrides: PreferenceOverrides = {}) {
         Object.assign(this, overrides);
     }
 }
 
 export function makePreferences(
-    overrides: Partial<Pick<PreferenceStore, 'theme' | 'font'>> = {}
+    overrides: PreferenceOverrides = {}
 ): FakePreferenceStore {
     return new FakePreferenceStore(overrides);
 }

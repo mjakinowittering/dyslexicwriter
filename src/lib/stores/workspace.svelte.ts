@@ -46,6 +46,9 @@ export type WorkspaceStatus =
 export interface PreferenceStore {
     readonly theme: Theme;
     readonly font: Font;
+    // The panel says so rather than letting a refused write look like a saved
+    // one — see `settingsUnreadable` on the store.
+    readonly settingsUnreadable: boolean;
     setTheme(theme: Theme): Promise<void>;
     setFont(font: Font): Promise<void>;
 }
@@ -66,6 +69,13 @@ class WorkspaceStore implements PreferenceStore {
     // to be open is not a preference worth writing to the user's disk.
     collapsed = new SvelteSet<string>();
     error = $state('');
+    // config.json is there but could not be read — a permission we no longer
+    // have, an unplugged drive. Emphatically NOT "missing": a folder with no
+    // settings file is first run, and `config` below is then the defaults on
+    // purpose. Here the defaults are a stand-in for preferences we never saw, so
+    // nothing may be written back over them and the theme stays as the user left
+    // it. Cleared the moment a write reads the file successfully.
+    settingsUnreadable = $state(false);
     // A folder walk is in flight. The Files screen disables its refresh control
     // while this is true, and its automatic triggers stand down rather than
     // stacking a second walk on top of the first.
@@ -255,10 +265,31 @@ class WorkspaceStore implements PreferenceStore {
         this.tree = null;
         this.collapsed.clear();
         this.#opened.clear();
-        this.config = await readConfig(handle);
+
+        // A settings file we cannot read must not stop the user reaching their
+        // writing, so we carry on with the defaults in memory — but the folder
+        // is adopted knowing they are a stand-in, not the user's choices.
+        try {
+            this.config = await readConfig(handle);
+            this.settingsUnreadable = false;
+        } catch {
+            this.config = defaultConfig();
+            this.settingsUnreadable = true;
+        }
+
         this.status = 'ready';
-        this.error = '';
-        this.applyTheme();
+        this.error = this.settingsUnreadable ? m.settings_read_error() : '';
+
+        // Deliberately not applied when the settings could not be read: with no
+        // idea which theme the user chose, flipping the page to the shipped
+        // default reads as a fault rather than a consequence. <html> keeps what
+        // they were looking at — the same reasoning `leaveFolder` documents.
+        if (!this.settingsUnreadable) this.applyTheme();
+
+        // May replace the message above with `files_read_error`, which is the
+        // right way round: a folder that will not scan at all is the bigger
+        // news. A scan that succeeds clears only its own message, so this one
+        // survives the case where config.json alone is the problem.
         await this.refresh();
     }
 
@@ -290,6 +321,7 @@ class WorkspaceStore implements PreferenceStore {
         this.collapsed.clear();
         this.#opened.clear();
         this.config = defaultConfig();
+        this.settingsUnreadable = false;
         this.status = 'needs-folder';
         this.error = '';
         // Deliberately no `applyTheme()`. Every preference lives in the folder's
@@ -478,16 +510,25 @@ class WorkspaceStore implements PreferenceStore {
     // Settings are written to the user's folder, which can vanish mid-session
     // (unplugged drive, revoked permission). Surface it rather than throwing into
     // an event handler nobody is awaiting.
+    //
+    // The patch alone, never the whole in-memory config. `updateConfig` merges it
+    // onto what is on disk right now, and handing it everything we hold would
+    // override that merge — a session that started from defaults would write them
+    // over the user's real preferences, one flipped switch at a time. It also
+    // means a hand edit made under the app survives the next setting change.
     async #persist(patch: Partial<Config>): Promise<void> {
         if (!this.root) return;
 
         try {
-            this.config = await updateConfig(this.root, {
-                ...this.config,
-                ...patch
-            });
+            this.config = await updateConfig(this.root, patch);
+            // The merge read the file, so whatever was wrong with it is over.
+            // Recovering here rather than only on a re-adopt is what makes a
+            // transient failure transient.
+            this.settingsUnreadable = false;
         } catch {
-            this.error = m.settings_save_error();
+            this.error = this.settingsUnreadable
+                ? m.settings_read_error()
+                : m.settings_save_error();
         }
     }
 }

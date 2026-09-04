@@ -32,6 +32,7 @@
     const light = makePreferences({ theme: 'light', font: 'sans' });
     const dark = makePreferences({ theme: 'dark', font: 'dyslexic' });
     const closable = makePreferences();
+    const unreadable = makePreferences({ settingsUnreadable: true });
 
     let open = $state(true);
 </script>
@@ -80,6 +81,26 @@
     {#snippet template()}
         <div class="bg-background flex h-96 w-full justify-end">
             <SettingsPanel open={true} store={dark} />
+        </div>
+    {/snippet}
+</Story>
+
+<!-- config.json is there but could not be read, so the controls below show the
+     shipped defaults standing in for preferences we never saw, and a write would
+     be refused rather than overwrite them. The editor never renders
+     `workspace.error`, so without this line a refused write looks like a saved
+     one. -->
+<Story
+    name="Settings Unreadable"
+    play={async ({ canvas }) => {
+        await expect(
+            canvas.getByText(m.settings_read_error())
+        ).toBeInTheDocument();
+    }}
+>
+    {#snippet template()}
+        <div class="bg-background flex h-96 w-full justify-end">
+            <SettingsPanel open={true} store={unreadable} />
         </div>
     {/snippet}
 </Story>
