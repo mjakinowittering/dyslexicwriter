@@ -1,6 +1,6 @@
 ---
 name: client-stores
-description: The three runes stores — workspace (folder, config, document tree), document (the open document, autosave and flush), and the theme helper. Load when editing anything in `src/lib/stores/`, wiring a new persisted setting, or changing the autosave lifecycle.
+description: The two runes stores — workspace (folder, config, document tree) and document (the open document, autosave and flush). Load when editing anything in `src/lib/stores/`, wiring a new persisted setting, or changing the autosave lifecycle.
 ---
 
 # Client stores
@@ -9,11 +9,10 @@ Plain Svelte 5 runes classes exported as singletons. There is no server, so ther
 is no fetching layer, no cache invalidation, and no conflict resolution — a store
 here is just reactive state over the filesystem.
 
-| Store                   | Owns                                                              |
-| ----------------------- | ----------------------------------------------------------------- |
-| `workspace.svelte.ts`   | The directory handle, the parsed `config.json`, the document tree |
-| `document.svelte.ts`    | The open document: content, title, word count, autosave and flush |
-| `theme.store.svelte.ts` | A thin wrapper over mode-watcher                                  |
+| Store                 | Owns                                                              |
+| --------------------- | ----------------------------------------------------------------- |
+| `workspace.svelte.ts` | The directory handle, the parsed `config.json`, the document tree |
+| `document.svelte.ts`  | The open document: content, title, word count, autosave and flush |
 
 ## Conventions
 

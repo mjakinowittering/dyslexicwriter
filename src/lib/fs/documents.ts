@@ -386,10 +386,12 @@ export async function scanFolder(
     return walk(dir, path, options?.depth ?? SCAN_DEPTH);
 }
 
-// Every document currently known, in the order the Files screen shows them —
-// folders first, then the documents sitting directly in this one. The
-// config.json index is a cache for that screen, so it is worth it being in the
-// same order the screen will read it back in.
+// Every document in a scanned tree, flattened into the order the Files screen
+// shows them — folders first, then the documents sitting directly in this one.
+// Nothing in the app calls this: the Files screen renders the tree itself, and
+// there is no index to flatten it into (config.json holds preferences only). It
+// stays for the OPFS suites, which assert against a scan as a flat list of
+// paths, and is deliberately not re-exported from `$lib/fs`.
 export function flattenDocuments(node: FolderNode): DocumentIndexEntry[] {
     return [
         ...node.folders.flatMap((child) => flattenDocuments(child)),
