@@ -11,10 +11,6 @@
         component: StatusbarSaveState,
         tags: ['autodocs'],
         argTypes: {
-            saveState: {
-                control: 'select',
-                options: ['idle', 'pending', 'saving', 'saved']
-            },
             savedAt: { control: { type: 'number' } }
         },
         parameters: {
@@ -22,7 +18,7 @@
             docs: {
                 description: {
                     component:
-                        'How old the copy on disk is — an age and nothing else, so it can sit beside "Unsaved changes" without contradicting it. Under a minute it says "Saved just now" rather than a figure that moves every tick. Renders nothing for a document that has never been written.'
+                        'How old the copy on disk is — an age and nothing else, so it can sit beside "Unsaved changes" without contradicting it. It takes no save state: what is happening to the disk right now belongs to StatusbarUnsaved, which is what lets this age stay put through a save. Under a minute it says "Saved just now" rather than a figure that moves every tick. Renders nothing for a document that has never been written.'
                 }
             }
         }
@@ -30,26 +26,8 @@
 </script>
 
 <Story
-    name="Saving"
-    args={{ saveState: 'saving' }}
-    play={async ({ canvas }) => {
-        // A write in flight wins over any age: the chip reports the save that is
-        // happening now, not the one before it.
-        await expect(canvas.getByText(m.editor_saving())).toBeInTheDocument();
-    }}
->
-    {#snippet template(args)}
-        <div
-            class="bg-background flex min-h-96 w-full items-center justify-center p-6"
-        >
-            <StatusbarSaveState {...args} />
-        </div>
-    {/snippet}
-</Story>
-
-<Story
     name="Saved Just Now"
-    args={{ saveState: 'saved', savedAt: Date.now() }}
+    args={{ savedAt: Date.now() }}
     play={async ({ canvas }) => {
         // Inside FRESH_MS, so fixed wording instead of a seconds count that
         // would fidget on every tick.
@@ -70,7 +48,6 @@
 <Story
     name="Saved A While Ago"
     args={{
-        saveState: 'saved',
         // Hours rather than minutes: `savedAt` is fixed when this module loads, so
         // a minutes-scale offset can round up mid-run and fail on a slow suite.
         savedAt: Date.now() - 2 * 60 * 60 * 1000
@@ -92,15 +69,12 @@
 
 <Story
     name="Never Saved (Hidden)"
-    args={{ saveState: 'idle', savedAt: null }}
+    args={{ savedAt: null }}
     play={async ({ canvas }) => {
         // A brand-new document has no age to report, so the chip stays out of the
         // way entirely rather than claiming a save that never happened.
         await expect(
             canvas.queryByText(m.editor_saved_recent())
-        ).not.toBeInTheDocument();
-        await expect(
-            canvas.queryByText(m.editor_saving())
         ).not.toBeInTheDocument();
     }}
 >

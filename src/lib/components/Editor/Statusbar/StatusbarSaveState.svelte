@@ -1,6 +1,5 @@
 <script lang="ts">
     import * as m from '$lib/paraglide/messages';
-    import type { SaveState } from '$lib/stores/document.svelte';
     import { relativeTime } from '$lib/utils/relative-time';
 
     // How old the copy on disk is — the same "Edited 2 minutes ago" the Files
@@ -8,17 +7,12 @@
     // pause in the typing, so a writer who cannot see this has no way of knowing
     // how much of what is on screen has actually reached the disk.
     //
-    // It reports an age and nothing else: the document being open is enough to
-    // have one (seeded from the file's mtime), and whether there are edits the
-    // disk has not seen is StatusbarUnsaved's job, not this one's. The only
-    // document with nothing to show here is a new one never yet written.
-    let {
-        saveState = 'idle',
-        savedAt = null
-    }: {
-        saveState?: SaveState;
-        savedAt?: number | null;
-    } = $props();
+    // It reports an age and nothing else, which is why it does not take a save
+    // state at all: whether the disk is behind, and whether a write is in
+    // flight, are both StatusbarUnsaved's job. Keeping them apart means the age
+    // stays put through a save instead of blinking out on every autosave. The
+    // only document with nothing to show here is a new one never yet written.
+    let { savedAt = null }: { savedAt?: number | null } = $props();
 
     // Under a minute `relativeTime` has only seconds to report, and a figure that
     // moves every tick reads as fidgeting rather than information. A fresh save
@@ -41,7 +35,6 @@
     });
 
     let label = $derived.by(() => {
-        if (saveState === 'saving') return m.editor_saving();
         if (savedAt === null) return '';
 
         // Always an age, never a bare "Saved": this chip only ever reports when
