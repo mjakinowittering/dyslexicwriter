@@ -1,8 +1,8 @@
 <script lang="ts">
     import type { Snippet } from 'svelte';
 
-    import * as Tooltip from '$lib/components/Tooltip';
     import Button from '$lib/components/ui/button/button.svelte';
+    import * as Tooltip from '$lib/components/ui/tooltip';
 
     import { formatShortcut } from '$lib/utils/shortcut';
 

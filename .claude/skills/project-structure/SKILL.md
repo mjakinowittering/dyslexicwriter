@@ -16,9 +16,6 @@ src/
 ├── app.html                  // lang="en" hardcoded (no server hook to substitute it)
 │
 ├── lib/
-│   ├── actions/
-│   │   └── tooltip-suppression.svelte.ts   // hides portaled tooltip balloons during transitions
-│   │
 │   ├── components/
 │   │   ├── Editor/                   // the whole editing surface; every file is
 │   │   │   │                         // prefixed with its group's name
@@ -38,7 +35,6 @@ src/
 │   │   ├── EmptyState/               // generic empty/welcome/unsupported scaffold
 │   │   ├── Settings/
 │   │   │   └── SettingsPanel.svelte  // full-height right column: font + theme
-│   │   ├── Tooltip/                  // wrapper over ui/tooltip — import from HERE
 │   │   └── ui/                       // shadcn-svelte, added via CLI; do not hand-edit
 │   │
 │   ├── config/
@@ -62,8 +58,7 @@ src/
 │   │
 │   ├── stores/
 │   │   ├── workspace.svelte.ts       // folder handle, config, document index, status machine
-│   │   ├── document.svelte.ts        // the open document: autosave, flush, rename, images
-│   │   └── tooltips.svelte.ts        // tooltip suppression registry
+│   │   └── document.svelte.ts        // the open document: autosave, flush, rename, images
 │   │
 │   ├── tts/                          // read-aloud — see the content-tts skill
 │   │   ├── speech-controller.svelte.ts   // the `speech` singleton

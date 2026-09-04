@@ -31,3 +31,9 @@ backup-*.sql
 
 *storybook.log
 storybook-static
+
+# Claude Code — the skills under .claude/ are tracked, this one file is
+# machine-local. Named here rather than in .prettierignore because both
+# Prettier and ESLint read the root .gitignore, so one line covers `npm run
+# lint` and keeps a local settings file out of a commit.
+.claude/settings.local.json

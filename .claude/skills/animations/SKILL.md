@@ -80,9 +80,9 @@ Reference implementations: `Navigation/Navigation.svelte` (the primary rail) and
 **A revealing panel is hoverable before it is visible.** The outer element takes layout and
 pointer events from `t=0`, but the inner content only starts fading in at `motionDuration`
 — so hovering during phase one pops a tooltip for something that isn't on screen yet. If the
-panel holds tooltips, suppress them for the full `2 × motionDuration` reveal in both
-directions (`tooltips.suppress` — see the `client-stores` skill; `Navigation.svelte` is the
-worked example).
+panel holds tooltips, hold them off for the full `2 × motionDuration` reveal in both
+directions. There is no such mechanism in the app today, so it would have to be built
+alongside the first panel that needs one.
 
 ## Route crossfades
 
@@ -117,8 +117,9 @@ library's own presence/unmount logic) is dead for the rest of the transition. Th
 hardest with **portaled overlays** (tooltips, popovers, dropdowns): their content is a child
 of `<body>`, so it neither fades with the page nor gets unmounted by the paused subtree, and
 it sits at full opacity over the crossfade. The fix has to be driven from _outside_ the
-transitioning block — see the `tooltips` registry in the `client-stores` skill for the
-worked example (a `<body>` attribute + an unlayered CSS rule).
+transitioning block: a flag set on `<body>` by a component that isn't leaving, plus an
+unlayered CSS rule that hides the portaled content while it is set — unlayered because
+Tailwind's `display` utilities live in `@layer utilities` and would otherwise win.
 
 ## Persistent values — Tween
 

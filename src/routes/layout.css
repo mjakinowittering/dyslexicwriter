@@ -229,18 +229,3 @@
         line-height: 1.75;
     }
 }
-
-/* Tooltip dismissal across a route crossfade. Balloons are portaled to <body>, so they
-   are not inside the keyed <div> that fades out — and the moment the outgoing page starts
-   its out-transition Svelte pauses that subtree's effects, so bits-ui never gets to
-   unmount the balloon it has already marked closed. Its exit animation finishes, nothing
-   removes the node, and it snaps back to full opacity for the rest of the transition.
-   Hiding from a <body> attribute is the only lever left, because that attribute is set
-   from outside the paused subtree (`tooltipSuppression` action, driven by the `tooltips`
-   registry — see the `client-stores` skill).
-
-   Deliberately unlayered: Tailwind's `display` utilities live in @layer utilities and
-   would otherwise win over anything declared in @layer base. */
-body[data-tooltips-suppressed] [data-slot='tooltip-content'] {
-    display: none;
-}

@@ -84,6 +84,18 @@
             </Button>
         </header>
 
+        <!-- Every control below writes straight through to config.json, and when
+             the file cannot be read those writes are refused so the user's real
+             preferences are not overwritten by the defaults standing in for them.
+             Said here because this is where the switch was moved: `workspace.error`
+             is only rendered on the Files screen, so from the editor a refused
+             write would otherwise look exactly like a saved one. -->
+        {#if store.settingsUnreadable}
+            <p class="text-destructive px-4 pt-4 text-sm">
+                {m.settings_read_error()}
+            </p>
+        {/if}
+
         <div class="flex flex-col gap-8 p-4">
             <section class="flex flex-col gap-3">
                 <h3

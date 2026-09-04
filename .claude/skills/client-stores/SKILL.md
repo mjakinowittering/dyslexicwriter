@@ -1,6 +1,6 @@
 ---
 name: client-stores
-description: The three runes stores — workspace (folder, config, document tree), document (the open document, autosave and flush), and the tooltip helper. Load when editing anything in `src/lib/stores/`, wiring a new persisted setting, or changing the autosave lifecycle.
+description: The two runes stores — workspace (folder, config, document tree) and document (the open document, autosave and flush). Load when editing anything in `src/lib/stores/`, wiring a new persisted setting, or changing the autosave lifecycle.
 ---
 
 # Client stores
@@ -13,7 +13,6 @@ here is just reactive state over the filesystem.
 | --------------------- | ----------------------------------------------------------------- |
 | `workspace.svelte.ts` | The directory handle, the parsed `config.json`, the document tree |
 | `document.svelte.ts`  | The open document: content, title, word count, autosave and flush |
-| `tooltips.svelte.ts`  | The tooltip-suppression registry (see `[[animations]]`)           |
 
 ## Conventions
 

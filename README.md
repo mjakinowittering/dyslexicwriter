@@ -201,15 +201,6 @@ Within each, related items sit next to each other.
       spurious "already exists", or the two race the `removeEntry` of the old file. One
       trigger is enough — `change` already fires on blur — or the store tracks the rename
       in flight and coalesces
-- [ ] Tell a missing `config.json` apart from an unreadable one. `readConfig`
-      (`fs/config.ts:17-27`) catches everything and returns `defaultConfig()`, so first
-      run and a real read failure (permission revoked mid-session, drive unplugged) are
-      indistinguishable: `#adopt` loads defaults, flips the theme, and the next
-      `setTheme`/`setFont`/`setTtsPreferences` writes those defaults straight over the
-      user's real settings file. The per-key Valibot layering in `config.model.ts` exists
-      to stop one bad key costing every other preference — this catch-all undoes it a
-      level up. Fall back silently on `NotFoundError` alone; surface anything else and
-      refuse to write back over a file that could not be read
 - [ ] Route the reading-time copy through Paraglide.
       `src/lib/utils/calculateReadingTime.ts` builds `"3 minutes"`, `"45 seconds"` and
       `"1 hour 20 minutes"` in code, and `StatusbarTimeToRead.svelte` injects the result
@@ -265,17 +256,6 @@ Within each, related items sit next to each other.
       the mocks with it
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
-- [ ] Decide the fate of the tooltip-suppression machinery. It works, and nothing in the
-      app uses it: `tooltips.suppress()` is called only from
-      `tests/lib/components/Tooltip/Tooltip.svelte.test.ts` and
-      `stories/Tooltip/Tooltip.stories.svelte`, and `use:tooltipSuppression` appears only
-      in the test harness and that story. It was written for a portaled balloon hanging
-      over a route crossfade in an `(app)` shell with a nav rail — this app has two routes
-      and no crossfade. Either wire it to the two real navigations (the editor's back
-      button, opening a document from the Files screen) or delete all five places it
-      lives: `stores/tooltips.svelte.ts`, `actions/tooltip-suppression.svelte.ts`, the
-      `$effect` and `disabled` in `components/Tooltip/Tooltip.svelte`, the rule at
-      `layout.css:239-246`, and the test and story that are its only callers
 - [ ] Cover the workspace store and the `SpeechController` with tests. These are the two
       most intricate stateful modules in the app and the two thinnest in the suite.
       `workspace.svelte.ts` sits at **28%**: `leaveFolder`, `isEmpty` and `touch` are
@@ -295,12 +275,3 @@ Within each, related items sit next to each other.
       (`workspace.svelte.ts:127-131`), so an unplugged drive lands on a "ready" Files
       screen showing a read error rather than back at the picker. A backoff retry for the
       first, the existing check for the second
-- [ ] Small chores, none urgent, all one-liners: `usesCommandKey` (`utils/shortcut.ts`)
-      reads deprecated `navigator.platform`; `ToolbarVoiceSettings`'s 400ms persist timer
-      is never cleared on destroy, so an unmount mid-debounce still writes `config.json`;
-      the browser test run emits `derived_inert` warnings and an unhandled "ResizeObserver
-      loop completed with undelivered notifications"; `.claude/settings.local.json` fails
-      `npm run lint` locally, since the repo tracks `.claude/skills/` but ignores nothing
-      under `.claude/` and only a global gitignore keeps it out of git; and
-      `WelcomePreview.svelte:140-142` carries the repo's only three ESLint warnings
-      (`close`, `minimise`, `maximise` as `tailwindcss/no-custom-classname`)

@@ -117,6 +117,7 @@
     "settings_font": "Font",
     "settings_font_dyslexic": "OpenDyslexic",
     "settings_font_sans": "Sans-serif",
+    "settings_read_error": "Couldn't read your settings — they're left untouched",
     "settings_save_error": "Couldn't save settings — is the folder still there?",
     "settings_theme": "Theme",
     "settings_theme_dark": "Dark",

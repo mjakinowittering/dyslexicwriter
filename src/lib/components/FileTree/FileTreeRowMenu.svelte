@@ -3,9 +3,9 @@
     import type { Snippet } from 'svelte';
 
     import Icon from '$lib/components/Icon/Icon.svelte';
-    import * as Tooltip from '$lib/components/Tooltip';
     import Button from '$lib/components/ui/button/button.svelte';
     import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+    import * as Tooltip from '$lib/components/ui/tooltip';
 
     // The overflow menu both kinds of row in the Files tree hang their actions
     // off. Only the trigger lives here — the items come in as `children`, so a

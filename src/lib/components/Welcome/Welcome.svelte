@@ -62,8 +62,10 @@
     });
 </script>
 
-<!-- Full height, with the preview taking what the header and cards leave: the
-     welcome screen is one screenful and never scrolls. -->
+<!-- Sized by its parts rather than by the window. Nothing here stretches to
+     fill a tall screen and nothing is squeezed on a short one — the preview at
+     the foot brings its own height, and where there isn't room for it the
+     screen scrolls like any other. -->
 <div class="flex size-full min-h-0 flex-col space-y-12 py-12">
     <!-- `flex-none`: Empty.Root is itself `flex-1`, and left to grow it would
          take the height the preview below it is meant to have. -->
