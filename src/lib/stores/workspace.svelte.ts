@@ -36,6 +36,7 @@ export type WorkspaceStatus =
     | 'unsupported' // browser has no File System Access API
     | 'needs-folder' // first run, or the stored folder was given up on
     | 'needs-permission' // a stored folder we may not touch until the user says so
+    | 'folder-missing' // a stored folder we are allowed to read and cannot find
     | 'ready';
 
 // The slice of the workspace the settings panel touches: the two preferences it
@@ -95,11 +96,19 @@ class WorkspaceStore implements PreferenceStore {
         return this.tree?.hasOtherEntries ?? false;
     }
 
-    // The stored folder's name, for the "Reopen …" card. A handle carries its
-    // name whether or not we have permission to open it, so there is nothing to
-    // remember separately — IndexedDB still holds exactly one thing.
+    // The folder we are trying to get back into — one we have not been let into
+    // yet ('needs-permission'), or one we were in and can no longer reach
+    // ('folder-missing'). Only ever one of the two, so first non-null wins.
+    get #candidate(): FileSystemDirectoryHandle | null {
+        return this.pending ?? this.root;
+    }
+
+    // That folder's name, for the "Reopen …" card and the missing-folder screen.
+    // A handle carries its name whether or not the folder is readable — or still
+    // there at all — so there is nothing to remember separately and IndexedDB
+    // still holds exactly one thing.
     get pendingName(): string {
-        return this.pending?.name ?? '';
+        return this.#candidate?.name ?? '';
     }
 
     get theme(): Theme {
@@ -128,14 +137,26 @@ class WorkspaceStore implements PreferenceStore {
             return;
         }
 
+        // Permission survives the folder itself: a deleted folder, a renamed one
+        // and an unmounted drive all still report 'granted'. Ask the folder
+        // directly before adopting it, because everything `#adopt` does next
+        // swallows its own errors — `readConfig` would quietly hand back the
+        // shipped defaults and flip the user's theme on the way past.
+        if (!(await folderIsReachable(handle))) {
+            this.pending = handle;
+            this.status = 'folder-missing';
+            return;
+        }
+
         await this.#adopt(handle);
     }
 
-    // Ask for the stored folder back. The card that calls this is the user
-    // gesture requestPermission needs; Chromium's "allow on every visit" grant
-    // then makes `restore()` silent from the next visit on.
+    // Ask for the stored folder back — the welcome screen's "Reopen" card, and
+    // "Look again" on the missing-folder screen. Both are the user gesture
+    // requestPermission needs; Chromium's "allow on every visit" grant then makes
+    // `restore()` silent from the next visit on.
     async reopen(): Promise<void> {
-        const handle = this.pending;
+        const handle = this.#candidate;
         if (!handle) return;
 
         // Whatever went wrong last time is about to be answered one way or the
@@ -148,16 +169,18 @@ class WorkspaceStore implements PreferenceStore {
             return;
         }
 
-        // Permission can be granted for a folder that is no longer there, and
-        // every read below this swallows its own errors, so ask the folder
-        // directly before committing to it. Nothing is recoverable from a handle
-        // that can't resolve: let it go and send the user back to the picker
-        // rather than leaving them on a card that will never work.
+        // Permission can be granted for a folder that is no longer there, so ask
+        // the folder directly before committing to it.
+        //
+        // The handle is deliberately kept. Nothing here can tell a folder that
+        // has been deleted from one on a drive or a WSL share that simply isn't
+        // mounted this minute, and the second comes back at the same path — so
+        // the missing-folder screen holds on to it and offers both ways out
+        // rather than throwing away a folder the user may be about to plug in.
         if (!(await folderIsReachable(handle))) {
-            await clearDirectoryHandle();
-            this.pending = null;
-            this.status = 'needs-folder';
-            this.error = m.welcome_folder_missing();
+            this.pending = handle;
+            this.status = 'folder-missing';
+            this.error = m.files_missing_error();
             return;
         }
 
@@ -311,10 +334,38 @@ class WorkspaceStore implements PreferenceStore {
             this.tree = tree;
             this.#clearReadError();
         } catch {
-            this.error = m.files_read_error();
+            await this.#scanFailed();
         } finally {
             this.scanning = false;
         }
+    }
+
+    // A walk of the working folder threw. Two very different things look the same
+    // from here, so ask the folder which one it is.
+    //
+    // A folder that answers is having a bad moment — a rename writes the new name
+    // and removes the old one a beat later, and a scan landing between the two
+    // fails on an entry that has just gone. That is the message we have always
+    // shown, and the next scan clears it.
+    //
+    // A folder that does not answer is gone: deleted, renamed from underneath us,
+    // or on a drive or WSL share that isn't mounted. There is nothing left for
+    // this screen to show and no reason to keep offering to write into it, so the
+    // whole app moves to the missing-folder state and offers a way back.
+    //
+    // `root` is deliberately left alone. The document store reads it on every
+    // flush and gives up quietly when it is null — the one shape of failure this
+    // app must never have — so it keeps the dead handle and lets the write throw
+    // where the editor can say so.
+    async #scanFailed(): Promise<void> {
+        if (this.root && !(await folderIsReachable(this.root))) {
+            this.tree = null;
+            this.status = 'folder-missing';
+            this.error = '';
+            return;
+        }
+
+        this.error = m.files_read_error();
     }
 
     // The folder read fine, so a message saying it did not is no longer true —
@@ -353,7 +404,7 @@ class WorkspaceStore implements PreferenceStore {
             this.collapsed.delete(node.path);
             this.#clearReadError();
         } catch {
-            this.error = m.files_read_error();
+            await this.#scanFailed();
         }
     }
 
