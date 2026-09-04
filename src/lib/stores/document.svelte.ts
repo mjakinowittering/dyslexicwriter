@@ -36,6 +36,16 @@ export const AUTOSAVE_DEBOUNCE_MS = 30_000;
 // written. Only a pause shorter than the debounce can be paid for with it.
 export const AUTOSAVE_MAX_WAIT_MS = 60_000;
 
+// A write that failed is not a write that can be forgotten. Both timers above are
+// armed by a keystroke, so a writer who hits a transient failure — an unplugged
+// drive, a folder renamed underneath them — and then stops typing has nothing left
+// scheduled and is relying on `pagehide` alone. These arm the retry instead: the
+// first five seconds later, then doubling, then every minute for as long as it
+// takes. Deliberately without a give-up: giving up is the failure this exists to
+// prevent, and a minute apart it costs nothing to keep asking.
+export const AUTOSAVE_RETRY_BASE_MS = 5_000;
+export const AUTOSAVE_RETRY_MAX_MS = 60_000;
+
 // `idle` is the opening state and means nothing has happened yet — distinct from
 // `pending`, which means there are edits the disk has not seen. The status bar
 // has to tell those apart, and `#dirty` is a plain field the UI cannot observe.
@@ -75,7 +85,22 @@ class DocumentStore {
     // AUTOSAVE_MAX_WAIT_MS. Cleared together with #timer whenever the document
     // goes clean, so a save that has already happened cannot fire a second one.
     #ceiling: ReturnType<typeof setTimeout> | null = null;
+    // The backoff after a failed write, and how many attempts it has made — see
+    // AUTOSAVE_RETRY_BASE_MS. The count is per run of failures, not per document:
+    // one write landing puts it back to zero.
+    #retry: ReturnType<typeof setTimeout> | null = null;
+    #retries = 0;
     #dirty = false;
+    // Which document the store is holding, bumped by every `#reset()`.
+    //
+    // Nothing here is synchronous: a write, a read and a rename all await, and the
+    // document can be closed or swapped while one is in flight. A continuation that
+    // then assigns `location`, `title` or `saveState` is writing the OLD document's
+    // facts over the NEW one's — an editor left empty, or worse, pointed at the
+    // previous document's file. So every method captures this before its first
+    // await and gives up quietly if it has moved on: the work it was doing belongs
+    // to a document nobody is looking at any more.
+    #epoch = 0;
     // The open file's YAML frontmatter, held only so the next write can put it
     // back exactly as it was. Deliberately not $state: nothing in the UI reads it,
     // and a state proxy has no business being handed to a YAML serialiser.
@@ -86,6 +111,13 @@ class DocumentStore {
 
     get isDirty(): boolean {
         return this.#dirty;
+    }
+
+    // Is a failed write waiting to try again? The suite asserts on this: "left
+    // dirty" and "left dirty with something coming" are very different states, and
+    // the difference is the whole of what a retry is.
+    get isRetrying(): boolean {
+        return this.#retry !== null;
     }
 
     // Start a new document in memory. Nothing touches the disk until the first
@@ -105,9 +137,15 @@ class DocumentStore {
         if (!root) return;
 
         this.#reset();
+        const epoch = this.#epoch;
 
         try {
             const doc = await readDocument(root, path);
+            // Two opens can overlap — the editor's `?doc=` changing twice in quick
+            // succession — and the slower read must not land on top of the faster
+            // one. Whoever reset last owns the store.
+            if (epoch !== this.#epoch) return;
+
             this.title = doc.title;
             this.location = {
                 folder: doc.folder,
@@ -122,6 +160,8 @@ class DocumentStore {
             // "Edited 3 days ago" the Files screen showed a click earlier.
             this.savedAt = doc.lastModified;
         } catch (cause) {
+            if (epoch !== this.#epoch) return;
+
             this.error =
                 cause instanceof DocumentError
                     ? cause.message
@@ -158,6 +198,27 @@ class DocumentStore {
             clearTimeout(this.#ceiling);
             this.#ceiling = null;
         }
+        if (this.#retry) {
+            clearTimeout(this.#retry);
+            this.#retry = null;
+        }
+    }
+
+    // Try again, later. Exponential from the base up to the ceiling and then flat,
+    // so a folder that comes back after five minutes is written to within a minute
+    // of returning, and one that never comes back costs a call a minute.
+    //
+    // The attempt count is read before it is incremented, so the first retry waits
+    // the base interval rather than double it.
+    #scheduleRetry(): void {
+        if (this.#retry) clearTimeout(this.#retry);
+
+        const delay = Math.min(
+            AUTOSAVE_RETRY_BASE_MS * 2 ** this.#retries,
+            AUTOSAVE_RETRY_MAX_MS
+        );
+        this.#retries += 1;
+        this.#retry = setTimeout(() => void this.flush(), delay);
     }
 
     // Write now. Safe to call at any time and from any exit path; a no-op when
@@ -177,12 +238,21 @@ class DocumentStore {
 
         const root = workspace.root;
         const content = this.contentJson;
-        if (!root || !content) return;
+        // Nowhere to write to — the working folder has gone, or gone unreadable.
+        // The timers were cleared on the way in, so returning here would leave a
+        // dirty document with nothing scheduled to save it: the same quiet
+        // give-up as a failed write, and treated the same way.
+        if (!root || !content) {
+            this.saveState = 'pending';
+            this.#scheduleRetry();
+            return;
+        }
 
         // Claim the work before awaiting, so a second flush queues behind this
         // one instead of racing it.
         this.#dirty = false;
         this.saveState = 'saving';
+        const epoch = this.#epoch;
 
         // A first save creates the folder-document shape the app owns: a folder at
         // the top level named for the title, holding a markdown file of the same
@@ -201,21 +271,36 @@ class DocumentStore {
                     frontmatter
                 );
 
-                this.location = location;
-                this.saveState = 'saved';
-                this.savedAt = Date.now();
-                this.error = '';
+                // The file is on disk either way, so the tree is caught up
+                // below regardless — but the store now belongs to a different
+                // document, and this one's location and save time are no longer
+                // anything it should be reporting.
+                if (epoch === this.#epoch) {
+                    this.location = location;
+                    this.saveState = 'saved';
+                    this.savedAt = Date.now();
+                    this.error = '';
+                    this.#retries = 0;
+                }
 
                 // A new folder has appeared on disk, so the tree has to be
                 // rescanned; an existing document only needs its mtime moved on.
                 if (firstSave) await workspace.refresh();
                 else await workspace.touch(entry);
             } catch {
-                // Put the document back in the dirty state: the next flush (or
-                // the user's next keystroke) will retry rather than drop the edit.
+                // A failure belonging to a document that has since been closed or
+                // swapped has nowhere to go: marking dirty here would arm a retry
+                // that writes the CURRENT document's content into the old one's
+                // file. The edit is already gone with the reset that replaced it.
+                if (epoch !== this.#epoch) return;
+
+                // Put the document back in the dirty state and arm the retry, so
+                // a writer who stops typing after a failure still gets the edit on
+                // to disk once whatever went wrong is over.
                 this.#dirty = true;
                 this.saveState = 'error';
                 this.error = m.editor_save_error();
+                this.#scheduleRetry();
             }
         });
 
@@ -236,14 +321,22 @@ class DocumentStore {
             return;
         }
 
+        const epoch = this.#epoch;
+
         // Pending edits must land under the OLD name before anything moves.
         await this.flush();
+        if (epoch !== this.#epoch) return;
 
         const location = this.location;
         if (!root || location === null) return;
 
         try {
             const entry = await renameDocument(root, location, target);
+            // The document was closed or swapped while the rename was running.
+            // The file on disk has its new name — that part stands — but this
+            // title and location describe a document nobody has open.
+            if (epoch !== this.#epoch) return;
+
             this.title = entry.title;
             this.location = {
                 folder: entry.folder,
@@ -253,6 +346,8 @@ class DocumentStore {
             this.error = '';
             await workspace.refresh();
         } catch (cause) {
+            if (epoch !== this.#epoch) return;
+
             this.error =
                 cause instanceof DocumentError
                     ? cause.message
@@ -267,15 +362,24 @@ class DocumentStore {
         const root = workspace.root;
         if (!root) return null;
 
+        const epoch = this.#epoch;
+
         if (this.location === null) {
             this.#dirty = true;
             await this.flush();
         }
+        // The forced save may have taken long enough for the document to be
+        // closed or swapped. Writing the image now would put it in whichever
+        // folder is open instead, and hand back a path the editor resolves
+        // against a different document.
+        if (epoch !== this.#epoch) return null;
         if (this.location === null) return null;
 
         try {
             return await writeImage(root, this.location.folder, file);
         } catch {
+            if (epoch !== this.#epoch) return null;
+
             this.error = m.editor_image_error();
             return null;
         }
@@ -284,6 +388,10 @@ class DocumentStore {
     #reset(): void {
         this.#clearTimers();
         this.#dirty = false;
+        this.#retries = 0;
+        // Everything in flight against the document being cleared is now working
+        // for nobody, and this is what tells it so.
+        this.#epoch += 1;
         this.title = '';
         this.contentJson = null;
         // Miss the location and opening document B would write it into document
@@ -298,8 +406,17 @@ class DocumentStore {
     }
 
     // Flush and clear, for when the editor unmounts.
+    //
+    // The editor fires this un-awaited from `onDestroy`, so the flush can still be
+    // running when the next document opens — and the reset below would then wipe
+    // the document that has just been loaded, leaving an empty editor. If anything
+    // has claimed the store while we were writing, the clearing is already done
+    // and is not ours to repeat.
     async close(): Promise<void> {
+        const epoch = this.#epoch;
         await this.flush();
+        if (epoch !== this.#epoch) return;
+
         this.#reset();
     }
 }
