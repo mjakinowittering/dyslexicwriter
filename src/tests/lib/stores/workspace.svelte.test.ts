@@ -310,3 +310,138 @@ describe('touch', () => {
         expect(updateConfig).not.toHaveBeenCalled();
     });
 });
+
+// A working folder that is no longer there.
+//
+// Permission outlives the folder itself: a deleted folder, one renamed in the
+// file manager and a drive or WSL share that isn't mounted all still report
+// 'granted', so nothing upstream of a read can tell us. These run against a real
+// OPFS directory that is created and then removed, which is as close to the
+// writer's situation as this can get — the handle is genuine and the folder
+// behind it is gone.
+describe('a working folder that has gone', () => {
+    let missing: FileSystemDirectoryHandle;
+
+    beforeEach(async () => {
+        // A name of this suite's own: the fs suites wipe the OPFS root between
+        // tests, and a shared name would have them racing for it.
+        const name = 'gone-workspace-store';
+        missing = await root.getDirectoryHandle(name, { create: true });
+
+        try {
+            await root.removeEntry(name, { recursive: true });
+        } catch {
+            // Another suite's cleanup got there first, which is the same
+            // outcome: the handle now points at nothing.
+        }
+
+        workspace.root = null;
+        workspace.tree = null;
+        workspace.status = 'loading';
+    });
+
+    // Everything `#adopt` does next swallows its own errors, so a folder adopted
+    // here fails silently: readConfig hands back the shipped defaults, and a
+    // writer on the light theme watches the app go dark on the way past.
+    it('is not adopted on restore, and keeps the stored handle', async () => {
+        await saveDirectoryHandle(missing);
+
+        await workspace.restore();
+
+        expect({
+            status: workspace.status,
+            root: workspace.root,
+            name: workspace.pendingName
+        }).toEqual({
+            status: 'folder-missing',
+            root: null,
+            name: 'gone-workspace-store'
+        });
+        // Deliberately still in IndexedDB: an unmounted drive comes back at the
+        // same path, and throwing the handle away makes the writer re-pick a
+        // folder we already had.
+        await expect(loadDirectoryHandle()).resolves.not.toBeNull();
+    });
+
+    it('moves the whole screen to the missing state when a scan finds nothing', async () => {
+        workspace.root = missing;
+        workspace.status = 'ready';
+        workspace.tree = node();
+
+        await workspace.refresh();
+
+        expect({
+            status: workspace.status,
+            tree: workspace.tree,
+            error: workspace.error
+        }).toEqual({
+            status: 'folder-missing',
+            tree: null,
+            error: ''
+        });
+        // The handle is kept rather than nulled: the document store gives up
+        // quietly on a null root, so a pending write would vanish instead of
+        // failing where the editor can say so.
+        expect(workspace.root).toBe(missing);
+    });
+
+    it('says so and stays put when the folder still cannot be found', async () => {
+        await saveDirectoryHandle(missing);
+        workspace.pending = missing;
+        workspace.status = 'folder-missing';
+
+        await workspace.reopen();
+
+        expect({
+            status: workspace.status,
+            error: workspace.error
+        }).toEqual({
+            status: 'folder-missing',
+            error: m.files_missing_error()
+        });
+        await expect(loadDirectoryHandle()).resolves.not.toBeNull();
+    });
+
+    it('is adopted again once it comes back', async () => {
+        const back = await root.getDirectoryHandle('back-workspace-store', {
+            create: true
+        });
+        workspace.root = back;
+        workspace.status = 'folder-missing';
+
+        await workspace.reopen();
+
+        expect({
+            status: workspace.status,
+            root: workspace.root,
+            pending: workspace.pending
+        }).toEqual({
+            status: 'ready',
+            root: back,
+            pending: null
+        });
+
+        await root.removeEntry('back-workspace-store', { recursive: true });
+    });
+
+    // The other reason a scan throws, and the one that must NOT escalate: a
+    // rename writes the new name and removes the old one a beat later, so a walk
+    // landing between the two trips over an entry that has just gone.
+    it('keeps the ordinary read error when the folder is still there', async () => {
+        vi.mocked(scanFolder).mockRejectedValueOnce(
+            new Error('entry vanished mid-rename')
+        );
+        workspace.root = root;
+        workspace.status = 'ready';
+
+        await workspace.refresh();
+
+        expect({
+            status: workspace.status,
+            error: workspace.error
+        }).toEqual({
+            status: 'ready',
+            error: m.files_read_error()
+        });
+    });
+});
