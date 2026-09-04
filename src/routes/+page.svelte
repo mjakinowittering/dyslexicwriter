@@ -4,6 +4,7 @@
         File01Icon,
         FileAddIcon,
         FolderAddIcon,
+        FolderOffIcon,
         FolderOpenIcon,
         RefreshIcon
     } from '@hugeicons/core-free-icons';
@@ -253,7 +254,12 @@
         deleteFolder: onDeleteFolder
     };
 
-    async function confirmLeaveFolder() {
+    // Called from two places: the header menu's "Forget this folder", behind a
+    // confirm because giving up a working folder is a decision, and the
+    // missing-folder screen's reset button, which is not — that folder is
+    // already unreachable, and a confirm step there is one more click between
+    // the writer and a folder they can actually open.
+    async function forgetFolder() {
         // Flush before the handle is dropped. Reaching this screen normally means
         // the editor already closed the document, but a pending write must never
         // be outlived by the folder it was going to.
@@ -289,7 +295,7 @@
     bind:open={leaveOpen}
     confirmLabel={m.files_leave()}
     description={m.files_leave_description()}
-    onConfirm={confirmLeaveFolder}
+    onConfirm={forgetFolder}
     title={m.files_leave_title({ name: workspace.root?.name ?? '' })}
 />
 
@@ -304,6 +310,39 @@
 {:else if workspace.status === 'loading'}
     <div class="text-muted-foreground flex flex-1 items-center justify-center">
         <p>{m.welcome_loading()}</p>
+    </div>
+{:else if workspace.status === 'folder-missing'}
+    <!-- The working folder cannot be read at all. Where "empty" and "no markdown
+         here" both describe a folder we can still see, this one is not there —
+         so it must not borrow their empty state, which would invite the writer
+         to create a document into a folder that has gone.
+
+         Two ways out, because nothing in the API can tell a deleted folder from
+         an unmounted drive or a WSL share that is down: look again once it is
+         back, or let the handle go and start from the welcome screen. -->
+    <div class="mx-auto flex max-w-xl flex-1 items-center px-6">
+        <EmptyState
+            description={m.files_missing_description({
+                name: workspace.pendingName
+            })}
+            icon={FolderOffIcon}
+            title={m.files_missing_title()}
+        >
+            {#snippet action()}
+                {#if workspace.error}
+                    <p class="text-destructive text-sm">{workspace.error}</p>
+                {/if}
+                <div class="flex flex-wrap justify-center gap-2">
+                    <Button onclick={() => workspace.reopen()}>
+                        <Icon icon={RefreshIcon} />
+                        {m.files_missing_retry()}
+                    </Button>
+                    <Button onclick={forgetFolder} variant="outline">
+                        {m.files_leave()}
+                    </Button>
+                </div>
+            {/snippet}
+        </EmptyState>
     </div>
 {:else if workspace.status === 'needs-folder' || workspace.status === 'needs-permission'}
     <!-- Wider than the cards need: the editor preview below them takes the extra
