@@ -1,5 +1,5 @@
 import * as opfs from '../../support/opfs';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { readConfig, updateConfig, writeConfig } from '$lib/fs/config';
 import {
@@ -20,8 +20,22 @@ const readRaw = () => opfs.readFile(root, '', CONFIG_FILE_NAME);
 const writeRaw = (text: string) =>
     opfs.writeRaw(root, '', CONFIG_FILE_NAME, text);
 
+// A read failure that is NOT the file being absent: permission revoked, drive
+// unplugged, a file we cannot open. There is no way to arrange one of those on a
+// real OPFS root, so the handle's own read is made to fail instead — the point
+// under test is which DOMException name reaches the caller, not how it got there.
+function failNextRead(name = 'NotAllowedError'): void {
+    vi.spyOn(root, 'getFileHandle').mockRejectedValueOnce(
+        new DOMException('the folder is no longer available', name)
+    );
+}
+
 beforeEach(async () => {
     root = await opfs.emptyRoot();
+});
+
+afterEach(() => {
+    vi.restoreAllMocks();
 });
 
 describe('readConfig', () => {
@@ -65,6 +79,16 @@ describe('readConfig', () => {
         );
 
         expect(await readConfig(root)).toEqual(defaultConfig());
+    });
+
+    // The one distinction this module exists to draw. A folder with no settings
+    // file is first run; a settings file we could not read is a file whose real
+    // contents we have never seen, and answering with defaults would let the
+    // caller write them straight over the user's preferences.
+    it('rejects rather than falling back when the read fails for any reason but absence', async () => {
+        failNextRead();
+
+        await expect(readConfig(root)).rejects.toThrow(DOMException);
     });
 
     it('costs the user only the setting they broke', async () => {
@@ -149,6 +173,26 @@ describe('updateConfig', () => {
 
         expect(config.font).toBe('sans');
         expect(JSON.parse(await readRaw())).not.toHaveProperty('documents');
+    });
+
+    // The read is the guard: settings that could not be read must survive the
+    // attempt untouched, because a file of defaults written over a writer's real
+    // preferences is not recoverable and they never asked for any of it.
+    it('writes nothing when the file cannot be read', async () => {
+        const saved = {
+            ...defaultConfig(),
+            font: 'sans' as const,
+            tts: { voiceUri: 'urn:voice:alice', rate: 1.4 }
+        };
+        await writeConfig(root, saved);
+        const before = await readRaw();
+
+        failNextRead();
+
+        await expect(updateConfig(root, { theme: 'light' })).rejects.toThrow(
+            DOMException
+        );
+        expect(await readRaw()).toBe(before);
     });
 
     it('reads the file rather than the caller when merging, so a hand edit is not clobbered', async () => {

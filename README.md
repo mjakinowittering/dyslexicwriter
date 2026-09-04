@@ -201,15 +201,6 @@ Within each, related items sit next to each other.
       spurious "already exists", or the two race the `removeEntry` of the old file. One
       trigger is enough — `change` already fires on blur — or the store tracks the rename
       in flight and coalesces
-- [ ] Tell a missing `config.json` apart from an unreadable one. `readConfig`
-      (`fs/config.ts:17-27`) catches everything and returns `defaultConfig()`, so first
-      run and a real read failure (permission revoked mid-session, drive unplugged) are
-      indistinguishable: `#adopt` loads defaults, flips the theme, and the next
-      `setTheme`/`setFont`/`setTtsPreferences` writes those defaults straight over the
-      user's real settings file. The per-key Valibot layering in `config.model.ts` exists
-      to stop one bad key costing every other preference — this catch-all undoes it a
-      level up. Fall back silently on `NotFoundError` alone; surface anything else and
-      refuse to write back over a file that could not be read
 - [ ] Route the reading-time copy through Paraglide.
       `src/lib/utils/calculateReadingTime.ts` builds `"3 minutes"`, `"45 seconds"` and
       `"1 hour 20 minutes"` in code, and `StatusbarTimeToRead.svelte` injects the result

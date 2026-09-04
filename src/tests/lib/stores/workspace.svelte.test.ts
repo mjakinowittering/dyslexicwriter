@@ -1,9 +1,13 @@
+import { setMode } from 'mode-watcher';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
     clearDirectoryHandle,
+    ensurePermission,
     loadDirectoryHandle,
+    readConfig,
     saveDirectoryHandle,
+    scanFolder,
     updateConfig,
     type FolderNode
 } from '$lib/fs';
@@ -19,17 +23,31 @@ import { workspace } from '$lib/stores/workspace.svelte';
 // the workspace exactly as it was rather than resetting the screen around a
 // folder the next launch will silently reopen.
 //
-// `$lib/fs` is mocked through to the real module so `clearDirectoryHandle` can be
-// made to reject on demand and `updateConfig` can be watched; every other export
-// is the genuine one.
+// `$lib/fs` is mocked through to the real module so `clearDirectoryHandle` and
+// `readConfig` can be made to reject on demand and `updateConfig` can be watched;
+// every other export is the genuine one. `ensurePermission` is here because an
+// OPFS handle does not answer `queryPermission`, and `restore()` will not reach
+// the folder without it.
 vi.mock('$lib/fs', async (importOriginal) => {
     const actual = await importOriginal<typeof import('$lib/fs')>();
     return {
         ...actual,
         clearDirectoryHandle: vi.fn(actual.clearDirectoryHandle),
+        ensurePermission: vi.fn(actual.ensurePermission),
+        readConfig: vi.fn(actual.readConfig),
+        // Stubbed outright in the adopt tests. The OPFS root these use is shared
+        // with the fs suites on purpose (see below), so walking it for real would
+        // race them; what is under test here is what `#adopt` does with the
+        // config it got, not what the scan found.
+        scanFolder: vi.fn(actual.scanFolder),
         updateConfig: vi.fn(actual.updateConfig)
     };
 });
+
+// The theme is pushed onto <html> through mode-watcher, and the case that matters
+// is the one where it must NOT be — a folder whose settings could not be read has
+// no theme to apply.
+vi.mock('mode-watcher', () => ({ setMode: vi.fn() }));
 
 let root: FileSystemDirectoryHandle;
 
@@ -47,6 +65,7 @@ beforeEach(async () => {
     workspace.collapsed.add('Book');
     workspace.status = 'ready';
     workspace.error = '';
+    workspace.settingsUnreadable = false;
 });
 
 // A folder node with nothing in it, for the tests that only care about the shape
@@ -65,7 +84,11 @@ function node(contents: Partial<FolderNode> = {}): FolderNode {
 
 afterEach(async () => {
     vi.mocked(clearDirectoryHandle).mockClear();
-    vi.mocked(updateConfig).mockClear();
+    vi.mocked(ensurePermission).mockReset();
+    vi.mocked(readConfig).mockReset();
+    vi.mocked(scanFolder).mockReset();
+    vi.mocked(updateConfig).mockReset();
+    vi.mocked(setMode).mockClear();
     vi.restoreAllMocks();
     // A handle left in IndexedDB would outlive this suite entirely.
     await clearDirectoryHandle();
@@ -156,6 +179,111 @@ describe('isEmpty', () => {
         workspace.tree = node({ hasOtherEntries: true });
 
         expect(workspace.hasUnopenableFiles).toBe(true);
+    });
+});
+
+// Adopting a folder whose config.json could not be read.
+//
+// The whole point is that this is NOT first run. A folder with no settings file
+// gets the shipped defaults and means it; a folder whose settings we could not
+// read gets the same defaults as a stand-in, and every consequence has to be
+// different — the theme is not the user's to guess at, and nothing may be written
+// back over preferences that are probably sitting on disk intact.
+describe('#adopt, when the settings cannot be read', () => {
+    beforeEach(() => {
+        vi.mocked(ensurePermission).mockResolvedValue(true);
+        vi.mocked(scanFolder).mockResolvedValue(node());
+    });
+
+    it('opens the folder anyway, flagged, and says why', async () => {
+        vi.mocked(readConfig).mockRejectedValue(
+            new DOMException(
+                'the folder is no longer available',
+                'NotAllowedError'
+            )
+        );
+
+        await workspace.restore();
+
+        // Still ready: the settings file is not the writing, and refusing to
+        // open the folder over it would cost the user far more than it saved.
+        expect({
+            status: workspace.status,
+            settingsUnreadable: workspace.settingsUnreadable,
+            error: workspace.error
+        }).toEqual({
+            status: 'ready',
+            settingsUnreadable: true,
+            error: m.settings_read_error()
+        });
+    });
+
+    it('leaves the theme where it was rather than flipping to a default', async () => {
+        vi.mocked(readConfig).mockRejectedValue(
+            new DOMException(
+                'the folder is no longer available',
+                'NotAllowedError'
+            )
+        );
+
+        await workspace.restore();
+
+        expect(setMode).not.toHaveBeenCalled();
+    });
+
+    it('applies the theme as usual when the settings do read', async () => {
+        vi.mocked(readConfig).mockResolvedValue({
+            ...defaultConfig(),
+            theme: 'light'
+        });
+
+        await workspace.restore();
+
+        expect(setMode).toHaveBeenCalledWith('light');
+        expect(workspace.settingsUnreadable).toBe(false);
+    });
+});
+
+describe('#persist', () => {
+    // Stubbed rather than real: the root here is shared OPFS (see beforeEach), so
+    // a genuine config.json write would race the fs suites. What these assert is
+    // the shape of the call and what the store does with the answer.
+    beforeEach(() => {
+        vi.mocked(updateConfig).mockResolvedValue(defaultConfig());
+    });
+
+    // The patch, never the whole in-memory config. `updateConfig` merges onto
+    // what is on disk right now, and handing it everything the store holds would
+    // override that merge — which is how a session that started from defaults
+    // wrote them over the user's real preferences, one switch at a time.
+    it('hands updateConfig the one setting that changed', async () => {
+        await workspace.setFont('sans');
+
+        expect(updateConfig).toHaveBeenCalledWith(root, { font: 'sans' });
+    });
+
+    it('says the settings could not be read when that is why the write failed', async () => {
+        workspace.settingsUnreadable = true;
+        vi.mocked(updateConfig).mockRejectedValueOnce(
+            new DOMException(
+                'the folder is no longer available',
+                'NotAllowedError'
+            )
+        );
+
+        await workspace.setTheme('light');
+
+        expect(workspace.error).toBe(m.settings_read_error());
+    });
+
+    // A write that got through read the file to merge onto it, so whatever was
+    // wrong with it is over — a transient failure has to be able to end.
+    it('clears the flag once a write reads the file successfully', async () => {
+        workspace.settingsUnreadable = true;
+
+        await workspace.setFont('sans');
+
+        expect(workspace.settingsUnreadable).toBe(false);
     });
 });
 
