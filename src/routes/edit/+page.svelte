@@ -134,10 +134,16 @@
     // doesn't run on a real tab close or reload — and Chrome's speech queue
     // outlives the page that started it, so a read in progress would carry on
     // talking with nothing left on screen to silence it.
+    //
+    // Formatting is skipped here and below. Both handlers fire un-awaited on a page
+    // the browser may terminate at once, and the formatter runs in a worker — a
+    // message hop is not something this path can afford to wait for. The edit lands
+    // unwrapped and the next ordinary save tidies it, which is the right way round:
+    // a tidier file is never worth an unsaved one.
     function onPageHide() {
         speech.stop();
         pageEditor?.reconcile();
-        void doc.flush();
+        void doc.flush({ format: false });
     }
 
     // Deliberately does not stop the read: a writer listening while they look at
@@ -146,7 +152,7 @@
         if (document.visibilityState !== 'hidden') return;
 
         pageEditor?.reconcile();
-        void doc.flush();
+        void doc.flush({ format: false });
     }
 
     onDestroy(() => {

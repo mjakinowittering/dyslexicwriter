@@ -6,7 +6,7 @@ description: How to author the Valibot schemas in `src/lib/models/*.model.ts` �
 # Models — Valibot schemas and inferred types
 
 `src/lib/models/` owns the shape of anything the app does not create itself, and
-the TypeScript types inferred from those shapes. There are three files and there
+the TypeScript types inferred from those shapes. There are four files and there
 is no server, no database and no ORM — the only untrusted input in this app is
 `config.json`, a file in the user's own folder that they may hand-edit, truncate,
 or have written with an older version.
@@ -15,6 +15,7 @@ or have written with an older version.
 | ------------------- | ---------------------------------------------------------------------- |
 | `config.model.ts`   | `config.json`: the schema, the defaults, and the key-by-key safe parse |
 | `tts.model.ts`      | Read-aloud voice/rate bounds, shared by the schema and the settings UI |
+| `prettier.model.ts` | Markdown print width and wrap mode, shared by the schema and formatter |
 | `document.model.ts` | Title sanitisation, path helpers, `DocumentIndexEntry` — **no schema** |
 
 ## Not everything here is a schema

@@ -86,6 +86,7 @@ is the _how_.
 | File storage    | File System Access API                       |
 | JSON → Markdown | turndown (+ GFM plugin for tables)           |
 | Markdown → JSON | marked → TipTap `generateJSON`               |
+| Markdown format | Prettier standalone, in a web worker         |
 | Folder handle   | Dexie (IndexedDB) — the handle, nothing else |
 | Read aloud      | Web Speech API (`speechSynthesis`)           |
 | Validation      | Valibot                                      |
@@ -188,7 +189,8 @@ slow enough to read as broken. Dot-directories and `node_modules` are skipped.
     version: number,
     theme: 'light' | 'dark',
     font: 'sans' | 'dyslexic',
-    tts: { voiceUri: string | null, rate: number }
+    tts: { voiceUri: string | null, rate: number },
+    prettier: { printWidth: number, proseWrap: 'always' | 'never' | 'preserve' }
 }
 ```
 
@@ -204,8 +206,8 @@ costs the user that setting alone, not every other preference they have chosen. 
 corrupt or unreadable file falls back to defaults rather than crashing the app.
 
 The first-run value of every preference lives in `src/lib/config/defaults.json` —
-`theme`, `font` and `tts` only. `version` is structural rather than configurable, so
-the code owns it. `defaults.json` is a checked-in seed, never
+`theme`, `font`, `tts` and `prettier` only. `version` is structural rather than
+configurable, so the code owns it. `defaults.json` is a checked-in seed, never
 written to at runtime; it is validated through the same schemas and falls back to
 in-code constants when malformed.
 
@@ -386,7 +388,15 @@ a document is open, so the failure modes that matter are all about losing writin
   enough — flush on blur, on `pagehide`, on `visibilitychange`, and on component
   destroy, so closing a tab mid-sentence cannot drop the last edit.
 - **Never write a partially-derived document.** Derive the markdown first, then open the
-  writable and write; if derivation throws, leave the existing file untouched.
+  writable and write; if derivation throws, leave the existing file untouched. Tidying
+  the markdown with Prettier is part of deriving it, so that finishes first too.
+- **Formatting must never fail a save.** The formatter runs in a worker and every
+  failure path — no `Worker`, a worker that will not construct, a clone that will not
+  cross the port, a Prettier throw — resolves with the _unformatted_ markdown rather
+  than rejecting. The autosave retry has no give-up ceiling, so a formatter that could
+  fail a save would loop forever on a document that never reaches disk. A tidier file
+  is not worth an unsaved one, and the two exit paths that cannot wait for a worker
+  (`pagehide`, `visibilitychange`) skip formatting outright.
 - **Permission can be revoked at any time.** Every filesystem call must handle a
   rejected or stale handle by surfacing a re-pick prompt, never by silently failing or
   discarding the in-memory document.
@@ -464,6 +474,14 @@ project has no environment configuration.
   list share one exported array and must never drift
 - The markdown round-trip is covered by tests; a node that cannot survive the round-trip
   does not get added to the editor
+- Markdown is **formatted with Prettier on its way to disk**, between `toMarkdown` and
+  `joinFrontmatter` — the body only, so Prettier's YAML printer never touches the
+  frontmatter fence. `writeDocument` receives the formatter as a parameter; `fs/` must
+  stay free of any Prettier or worker import. A rename copies bytes and never
+  reformats: a file the writer did not edit is not this feature's business
+- Formatting changes the bytes on purpose but must never change the **document** —
+  hard wrapping is covered by round-trip tests that pin the hazard of a `1.`, `-`, `#`,
+  `>` or `+` landing at a line start
 - The toolbar is **capped by product decision**: undo/redo, headings, bold, italic,
   bullet/ordered list, blockquote, horizontal rule, table, image. No font-family or
   font-size pickers, no colour pickers, no alignment controls, no bubble/slash menus.

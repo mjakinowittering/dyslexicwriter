@@ -21,6 +21,7 @@ export {
     SUGGESTED_FOLDER_NAME,
     suggestUntitledName,
     writeDocument,
+    type WriteDocumentOptions,
     writeImage
 } from './documents';
 export {

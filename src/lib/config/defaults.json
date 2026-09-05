@@ -4,5 +4,9 @@
     "tts": {
         "voiceUri": null,
         "rate": 1
+    },
+    "prettier": {
+        "printWidth": 80,
+        "proseWrap": "always"
     }
 }

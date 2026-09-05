@@ -198,6 +198,32 @@ describe('flush', () => {
 
         expect(documentWrites()).toHaveLength(1);
     });
+
+    // An ordinary save tidies the markdown on the way to disk: turndown's bullets
+    // come out three-spaced, and Prettier normalises them.
+    it('formats the markdown it writes', async () => {
+        doc.title = 'Tidied';
+        doc.applyEdit(content('-   One\n-   Two'));
+
+        await doc.flush();
+
+        expect(await readFile('Tidied', 'Tidied.md')).toBe('- One\n- Two');
+    });
+
+    // `pagehide` and `visibilitychange` fire un-awaited on a page that may be
+    // killed at once, so they skip the round trip to the formatting worker. The
+    // edit still lands — unwrapped, until the next ordinary save tidies it.
+    it('skips formatting when the caller cannot wait for it', async () => {
+        doc.title = 'Hurried';
+        doc.applyEdit(content('-   One\n-   Two'));
+
+        await doc.flush({ format: false });
+
+        expect(await readFile('Hurried', 'Hurried.md')).toBe(
+            '-   One\n-   Two'
+        );
+        expect(doc.saveState).toBe('saved');
+    });
 });
 
 describe('a failed write', () => {

@@ -61,6 +61,11 @@ comes back at the same path.
 - `flush()` cancels both timers and writes immediately. It is called on **blur**,
   **`pagehide`**, **`visibilitychange` → hidden**, **destroy**, and **before a
   rename**. The debounce is an optimisation; this list is the guarantee.
+- `flush({ format: false })` skips the round trip to the formatting worker.
+  `pagehide` and `visibilitychange` pass it, because both fire un-awaited on a page
+  the browser may terminate at once and a message hop is not something they can
+  wait for. The edit lands unwrapped and the next ordinary save tidies it — see
+  `[[content-editor]]` for why formatting can never be allowed to fail a save.
 - Writes are serialised through a `#writing` promise chain, so a flush can never
   overlap an in-flight autosave.
 - A failed write sets `#dirty` back to `true` so the next attempt retries, and
