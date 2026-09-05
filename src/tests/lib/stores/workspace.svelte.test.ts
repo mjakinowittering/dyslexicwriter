@@ -445,3 +445,310 @@ describe('a working folder that has gone', () => {
         });
     });
 });
+
+// Picking a working folder — the one path into the app that starts from nothing.
+//
+// `showDirectoryPicker` does not exist in the test browser and could not be
+// answered if it did, so it is stubbed. Everything downstream of the pick is the
+// real store: what it adopts, what it saves, and what it says when the pick does
+// not work out. The distinction the error cases draw is the point — a user who
+// closed the picker has not hit a problem, and a folder the browser refuses is
+// the folder's fault rather than the app's.
+describe('chooseFolder', () => {
+    let picked: FileSystemDirectoryHandle;
+
+    beforeEach(async () => {
+        picked = await root.getDirectoryHandle('picked-workspace-store', {
+            create: true
+        });
+        vi.mocked(ensurePermission).mockResolvedValue(true);
+        vi.mocked(readConfig).mockResolvedValue(defaultConfig());
+        vi.mocked(scanFolder).mockResolvedValue(node());
+        vi.stubGlobal('showDirectoryPicker', vi.fn().mockResolvedValue(picked));
+        workspace.root = null;
+        workspace.status = 'needs-folder';
+    });
+
+    afterEach(async () => {
+        vi.unstubAllGlobals();
+        try {
+            await root.removeEntry('picked-workspace-store', {
+                recursive: true
+            });
+        } catch {
+            // Already gone; nothing to undo.
+        }
+    });
+
+    it('adopts the folder and remembers it for the next launch', async () => {
+        await workspace.chooseFolder();
+
+        expect({
+            status: workspace.status,
+            root: workspace.root,
+            error: workspace.error
+        }).toEqual({ status: 'ready', root: picked, error: '' });
+        // Without this the picker comes back every launch, which is the one
+        // thing the stored handle exists to prevent.
+        await expect(loadDirectoryHandle()).resolves.not.toBeNull();
+    });
+
+    // Closing the picker is a decision, not a failure. Saying "couldn't open
+    // that folder" to someone who changed their mind is the app inventing a
+    // problem they did not have.
+    it('says nothing when the user closes the picker', async () => {
+        vi.mocked(window.showDirectoryPicker).mockRejectedValue(
+            new DOMException('user aborted', 'AbortError')
+        );
+
+        await workspace.chooseFolder();
+
+        expect({
+            error: workspace.error,
+            root: workspace.root,
+            status: workspace.status
+        }).toEqual({ error: '', root: null, status: 'needs-folder' });
+    });
+
+    // Chrome blocks Documents, Downloads and the home folder in its own dialog,
+    // so this usually never reaches us — but where it does, the writer needs to
+    // know it is the folder that is the problem and not the app.
+    it('names the folder as the problem when the browser refuses it', async () => {
+        vi.mocked(window.showDirectoryPicker).mockRejectedValue(
+            new DOMException('blocked', 'SecurityError')
+        );
+
+        await workspace.chooseFolder();
+
+        expect(workspace.error).toBe(m.welcome_folder_blocked());
+    });
+
+    it('falls back to the general message for any other failure', async () => {
+        vi.mocked(window.showDirectoryPicker).mockRejectedValue(
+            new Error('something else entirely')
+        );
+
+        await workspace.chooseFolder();
+
+        expect(workspace.error).toBe(m.welcome_folder_error());
+    });
+
+    it('adopts nothing when permission is refused', async () => {
+        vi.mocked(ensurePermission).mockResolvedValue(false);
+
+        await workspace.chooseFolder();
+
+        expect({
+            error: workspace.error,
+            root: workspace.root
+        }).toEqual({ error: m.welcome_permission_denied(), root: null });
+    });
+
+    // The "start a new folder" card: the picker cannot be pointed at a path, so
+    // the folder is made inside whatever the user actually picks — and it is
+    // that inner folder that gets adopted, never the parent.
+    it('creates the subfolder and adopts that rather than the pick', async () => {
+        await workspace.chooseFolder({ subfolder: 'DyslexicWriter' });
+
+        expect(workspace.root?.name).toBe('DyslexicWriter');
+        expect(workspace.status).toBe('ready');
+        await expect(
+            picked.getDirectoryHandle('DyslexicWriter')
+        ).resolves.toBeDefined();
+    });
+
+    // A read-only volume, or a file already sitting there under that name. The
+    // folder they picked is fine — it is only the one inside it we couldn't make
+    // — so nothing is adopted and the message says which half failed.
+    it('adopts nothing when the subfolder cannot be created', async () => {
+        // A *file* of that name: getDirectoryHandle then fails on a real folder,
+        // which is exactly the collision the store is guarding against.
+        const writable = await (
+            await picked.getFileHandle('Taken', { create: true })
+        ).createWritable();
+        await writable.close();
+
+        await workspace.chooseFolder({ subfolder: 'Taken' });
+
+        expect({
+            error: workspace.error,
+            root: workspace.root
+        }).toEqual({ error: m.welcome_folder_create_error(), root: null });
+    });
+});
+
+// Expanding and collapsing folders on the Files screen.
+//
+// Two quite different jobs behind one method: a folder the scan already loaded
+// just flips a flag, while one the depth cap stopped at has to be walked before
+// it can show anything. The second is what keeps the first scan cheap on a large
+// writing folder, so it is the half worth driving against a real directory.
+describe('toggle', () => {
+    // The suite mocks `scanFolder` for the tests above and resets it after each
+    // one; these need the genuine walk, so it is put back.
+    const realScan = async (
+        ...args: Parameters<typeof scanFolder>
+    ): Promise<FolderNode> => {
+        const actual =
+            await vi.importActual<typeof import('$lib/fs')>('$lib/fs');
+        return actual.scanFolder(...args);
+    };
+
+    it('collapses a loaded folder and opens it again', async () => {
+        const folder = node({ name: 'Book', path: 'Book' });
+        workspace.tree = node({ folders: [folder] });
+        workspace.collapsed.clear();
+
+        await workspace.toggle(folder);
+        expect(workspace.isExpanded(folder)).toBe(false);
+
+        await workspace.toggle(folder);
+        expect(workspace.isExpanded(folder)).toBe(true);
+    });
+
+    // A folder the cap stopped at knows nothing about its contents, so it stays
+    // shut until asked — and asking is what fetches them.
+    it('walks a folder the depth cap stopped at', async () => {
+        vi.mocked(scanFolder).mockImplementation(realScan);
+        const deep = await root.getDirectoryHandle('toggle-workspace-store', {
+            create: true
+        });
+        const writable = await (
+            await deep.getFileHandle('Chapter.md', { create: true })
+        ).createWritable();
+        await writable.write('# Chapter');
+        await writable.close();
+
+        const folder = node({
+            name: 'toggle-workspace-store',
+            path: 'toggle-workspace-store',
+            loaded: false
+        });
+        workspace.tree = node({ folders: [folder] });
+
+        // Nothing is known about it yet, so it cannot be showing anything.
+        expect(workspace.isExpanded(folder)).toBe(false);
+
+        await workspace.toggle(folder);
+
+        expect(folder.loaded).toBe(true);
+        expect(folder.documents.map((d) => d.title)).toEqual(['Chapter']);
+        expect(workspace.isExpanded(folder)).toBe(true);
+
+        await root.removeEntry('toggle-workspace-store', { recursive: true });
+    });
+
+    // A walk that throws against a folder that is still there is a bad moment,
+    // not a missing folder — same distinction `refresh` draws.
+    it('reports a failed walk without losing the folder', async () => {
+        vi.mocked(scanFolder).mockRejectedValueOnce(
+            new Error('entry vanished mid-rename')
+        );
+        workspace.root = root;
+        workspace.status = 'ready';
+        const folder = node({ name: 'Book', path: 'Book', loaded: false });
+        workspace.tree = node({ folders: [folder] });
+
+        await workspace.toggle(folder);
+
+        expect({
+            status: workspace.status,
+            error: workspace.error,
+            loaded: folder.loaded
+        }).toEqual({
+            status: 'ready',
+            error: m.files_read_error(),
+            loaded: false
+        });
+    });
+});
+
+// Re-opening, after a rescan, the folders the user expanded past the depth cap.
+//
+// The Files screen rescans on mount and on window focus, and a fresh scan knows
+// nothing about what the user opened by hand — so without this every refresh
+// folds the tree back up under them.
+//
+// The loop is what makes a folder nested inside another expanded one reachable:
+// the first pass cannot even see it, because its parent has not been walked yet.
+// These run against a chain of real directories deep enough that the cap
+// genuinely stops partway, which is the only way that second pass happens.
+describe('#replayOpened', () => {
+    const BASE = 'replay-workspace-store';
+    let base: FileSystemDirectoryHandle;
+
+    // The scan is stubbed for the tests above and reset after each one; the walk
+    // has to be the real one here.
+    beforeEach(async () => {
+        vi.mocked(scanFolder).mockImplementation(async (...args) => {
+            const actual =
+                await vi.importActual<typeof import('$lib/fs')>('$lib/fs');
+            return actual.scanFolder(...args);
+        });
+
+        base = await root.getDirectoryHandle(BASE, { create: true });
+        // A chain of nine, with the document at the bottom. Rooted at `base`
+        // rather than the shared OPFS root, so the fs suites wiping that root
+        // cannot race this walk.
+        let dir = base;
+        for (let level = 1; level <= 9; level += 1) {
+            dir = await dir.getDirectoryHandle(`d${level}`, { create: true });
+        }
+        const writable = await (
+            await dir.getFileHandle('Buried.md', { create: true })
+        ).createWritable();
+        await writable.write('# Buried');
+        await writable.close();
+
+        workspace.root = base;
+        workspace.tree = null;
+    });
+
+    afterEach(async () => {
+        try {
+            await root.removeEntry(BASE, { recursive: true });
+        } catch {
+            // Already gone; nothing to undo.
+        }
+    });
+
+    // Walk down a chain of `dN` folders from the scanned tree.
+    const at = (levels: number): FolderNode | undefined => {
+        let node = workspace.tree ?? undefined;
+        for (let level = 1; level <= levels; level += 1) {
+            node = node?.folders.find((f) => f.name === `d${level}`);
+        }
+        return node;
+    };
+
+    it('keeps a folder the user expanded open across a refresh', async () => {
+        await workspace.refresh();
+        // SCAN_DEPTH is 3, so the walk loads d1..d3 and stops with d4 a stub.
+        expect(at(4)?.loaded).toBe(false);
+
+        await workspace.toggle(at(4)!);
+        expect(at(4)?.loaded).toBe(true);
+
+        await workspace.refresh();
+
+        // Without the replay this is false again and the tree has folded up
+        // under a user who never asked it to.
+        expect(at(4)?.loaded).toBe(true);
+    });
+
+    // The reason the loop is a loop. d8 sits below d4 and is invisible to a
+    // fresh scan, so the pass that loads d4 is the one that reveals it — and it
+    // takes another pass to load. A single pass leaves the document unreachable.
+    it('reaches a folder only the previous pass could reveal', async () => {
+        await workspace.refresh();
+        await workspace.toggle(at(4)!);
+        // Expanding d4 walked three more levels, so d8 is now the stub.
+        expect(at(8)?.loaded).toBe(false);
+        await workspace.toggle(at(8)!);
+
+        await workspace.refresh();
+
+        expect(at(8)?.loaded).toBe(true);
+        expect(at(9)?.documents.map((d) => d.title)).toEqual(['Buried']);
+    });
+});
