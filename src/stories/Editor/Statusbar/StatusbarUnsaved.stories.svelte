@@ -21,7 +21,7 @@
             docs: {
                 description: {
                     component:
-                        '"There is writing here the disk has not seen." Up for most of an active writing session, since autosave waits for a pause — a step darker than the rest of the bar so it registers, but never `destructive`, because pending is the normal state of a document being written. Its sibling says how old the disk copy is; this one only says whether that copy is behind.'
+                        'What is happening to the disk right now — writing it has not seen yet, or a write actually in flight, in one row that swaps glyph and words rather than moving them. Up for most of an active writing session, since autosave waits for a pause — a step darker than the rest of the bar so it registers, but never `destructive`, because pending is the normal state of a document being written. Its sibling reports how old the disk copy is and takes no save state at all.'
                 }
             }
         }
@@ -45,13 +45,35 @@
 </Story>
 
 <Story
+    name="Saving"
+    args={{ saveState: 'saving' }}
+    play={async ({ canvas }) => {
+        // A write in flight swaps the record dot for a broken circle turning on
+        // Tailwind's `animate-spin`. The words stay — a bare spinner would be
+        // silent to a screen reader, and would say nothing under reduced motion.
+        await expect(canvas.getByText(m.editor_saving())).toBeInTheDocument();
+    }}
+>
+    {#snippet template(args)}
+        <div
+            class="bg-background flex min-h-96 w-full items-center justify-center p-6"
+        >
+            <StatusbarUnsaved {...args} />
+        </div>
+    {/snippet}
+</Story>
+
+<Story
     name="Idle (Hidden)"
     args={{ saveState: 'idle' }}
     play={async ({ canvas }) => {
-        // Only `pending` means the disk is behind. Every other state — including a
-        // write in flight — leaves this chip silent.
+        // Only `pending` and `saving` have anything to report. Every other state
+        // leaves this chip silent rather than claiming the disk is behind.
         await expect(
             canvas.queryByText(m.editor_unsaved())
+        ).not.toBeInTheDocument();
+        await expect(
+            canvas.queryByText(m.editor_saving())
         ).not.toBeInTheDocument();
     }}
 >

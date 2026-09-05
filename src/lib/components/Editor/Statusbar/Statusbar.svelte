@@ -27,14 +27,15 @@
     <WordCount {wordCount} />
     <TimeToRead {wordCount} />
 
-    <!-- Two separate answers: whether the disk is behind, and how far behind. -->
+    <!-- Two separate answers: what is happening to the disk right now, and how
+         old the copy already on it is. Only the first takes a save state. -->
     <div class="ml-auto flex items-center gap-3">
         {#if error}
             <!-- A failed write is the one thing here that must never be quiet. -->
             <span class="text-destructive">{error}</span>
         {:else}
             <Unsaved {saveState} />
-            <SaveIndicator {saveState} {savedAt} />
+            <SaveIndicator {savedAt} />
         {/if}
     </div>
 </footer>

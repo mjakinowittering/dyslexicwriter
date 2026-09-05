@@ -56,9 +56,21 @@
 
 <Story
     name="Saving"
-    args={{ wordCount: 842, saveState: 'saving' }}
+    args={{
+        wordCount: 842,
+        saveState: 'saving',
+        // Hours rather than minutes, for the same reason as "Saved A While Ago":
+        // a minutes-scale offset can round up mid-run on a slow suite.
+        savedAt: Date.now() - 2 * 60 * 60 * 1000
+    }}
     play={async ({ canvas }) => {
+        // Both chips at once, which is the whole point of keeping them apart:
+        // the spinner reports the write in flight while the age goes on saying
+        // how old the copy already on disk is, instead of blanking out.
         await expect(canvas.getByText(m.editor_saving())).toBeInTheDocument();
+        await expect(
+            canvas.getByText(m.editor_saved_when({ when: '2 hours ago' }))
+        ).toBeInTheDocument();
     }}
 >
     {#snippet template(args)}

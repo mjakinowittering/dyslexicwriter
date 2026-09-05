@@ -5,6 +5,7 @@ import { fromMarkdown } from '$lib/markdown';
 import {
     AUTOSAVE_DEBOUNCE_MS,
     AUTOSAVE_MAX_WAIT_MS,
+    AUTOSAVE_RETRY_BASE_MS,
     doc
 } from '$lib/stores/document.svelte';
 import { workspace } from '$lib/stores/workspace.svelte';
@@ -242,6 +243,172 @@ describe('a failed write', () => {
         expect(doc.saveState).toBe('saved');
         expect(doc.isDirty).toBe(false);
         expect(await readFile('Recovered', 'Recovered.md')).toBe('Precious');
+    });
+
+    // Both timers the store arms are started by a keystroke, so a writer who hits
+    // a failure and then stops typing has nothing scheduled at all. The retry is
+    // what stops the disk copy waiting on `pagehide` — the point at which there is
+    // no second chance left.
+    it('retries on its own, with no further keystroke or flush', async () => {
+        await doc.createNew();
+        await blockTheLocation();
+
+        doc.applyEdit(content('Precious'));
+        await doc.flush();
+        expect(doc.isRetrying).toBe(true);
+
+        // Whatever went wrong is over — the drive is back, the folder is there.
+        await root.removeEntry('Blocked');
+
+        // Nothing here touches the document: no edit, no explicit flush, no exit
+        // path. The retry alone has to carry it.
+        await vi.advanceTimersByTimeAsync(AUTOSAVE_RETRY_BASE_MS);
+        await vi.waitFor(() => expect(doc.saveState).toBe('saved'));
+
+        expect(doc.isDirty).toBe(false);
+        expect(doc.error).toBe('');
+        expect(await readFile('Blocked', 'Blocked.md')).toBe('Precious');
+    });
+
+    it('backs off between attempts rather than spinning', async () => {
+        await doc.createNew();
+        await blockTheLocation();
+
+        doc.applyEdit(content('Precious'));
+        await doc.flush();
+        ignoreFixtureWrites();
+
+        // The first retry is the base interval away, and not a millisecond sooner.
+        await vi.advanceTimersByTimeAsync(AUTOSAVE_RETRY_BASE_MS - 1);
+        expect(documentWrites()).toHaveLength(0);
+
+        await vi.advanceTimersByTimeAsync(1);
+        await vi.waitFor(() => expect(doc.isRetrying).toBe(true));
+
+        // …and having failed again, the second waits twice as long, so a folder
+        // that stays gone is asked about less and less often.
+        await vi.advanceTimersByTimeAsync(AUTOSAVE_RETRY_BASE_MS);
+        expect(doc.saveState).toBe('error');
+
+        await root.removeEntry('Blocked');
+        await vi.advanceTimersByTimeAsync(AUTOSAVE_RETRY_BASE_MS);
+        await vi.waitFor(() => expect(doc.saveState).toBe('saved'));
+    });
+
+    // The other way the write path used to go quiet: `flush()` clears both timers
+    // on the way in, and the working folder having gone is an early return AFTER
+    // that — a dirty document, no timer, and a status bar still saying 'pending'
+    // with nothing whatsoever coming.
+    it('arms a retry when there is nowhere to write to at all', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('Nowhere to go'));
+
+        workspace.root = null;
+        await doc.flush();
+
+        expect(documentWrites()).toHaveLength(0);
+        expect(doc.isDirty).toBe(true);
+        expect(doc.saveState).toBe('pending');
+        expect(doc.isRetrying).toBe(true);
+
+        workspace.root = root;
+        await vi.advanceTimersByTimeAsync(AUTOSAVE_RETRY_BASE_MS);
+        await vi.waitFor(() => expect(doc.saveState).toBe('saved'));
+
+        expect(await readFile('Untitled', 'Untitled.md')).toBe('Nowhere to go');
+    });
+});
+
+// A write, a read and a rename all await, and the document can be closed or
+// swapped while one is in flight. What must never happen is the old document's
+// facts landing on the new one — an editor left empty, or pointed at the previous
+// document's file.
+//
+// `createWritable` is gated rather than mocked away: the write genuinely happens,
+// just not until the test says so, which is the only way to hold one open across
+// an `open()`.
+describe('a write still in flight when the document changes', () => {
+    let release: (() => void) | null;
+
+    beforeEach(async () => {
+        release = null;
+
+        await opfs.writeRaw(root, 'Alpha', 'Alpha.md', 'Alpha body');
+        await opfs.writeRaw(root, 'Bravo', 'Bravo.md', 'Bravo body');
+        ignoreFixtureWrites();
+
+        vi.spyOn(
+            FileSystemFileHandle.prototype,
+            'createWritable'
+        ).mockImplementation(function (
+            this: FileSystemFileHandle,
+            options?: FileSystemCreateWritableOptions
+        ) {
+            opened.push(this.name);
+            return new Promise((resolve) => {
+                // Clears itself on the way through, so the safety net below
+                // cannot open a SECOND writable on a gate already let go. An
+                // unclosed stream holds an OPFS lock, and the next test's
+                // `emptyRoot()` then cannot delete the file it is holding.
+                release = () => {
+                    release = null;
+                    resolve(nativeCreateWritable.call(this, options));
+                };
+            });
+        });
+    });
+
+    afterEach(() => {
+        // Never leave a writable pending: the store's own promise chain would
+        // still be waiting on it when the next test starts.
+        release?.();
+    });
+
+    it('does not let a late close() wipe the document opened after it', async () => {
+        await doc.open('Alpha/Alpha.md');
+        doc.applyEdit(content('Alpha edited'));
+
+        // Exactly what the editor does on unmount: fired, never awaited.
+        const closing = doc.close();
+        await vi.waitFor(() => expect(release).not.toBeNull());
+
+        // The next document opens while Alpha's write is still going.
+        await doc.open('Bravo/Bravo.md');
+
+        release?.();
+        await closing;
+
+        // `close()` reset the store it no longer owns before this guard existed,
+        // leaving the editor blank on a document that had just loaded.
+        expect(doc.title).toBe('Bravo');
+        expect(doc.location).toEqual({
+            folder: 'Bravo',
+            file: 'Bravo.md',
+            ownsFolder: true
+        });
+        expect(doc.contentJson).not.toBeNull();
+    });
+
+    it('does not report the previous document’s save against the new one', async () => {
+        await doc.open('Alpha/Alpha.md');
+        doc.applyEdit(content('Alpha edited'));
+
+        const flushing = doc.flush();
+        await vi.waitFor(() => expect(release).not.toBeNull());
+
+        await doc.open('Bravo/Bravo.md');
+        const openedAt = doc.savedAt;
+
+        release?.();
+        await flushing;
+
+        // Alpha's write finished and is on disk — but it is Alpha's write, and
+        // saying 'saved' here would have the status bar reporting it against
+        // Bravo, whose location it would also have overwritten.
+        expect(doc.location?.folder).toBe('Bravo');
+        expect(doc.saveState).toBe('idle');
+        expect(doc.savedAt).toBe(openedAt);
+        expect(await readFile('Alpha', 'Alpha.md')).toBe('Alpha edited');
     });
 });
 

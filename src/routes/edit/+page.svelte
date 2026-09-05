@@ -47,6 +47,16 @@
     // `Chapters/One.md`. A bare folder name from an older link still resolves.
     const path = $derived(page.url.searchParams.get('doc'));
 
+    // The `?doc=` this page has actually opened.
+    //
+    // `undefined` means nothing has been opened yet, which is NOT the same as
+    // `null`: null is a real value here — the URL a brand-new document is opened
+    // under — and the two behave differently on the first pass.
+    //
+    // Deliberately a plain `let` rather than `$state`: the effect below both reads
+    // and writes it, and a signal would re-trigger the effect on its own write.
+    let openedPath: string | null | undefined = undefined;
+
     onMount(async () => {
         if (!isFileSystemAccessSupported()) {
             await goto(resolve('/'));
@@ -66,12 +76,56 @@
         // Read-aloud voice and speed come from config.json, so they travel with
         // the user's folder rather than living in this browser.
         speech.applyPreferences(workspace.config.tts);
+    });
 
-        if (path) await doc.open(path);
-        else if (!doc.contentJson) await doc.createNew();
+    // Opening is driven by the URL rather than by mount, because SvelteKit does not
+    // remount a page on same-route navigation: `/edit?doc=A` → `/edit?doc=B` would
+    // otherwise leave A open under a URL naming B, and the next thing saved would
+    // land in A's file. Nothing in the app navigates that way today; the first
+    // "open in editor" link added anywhere arms it.
+    //
+    // Reads `workspace.status` as well as the path, so the first pass on a cold
+    // load waits for `onMount` to restore the folder and then runs itself.
+    $effect(() => {
+        const next = path;
+        if (workspace.status !== 'ready') return;
+        if (next === openedPath) return;
+
+        const first = openedPath === undefined;
+        openedPath = next;
+        void openFromUrl(next, first);
+    });
+
+    async function openFromUrl(next: string | null, first: boolean) {
+        // A switch is not an unmount, so `onDestroy` will not run: the read has to
+        // be stopped here or it carries on talking over the next document with the
+        // highlight pointing into a document that is no longer on screen.
+        //
+        // Pending edits land under the document they were made in — `doc.open()`
+        // resets rather than flushing, so this is what stands between a debounced
+        // keystroke and the bin.
+        if (!first) {
+            speech.stop();
+            // Ask the editor first: this flush is the last thing that runs against
+            // the outgoing document, and it is a no-op on one the store believes
+            // is clean. `doc.open()` resets rather than flushing, so an edit the
+            // store was never told about goes in the bin here and nowhere else.
+            pageEditor?.reconcile();
+            await doc.flush();
+        }
+
+        if (next) await doc.open(next);
+        // No document named. On the first pass that is the Files screen's "new
+        // document" flow, which has already called `createNew()` and put content in
+        // the store — clobbering it would throw away what the user just made.
+        else if (!first || !doc.contentJson) await doc.createNew();
+
+        // A second change overtook this one while it was reading; the title belongs
+        // to whichever document is open now, not to the one we were fetching.
+        if (openedPath !== next) return;
 
         title = doc.title;
-    });
+    }
 
     // Every exit path flushes. The debounce is an optimisation; these are what
     // actually guarantee a keystroke reaches the disk.
@@ -111,6 +165,14 @@
         pageEditor?.reconcile();
         await doc.flush();
         await goto(resolve('/'));
+    }
+
+    // `rename` flushes before it moves anything, so that pending edits land under
+    // the OLD name. That only holds if the store knows about them: reconcile first
+    // and the claim is true, skip it and the edit lands after the move instead.
+    function renameFromTitle() {
+        pageEditor?.reconcile();
+        void doc.rename(title);
     }
 
     function persistTtsPreferences(prefs: TtsPreferences) {
@@ -158,8 +220,8 @@
                                 aria-label={m.editor_title_label()}
                                 class="font-medium"
                                 maxlength={TITLE_MAX_LENGTH}
-                                onchange={() => doc.rename(title)}
-                                onblur={() => doc.rename(title)}
+                                onchange={renameFromTitle}
+                                onblur={renameFromTitle}
                                 placeholder={m.content_title_placeholder()}
                                 bind:value={title}
                             />
