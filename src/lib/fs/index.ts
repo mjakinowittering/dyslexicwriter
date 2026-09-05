@@ -2,7 +2,7 @@
 // `writeConfig`, `folderExists`, `takenFolderNames` and `SCAN_DEPTH` are used
 // inside their own module, or by the OPFS suites, which import them from
 // `./config` and `./documents` directly.
-export { readConfig, updateConfig } from './config';
+export { readConfig, refreshConfig, updateConfig } from './config';
 export {
     createDocument,
     createFolder,
@@ -21,6 +21,7 @@ export {
     SUGGESTED_FOLDER_NAME,
     suggestUntitledName,
     writeDocument,
+    type WriteDocumentOptions,
     writeImage
 } from './documents';
 export {

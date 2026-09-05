@@ -9,7 +9,11 @@ import {
     writeImage,
     type DocumentLocation
 } from '$lib/fs';
-import { emptyDocument, type Frontmatter } from '$lib/markdown';
+import {
+    emptyDocument,
+    markdownFormatter,
+    type Frontmatter
+} from '$lib/markdown';
 import {
     fileNameFor,
     sanitiseTitle,
@@ -236,7 +240,14 @@ class DocumentStore {
 
     // Write now. Safe to call at any time and from any exit path; a no-op when
     // there is nothing pending.
-    async flush(): Promise<void> {
+    //
+    // `format: false` writes the markdown exactly as turndown emitted it, skipping
+    // the round trip to the formatting worker. The two exit paths that cannot wait
+    // for one — `pagehide` and `visibilitychange`, which fire un-awaited on a page
+    // the browser may kill immediately — pass it, so this feature costs those paths
+    // nothing. The file they leave behind is correct but unwrapped, and the next
+    // ordinary save tidies it: content is never at stake, only formatting.
+    async flush({ format = true }: { format?: boolean } = {}): Promise<void> {
         this.#clearTimers();
 
         // Not dirty does not mean nothing is in flight: the debounce or the
@@ -275,14 +286,20 @@ class DocumentStore {
         const location = this.location ?? newLocation(this.title);
         const frontmatter = this.#frontmatter;
 
+        // Snapshotted alongside `root` and `content`, for the same reason: the
+        // write happens behind the `#writing` chain, and the settings may have
+        // changed by the time it runs.
+        const prefs = workspace.config.prettier;
+        const formatter = format
+            ? (body: string) => markdownFormatter.format(body, prefs)
+            : undefined;
+
         this.#writing = this.#writing.then(async () => {
             try {
-                const entry = await writeDocument(
-                    root,
-                    location,
-                    content,
-                    frontmatter
-                );
+                const entry = await writeDocument(root, location, content, {
+                    frontmatter,
+                    format: formatter
+                });
 
                 // The file is on disk either way, so the tree is caught up
                 // below regardless — but the store now belongs to a different

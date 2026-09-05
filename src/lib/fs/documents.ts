@@ -499,18 +499,37 @@ export async function readDocument(
     };
 }
 
+export interface WriteDocumentOptions {
+    frontmatter?: Frontmatter | null;
+
+    // Tidy the derived markdown before it is written. Passed in rather than
+    // imported so this layer stays a data layer: the formatter runs in a worker and
+    // reads a preference off the config, neither of which is anything `fs/` should
+    // know about. Omitted — by `createDocument`, and by the exit-path flushes —
+    // the markdown is written exactly as turndown emitted it.
+    //
+    // It must resolve rather than reject on its own failures; see the contract on
+    // `markdownFormatter` in markdown/format-client.ts.
+    format?: (body: string) => Promise<string>;
+}
+
 // Write a document to disk, creating its folder and file on first save.
 //
-// The WHOLE file — frontmatter included — is derived BEFORE the writable is
-// opened: opening one truncates the file, so a throw after that point would leave
-// nothing where the user's chapter was.
+// The WHOLE file — frontmatter included, formatting done — is derived BEFORE the
+// writable is opened: opening one truncates the file, so a throw after that point
+// would leave nothing where the user's chapter was. That is why `format` is awaited
+// here and not any closer to the write.
 export async function writeDocument(
     root: FileSystemDirectoryHandle,
     location: DocumentLocation,
     contentJson: JSONContent,
-    frontmatter: Frontmatter | null = null
+    { frontmatter = null, format }: WriteDocumentOptions = {}
 ): Promise<DocumentIndexEntry> {
-    const markdown = joinFrontmatter(frontmatter, toMarkdown(contentJson));
+    const body = toMarkdown(contentJson);
+    const markdown = joinFrontmatter(
+        frontmatter,
+        format ? await format(body) : body
+    );
 
     const dir = await resolveDirectory(root, location.folder, { create: true });
     await writeFile(dir, location.file, markdown);

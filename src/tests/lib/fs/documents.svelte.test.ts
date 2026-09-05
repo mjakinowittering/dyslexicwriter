@@ -108,6 +108,55 @@ describe('writeDocument', () => {
     });
 });
 
+describe('writeDocument — the formatter', () => {
+    it('writes what the formatter returned', async () => {
+        await writeDocument(root, folderDoc('Tidy'), fromMarkdown('# Hello'), {
+            format: async (body) => `${body}\n\nformatted`
+        });
+
+        expect(await readFile('Tidy', 'Tidy.md')).toBe('# Hello\n\nformatted');
+    });
+
+    it('formats the body only, leaving the frontmatter fence alone', async () => {
+        await writeDocument(root, folderDoc('Fenced'), fromMarkdown('Body'), {
+            frontmatter: { title: 'Kept' },
+            format: async (body) => body.toUpperCase()
+        });
+
+        const saved = await readFile('Fenced', 'Fenced.md');
+
+        expect(saved).toBe('---\ntitle: Kept\n---\n\nBODY\n');
+    });
+
+    // The reason `format` is awaited before `resolveDirectory` and not any closer
+    // to the write: opening a writable truncates the file, so a formatter that
+    // throws after that point would leave nothing where the chapter was.
+    it('leaves the previous file intact when the formatter throws', async () => {
+        await writeDocument(root, folderDoc('Chapter'), fromMarkdown('Safe'));
+
+        await expect(
+            writeDocument(root, folderDoc('Chapter'), fromMarkdown('Next'), {
+                format: async () => {
+                    throw new Error('formatter exploded');
+                }
+            })
+        ).rejects.toThrow('formatter exploded');
+
+        expect(await readFile('Chapter', 'Chapter.md')).toBe('Safe');
+    });
+
+    // `createDocument` and the exit-path flushes both omit it.
+    it('writes the markdown untouched when no formatter is given', async () => {
+        await writeDocument(
+            root,
+            folderDoc('Plain'),
+            fromMarkdown('-   One\n-   Two')
+        );
+
+        expect(await readFile('Plain', 'Plain.md')).toBe('-   One\n-   Two');
+    });
+});
+
 describe('readDocument', () => {
     it('round-trips a saved document back into the editor model', async () => {
         const md = '## Notes\n\n-   One\n-   Two';
@@ -901,7 +950,7 @@ describe('frontmatter', () => {
                 ownsFolder: opened.ownsFolder
             },
             opened.contentJson,
-            opened.frontmatter
+            { frontmatter: opened.frontmatter }
         );
 
         const saved = await readFile('Fenced', 'Fenced.md');
