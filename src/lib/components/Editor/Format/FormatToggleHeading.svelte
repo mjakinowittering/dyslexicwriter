@@ -1,45 +1,23 @@
 <script lang="ts">
-    import {
-        Heading01Icon,
-        Heading02Icon,
-        Heading03Icon,
-        Heading04Icon
-    } from '@hugeicons/core-free-icons';
     import type { Editor } from '@tiptap/core';
 
-    import Icon from '$lib/components/Icon/Icon.svelte';
+    import { headingDefinition, type HeadingLevel } from './definitions';
+    import FormatToggleControl from './FormatToggleControl.svelte';
 
-    import * as m from '$lib/paraglide/messages';
-
-    import FormatToggle from './FormatToggle.svelte';
-
+    // One control per heading level. The level is a prop rather than four
+    // components because the four differ only by number — the same reasoning
+    // that put the other five controls in `definitions.ts`.
     let {
         disabled,
         editor,
         level
-    }: { disabled: boolean; editor: Editor | undefined; level: 1 | 2 | 3 | 4 } =
-        $props();
+    }: {
+        disabled: boolean;
+        editor: Editor | undefined;
+        level: HeadingLevel;
+    } = $props();
 
-    const icons = {
-        1: Heading01Icon,
-        2: Heading02Icon,
-        3: Heading03Icon,
-        4: Heading04Icon
-    };
-    let icon = $derived(icons[level]);
-
-    const onClick = () => {
-        editor?.chain().focus().toggleHeading({ level }).run();
-    };
+    const definition = $derived(headingDefinition(level));
 </script>
 
-<FormatToggle
-    ariaLabel={m.content_format_heading({ level })}
-    {disabled}
-    {onClick}
-    shortcut={['Mod', 'Alt', String(level)]}
-    tooltip={m.content_format_heading_hint({ level })}
-    value="heading{level}"
->
-    <Icon {icon} />
-</FormatToggle>
+<FormatToggleControl {definition} {disabled} {editor} />

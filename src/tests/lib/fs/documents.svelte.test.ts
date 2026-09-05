@@ -1,4 +1,5 @@
 import * as opfs from '../../support/opfs';
+import { flattenDocuments } from '../../support/opfs';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -8,7 +9,6 @@ import {
     deleteFolder,
     DocumentError,
     ensureSubfolder,
-    flattenDocuments,
     folderExists,
     folderIsReachable,
     readDocument,
@@ -305,8 +305,8 @@ describe('scanFolder', () => {
 // second reads as if the app threw it away.
 describe('scanFolder — a folder that changes under it', () => {
     // The folder is live. The app's own rename removes the old name a moment
-    // after writing the new one, and the Files screen rescans on window focus —
-    // which `window.prompt` hands back the instant the rename starts. A scan that
+    // after writing the new one, and the writer's own tools — a file manager, a
+    // sync client — are under no obligation to hold still either. A scan that
     // failed whole for one vanished entry told the writer their folder had moved
     // when it had not.
     it('drops a file removed mid-walk rather than failing the scan', async () => {

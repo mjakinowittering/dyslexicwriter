@@ -5,6 +5,7 @@
 
     import ToolbarStop from '$lib/components/Editor/Toolbar/ToolbarStop.svelte';
     import * as ToggleGroup from '$lib/components/ui/toggle-group';
+    import * as Tooltip from '$lib/components/ui/tooltip';
 
     import * as m from '$lib/paraglide/messages';
 
@@ -46,9 +47,11 @@
         <div
             class="bg-background flex min-h-96 w-full items-center justify-center p-6"
         >
-            <ToggleGroup.Root type="multiple" variant="outline">
-                <ToolbarStop controller={idle} />
-            </ToggleGroup.Root>
+            <Tooltip.Provider>
+                <ToggleGroup.Root type="multiple" variant="outline">
+                    <ToolbarStop controller={idle} />
+                </ToggleGroup.Root>
+            </Tooltip.Provider>
         </div>
     {/snippet}
 </Story>
@@ -71,9 +74,11 @@
         <div
             class="bg-background flex min-h-96 w-full items-center justify-center p-6"
         >
-            <ToggleGroup.Root type="multiple" variant="outline">
-                <ToolbarStop controller={playing} />
-            </ToggleGroup.Root>
+            <Tooltip.Provider>
+                <ToggleGroup.Root type="multiple" variant="outline">
+                    <ToolbarStop controller={playing} />
+                </ToggleGroup.Root>
+            </Tooltip.Provider>
         </div>
     {/snippet}
 </Story>
@@ -91,9 +96,11 @@
         <div
             class="bg-background flex min-h-96 w-full items-center justify-center p-6"
         >
-            <ToggleGroup.Root type="multiple" variant="outline">
-                <ToolbarStop controller={paused} />
-            </ToggleGroup.Root>
+            <Tooltip.Provider>
+                <ToggleGroup.Root type="multiple" variant="outline">
+                    <ToolbarStop controller={paused} />
+                </ToggleGroup.Root>
+            </Tooltip.Provider>
         </div>
     {/snippet}
 </Story>

@@ -56,9 +56,21 @@
 
 <Story
     name="Saving"
-    args={{ wordCount: 842, saveState: 'saving' }}
+    args={{
+        wordCount: 842,
+        saveState: 'saving',
+        // Hours rather than minutes, for the same reason as "Saved A While Ago":
+        // a minutes-scale offset can round up mid-run on a slow suite.
+        savedAt: Date.now() - 2 * 60 * 60 * 1000
+    }}
     play={async ({ canvas }) => {
+        // Both chips at once, which is the whole point of keeping them apart:
+        // the spinner reports the write in flight while the age goes on saying
+        // how old the copy already on disk is, instead of blanking out.
         await expect(canvas.getByText(m.editor_saving())).toBeInTheDocument();
+        await expect(
+            canvas.getByText(m.editor_saved_when({ when: '2 hours ago' }))
+        ).toBeInTheDocument();
     }}
 >
     {#snippet template(args)}
@@ -136,7 +148,7 @@
     name="Unsaved, Never Saved"
     args={{ wordCount: 842, saveState: 'pending', savedAt: null }}
     play={async ({ canvas }) => {
-        // The first thirty seconds of a brand-new document. There is no age to
+        // A brand-new document, before its first write. There is no age to
         // report yet, so the unsaved chip carries the bar on its own — this is the
         // state that used to leave it completely blank.
         await expect(canvas.getByText(m.editor_unsaved())).toBeInTheDocument();

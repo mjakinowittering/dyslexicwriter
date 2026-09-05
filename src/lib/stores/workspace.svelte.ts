@@ -443,8 +443,8 @@ class WorkspaceStore implements PreferenceStore {
     // Note a document's new mtime without re-walking the tree.
     //
     // Autosave calls this after every write, and a depth-limited walk that stats
-    // every markdown file it finds is far too much work to repeat on a 600ms
-    // debounce. A document the tree has never seen — the first save of a new one —
+    // every markdown file it finds is far too much work to repeat every few
+    // seconds. A document the tree has never seen — the first save of a new one —
     // falls back to a full refresh, because there is a folder to discover.
     //
     // The tree is the only copy of this list, so moving the row here is the whole

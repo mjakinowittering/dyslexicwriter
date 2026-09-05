@@ -168,10 +168,10 @@ Within each, related items sit next to each other.
       (horizontal overflow) and `.selectedCell` (cell-selection tint). Column resizing is
       off by design, so `.column-resize-handle` is not needed
 - [ ] Ship a real `og:image`. `static/og-image.png` is a 0-byte placeholder, but
-      `src/app.html:36` and `:52` already point at it and declare it 1200x630, so
+      `src/app.html` already points at it (both the Open Graph and Twitter tags) and declare it 1200x630, so
       every link preview of the deployed site resolves to an empty image. The rest
       of the GitHub Pages work is done: the `404.html` fallback
-      (`svelte.config.js:21`), `static/.nojekyll`, the base path from `BASE_PATH`
+      (`svelte.config.js`), `static/.nojekyll`, the base path from `BASE_PATH`
       via `actions/configure-pages`, the deploy workflow
       (`.github/workflows/build-and-deploy.yml`) and the full head metadata
       including the `<noscript>` prose. Add a real 1200x630 PNG under `static/`;
@@ -180,22 +180,21 @@ Within each, related items sit next to each other.
       the right, in the app's own achromatic palette. Three things go with it: the window
       needs more separation from the near-black ground than `oklch(1 0 0 / 10%)` gives it
       (a light ring, ~`oklch(1 0 0 / 0.16)`, plus a soft glow); the tagline becomes "Write
-      it. Hear it. Keep it."; and `src/app.html:42`'s `og:image:alt` still carries the old
+      it. Hear it. Keep it."; and `src/app.html`'s `og:image:alt` still carries the old
       "write, and hear it back", so it changes in the same commit or the alt text
       describes a different picture. Re-render the mock once the highlight colours land
 - [ ] Handle a pasted image the way a dropped one is handled. `PageEditor.svelte` wires
-      `handleDrop` only, but its own prop doc (`:33`) and `writeImage`'s comment
-      (`documents.ts:812`) both say "dropped or pasted" — and `allowBase64: false` on the
+      `handleDrop` only, but its own prop doc for `onDropImage` and `writeImage`'s comment in
+      `documents.ts` both say "dropped or pasted" — and `allowBase64: false` on the
       Image extension means a pasted image is discarded rather than degrading to a data
       URI, so nothing appears and nothing says why. Add `handlePaste` alongside
       `handleDrop`, taking the first `image/*` item off `event.clipboardData.files`,
       claiming the event, and routing it through the same `onDropImage` → `doc.addImage`
       path so the file lands in the document's own directory. The insertion position is
       the caret rather than `posAtCoords`; everything else is the drop handler's shape
-- [ ] Fix the double rename fired by the title field. `edit/+page.svelte:146-147` binds
-      both `onchange` and `onblur` to `doc.rename(title)`, and for a text input `change`
-      fires immediately before `blur` — so both run. The guard in `rename()`
-      (`document.svelte.ts:232`) is `target === this.title`, and `this.title` is only
+- [ ] Fix the double rename fired by the title field. `edit/+page.svelte`'s title field binds
+      both `onchange` and `onblur` to `renameFromTitle`, and for a text input `change`
+      fires immediately before `blur` — so both run. The guard in the document store's `rename()` is `target === this.title`, and `this.title` is only
       updated _after_ `await renameDocument(...)` resolves, so the second call passes it
       and starts a concurrent rename against the same location. The writer sees a
       spurious "already exists", or the two race the `removeEntry` of the old file. One
@@ -207,23 +206,7 @@ Within each, related items sit next to each other.
       into `m.content_read_time({ time })` — English hardcoded in a util and smuggled
       through a message key. Return the parts (`{ hours, minutes, seconds }`) and let
       message keys own the words and the plurals, the way every other string in the app
-      already works. `WelcomePreview.svelte:58` is the other call site
-- [ ] Reopen the document when `?doc=` changes. `path` is `$derived` from `page.url`
-      (`edit/+page.svelte:42`) but read only inside `onMount`, and same-route navigation
-      does not remount the page — so `/edit?doc=A` → `/edit?doc=B` would leave document A
-      open under a URL naming B. Latent: nothing in the app navigates that way today, both
-      routes into the editor come through a mount. It is armed for the first "open in
-      editor" link added anywhere, so an `$effect` on `path` that opens (after flushing
-      the current document) is the fix, not a note to remember
-- [ ] Guard the document store against a late `close()` landing on the next document.
-      `onDestroy` runs `void doc.close()` un-awaited (`edit/+page.svelte:93`) and
-      `close()` is `await flush(); #reset()`. If a `doc.open()` starts while that flush is
-      still in flight, the flush's continuation writes the _old_ document's
-      `location`/`saveState`/`savedAt` back into the store (`document.svelte.ts:204-207`)
-      and the trailing `#reset()` then wipes the newly-loaded one — leaving the editor
-      empty, or worse, pointed at the previous document's file. Same latency as the item
-      above and the same store: an epoch counter bumped by `#reset()` and checked after
-      every await would close both. Sits next to it deliberately
+      already works. `WelcomePreview.svelte` is the other call site
 
 ### Features
 
@@ -256,22 +239,3 @@ Within each, related items sit next to each other.
       the mocks with it
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
-- [ ] Cover the workspace store and the `SpeechController` with tests. These are the two
-      most intricate stateful modules in the app and the two thinnest in the suite.
-      `workspace.svelte.ts` sits at **28%**: `leaveFolder`, `isEmpty` and `touch` are
-      tested, while `restore`, `reopen`, `chooseFolder`, `#adopt`, `refresh`'s error path,
-      `toggle`, `#replayOpened`'s `for(;;)` loop and `#persist` are not — that is folder
-      adoption, permission recovery and every preference write. `speech-controller`
-      covers `pickDefaultVoice` and nothing else, so the chunk queue, the watchdog,
-      skip/seek and teardown are untested — the exact machinery behind the tab-freeze
-      fixed in `7cc5f80`. `doc.rename` and `doc.addImage` (`document.svelte.ts:228-280`)
-      and `ensurePermission` are uncovered too. The OPFS harness in `tests/support/`
-      already does the hard part for the first of these
-- [ ] Stop the write path giving up quietly, in two places. A failed autosave sets
-      `#dirty = true` and re-arms no timer (`document.svelte.ts:214-219`), so nothing
-      retries until the next keystroke or exit path — a writer who hits a transient
-      failure and then stops typing is relying on `pagehide` alone. And `restore()` adopts
-      a stored handle without the `folderIsReachable` check `reopen()` runs
-      (`workspace.svelte.ts:127-131`), so an unplugged drive lands on a "ready" Files
-      screen showing a read error rather than back at the picker. A backoff retry for the
-      first, the existing check for the second

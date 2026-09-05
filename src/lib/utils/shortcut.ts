@@ -29,6 +29,9 @@ const APPLE_ORDER = ['Ctrl', 'Alt', 'Shift', 'Mod'];
 /**
  * Whether this platform uses the Command key as the primary modifier.
  *
+ * Module-private: it exists to supply `formatShortcut`'s default, and that
+ * function's `apple` parameter is how both renderings are tested.
+ *
  * Mirrors `isiOS() || isMacOS()` from `@tiptap/core` — the very test TipTap runs
  * when it decides whether `Mod` binds to Meta or Control. Inlined rather than
  * imported so this module (and its test) stays clear of the editor bundle; if
@@ -40,7 +43,7 @@ const APPLE_ORDER = ['Ctrl', 'Alt', 'Shift', 'Mod'];
  * first time the two disagreed, because the tooltip would then name a key the
  * keymap doesn't bind. The mirror is worth more than the modern API.
  */
-export function usesCommandKey(): boolean {
+function usesCommandKey(): boolean {
     if (typeof navigator === 'undefined') return false;
     return /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 }

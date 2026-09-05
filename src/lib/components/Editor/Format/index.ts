@@ -1,5 +1,6 @@
 import type { ChainedCommands, Editor } from '@tiptap/core';
 
+import { allFormatToggles } from './definitions';
 import Root from './Format.svelte';
 import Group from './FormatGroup.svelte';
 import Insert from './FormatInsert.svelte';
@@ -16,22 +17,17 @@ import Italic from './FormatToggleItalic.svelte';
 import OrderedList from './FormatToggleOrderedList.svelte';
 import Undo from './FormatUndo.svelte';
 
+// Which controls are currently on, as the group's pressed keys.
+//
+// Derived from the same table the buttons render from, so this can never ask
+// about a name no button uses — which is exactly what it used to do, with its
+// own hand-written list of five strings plus a heading-level lookup.
 const getFormattingActive = (editor: Editor | undefined): string[] => {
     if (!editor) return [];
 
-    const active: string[] = [];
-    if (editor.isActive('blockquote')) active.push('blockquote');
-    if (editor.isActive('bold')) active.push('bold');
-    if (editor.isActive('bulletList')) active.push('bulletList');
-    if (editor.isActive('italic')) active.push('italic');
-    if (editor.isActive('orderedList')) active.push('orderedList');
-
-    const headingLevel = editor.getAttributes('heading').level;
-    if (typeof headingLevel === 'number' && headingLevel !== 0) {
-        active.push(`heading${headingLevel}`);
-    }
-
-    return active;
+    return allFormatToggles()
+        .filter((definition) => definition.isActive(editor))
+        .map((definition) => definition.value);
 };
 
 const getWordBoundary = (

@@ -141,24 +141,36 @@ const style = $derived(
 );
 ```
 
-## Loading indicator — the `Loading` component
+## Indeterminate indicators — the one Tailwind exception
 
-`$lib/components/Loading` is the **one** loading bar app-wide — a self-contained singleton
-mounted once in the `(app)` shell, below the breadcrumbs (emerging from the breadcrumb's
-`border-b`). No props, no per-page variant. Don't mount a bar per page; report loading into
-the `loading` registry and this bar reflects it (see the `client-stores` skill).
+An **indeterminate, indefinitely looping** indicator — a spinner — is the single case none
+of the primitives above cover. `transition:` fires on mount/unmount, `Tween`/`Spring` move
+a value toward a target and then stop; neither expresses "turn until the work is done".
+For that, and only that, use Tailwind's own `animate-spin` utility (Tailwind v4 core:
+`--animate-spin: spin 1s linear infinite`).
 
-It bundles every motion concern in one file: a `Tween` drives a continuous two-phase sweep
-(grow → travel); a y-axis `slide` reveals/retracts it into the border seam; reduced-motion
-falls back to a static bar; and it owns the visibility logic — `{#if visible}` off
-`loading.active || navigating` with a leading show-delay + **trailing hide-grace**
-anti-flicker. The trailing grace (hide only after loading is _continuously_ idle, not a
-min-visible measured from first appearance) coalesces the back-to-back auto-select fetches
-(license → products → content) into one bar instead of blinking between them. That debounce
-is legitimately timer-driven (`$effect` + `setTimeout`), the one place state is assigned
-inside an `$effect` here because `$derived` can't express "appear after 150ms, hide 400ms
-after the last idle". To see it under real latency, use the dev slow-connection sim
-(`offline-pwa` skill) rather than a hand-rolled `setTimeout`.
+This is not a licence to reach for CSS. It is not hand-rolled — no `@keyframes` and no
+`cubic-bezier` of ours — and it is not a third-party library. Everything **state-driven**
+still goes through native Svelte on `$lib/config/motion.ts` timings.
+
+Reduced motion is still gated in JS, the same as everywhere else, so there is one idiom in
+the codebase rather than a CSS `motion-reduce:` variant sitting alongside
+`prefersReducedMotion.current`. Drop the rotation, keep the glyph, and make sure a text
+label carries the meaning — a bare spinner says nothing to a screen reader and nothing at
+all once it stops turning:
+
+```svelte
+let iconClass = $derived.by(() => {
+    if (!saving) return 'size-3';
+    return prefersReducedMotion.current ? 'size-3.5' : 'size-3.5 animate-spin';
+});
+```
+
+The worked example is the statusbar's save chip
+(`src/lib/components/Editor/Statusbar/StatusbarUnsaved.svelte`), which swaps a record dot
+for `Loading02Icon` — a broken circle — while a write is in flight. There is no shared
+`Loading` component and no app-wide loading bar; this app does no network I/O, and the only
+wait worth showing is a save.
 
 ## Accessibility & reuse
 

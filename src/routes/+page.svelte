@@ -62,9 +62,7 @@
     // rename writes the new name and removes the old one a moment later, so a
     // scan landing between the two walks a folder mid-change and fails on an
     // entry that has just gone — reporting a folder that has moved when nothing
-    // has. `window.prompt` makes that the normal case rather than a rare one:
-    // dismissing it hands focus back to the window, which is what fires the
-    // rescan below, right as the rename starts.
+    // has. The window-focus rescan below is the trigger that can land there.
     let mutating = $state(false);
 
     // Run a filesystem operation with the automatic rescans held off until it is
@@ -123,19 +121,27 @@
         );
     }
 
-    async function onRename(entry: DocumentIndexEntry) {
-        const next = window.prompt(
-            m.files_rename_prompt({ title: entry.title }),
-            entry.title
-        );
-        if (next === null) return;
+    // Opens the naming row on that document's own row. The work happens in
+    // `onNamingSubmit`, alongside the two create paths.
+    function onRename(entry: DocumentIndexEntry) {
+        workspace.error = '';
+        naming = { mode: 'rename', entry };
+    }
 
-        await mutate(async () => {
-            await doc.open(documentPath(entry));
-            await doc.rename(next);
-            await doc.close();
-            await workspace.refresh();
-        });
+    // Rename through the document store rather than calling `renameDocument`
+    // directly: the store flushes pending edits under the OLD name before
+    // anything moves, and closing afterwards leaves nothing pointing at a file
+    // that is no longer there.
+    async function renameEntry(entry: DocumentIndexEntry, name: string) {
+        await doc.open(documentPath(entry));
+        await doc.rename(name);
+
+        // `rename` swallows its failures into the store's own error field, which
+        // this screen does not render — so carry it across before closing clears
+        // it, or a refused rename says nothing at all.
+        const failure = doc.error;
+        await doc.close();
+        if (failure) workspace.error = failure;
     }
 
     // Removing something from the user's disk, with no trash to recover it from.
@@ -174,15 +180,17 @@
     async function startNaming(node: FolderNode, kind: 'folder' | 'document') {
         workspace.error = '';
         if (!workspace.isExpanded(node)) await workspace.toggle(node);
-        naming = { parent: node.path, kind };
+        naming = { mode: 'create', parent: node.path, kind };
     }
 
     // "New folder" in the title row: the same row, at the top level.
     function onNewFolderAtRoot() {
         workspace.error = '';
-        naming = { parent: '', kind: 'folder' };
+        naming = { mode: 'create', parent: '', kind: 'folder' };
     }
 
+    // The one submit path for all three things the naming row does: make a
+    // folder, make a document, rename a document.
     async function onNamingSubmit(name: string) {
         const target = naming;
         const root = workspace.root;
@@ -192,7 +200,9 @@
 
         await mutate(async () => {
             try {
-                if (target.kind === 'folder') {
+                if (target.mode === 'rename') {
+                    await renameEntry(target.entry, name);
+                } else if (target.kind === 'folder') {
                     await createFolder(root, target.parent, name);
                 } else {
                     // Deliberately no goto: the writer has already typed the

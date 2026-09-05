@@ -31,12 +31,32 @@
     // same <html> element. The font preference never reaches <html>: it dresses
     // the document surface alone.
 
-    // The two `--background` values from ./layout.css, handed to mode-watcher so
+    // The two theme grounds, read from ./layout.css and handed to mode-watcher so
     // the browser chrome follows the app's mode rather than the OS. The app's
     // mode is a preference in the user's config.json, so it can disagree with
     // `prefers-color-scheme`, and a light address bar over a dark page is the
     // seam that shows.
-    const themeColors = { light: '#f8f8f8', dark: '#0a0a0a' };
+    //
+    // Read rather than restated. These used to be hand-converted hex copies of
+    // `--ground-light` / `--ground-dark`, which is a second definition of a
+    // colour in a file that is not allowed to hold one. Both tokens sit on
+    // `:root` unconditionally, so the dark ground is readable while the light
+    // theme is showing.
+    //
+    // Undefined when the stylesheet has not landed yet: mode-watcher then leaves
+    // `<meta name="theme-color">` alone, which is better than painting the chrome
+    // a colour we guessed.
+    function groundColors(): { light: string; dark: string } | undefined {
+        if (typeof document === 'undefined') return undefined;
+
+        const styles = getComputedStyle(document.documentElement);
+        const light = styles.getPropertyValue('--ground-light').trim();
+        const dark = styles.getPropertyValue('--ground-dark').trim();
+
+        return light && dark ? { light, dark } : undefined;
+    }
+
+    const themeColors = groundColors();
 </script>
 
 <svelte:head>

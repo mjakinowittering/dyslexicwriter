@@ -1,30 +1,20 @@
 <script lang="ts">
-    import { LeftToRightListBulletIcon } from '@hugeicons/core-free-icons';
     import type { Editor } from '@tiptap/core';
 
-    import Icon from '$lib/components/Icon/Icon.svelte';
+    import { formatToggles } from './definitions';
+    import FormatToggleControl from './FormatToggleControl.svelte';
 
-    import * as m from '$lib/paraglide/messages';
-
-    import FormatToggle from './FormatToggle.svelte';
-
+    // Bulleted list.
+    // Everything about it — icon, label, shortcut, command — is the
+    // `bulletList` row of `definitions.ts`.
     let {
         disabled,
         editor
     }: { disabled: boolean; editor: Editor | undefined } = $props();
-
-    const onClick = () => {
-        editor?.chain().focus().toggleBulletList().run();
-    };
 </script>
 
-<FormatToggle
-    ariaLabel={m.content_format_bullet_list()}
+<FormatToggleControl
+    definition={formatToggles.bulletList}
     {disabled}
-    {onClick}
-    shortcut={['Mod', 'Shift', '8']}
-    tooltip={m.content_format_bullet_list_hint()}
-    value="bulletList"
->
-    <Icon icon={LeftToRightListBulletIcon} />
-</FormatToggle>
+    {editor}
+/>

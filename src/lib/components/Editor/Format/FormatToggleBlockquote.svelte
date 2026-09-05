@@ -1,30 +1,20 @@
 <script lang="ts">
-    import { LeftToRightBlockQuoteIcon } from '@hugeicons/core-free-icons';
     import type { Editor } from '@tiptap/core';
 
-    import Icon from '$lib/components/Icon/Icon.svelte';
+    import { formatToggles } from './definitions';
+    import FormatToggleControl from './FormatToggleControl.svelte';
 
-    import * as m from '$lib/paraglide/messages';
-
-    import FormatToggle from './FormatToggle.svelte';
-
+    // Blockquote.
+    // Everything about it — icon, label, shortcut, command — is the
+    // `blockquote` row of `definitions.ts`.
     let {
         disabled,
         editor
     }: { disabled: boolean; editor: Editor | undefined } = $props();
-
-    const onClick = () => {
-        editor?.chain().focus().toggleBlockquote().run();
-    };
 </script>
 
-<FormatToggle
-    ariaLabel={m.content_format_blockquote()}
+<FormatToggleControl
+    definition={formatToggles.blockquote}
     {disabled}
-    {onClick}
-    shortcut={['Mod', 'Shift', 'B']}
-    tooltip={m.content_format_blockquote_hint()}
-    value="blockquote"
->
-    <Icon icon={LeftToRightBlockQuoteIcon} />
-</FormatToggle>
+    {editor}
+/>
