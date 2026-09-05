@@ -497,3 +497,190 @@ describe('close', () => {
         expect(doc.isDirty).toBe(false);
     });
 });
+
+// Renaming the open document.
+//
+// The title field fires this on change/blur, and by then there may be edits the
+// disk has not seen. The ordering is the whole point: pending edits land under
+// the OLD name before anything moves, because a rename that runs first leaves
+// that edit belonging to a file which no longer exists. Everything else here is
+// about not destroying the source when the move cannot be completed.
+describe('rename', () => {
+    it('relabels an unsaved document without writing anything', async () => {
+        await doc.createNew();
+        ignoreFixtureWrites();
+
+        await doc.rename('Chapter One');
+
+        // Renaming is just relabelling until the first save — there is nothing
+        // on disk to move, and creating something here would be a write the
+        // writer never asked for.
+        expect(doc.title).toBe('Chapter One');
+        expect(doc.location).toBeNull();
+        expect(documentWrites()).toHaveLength(0);
+    });
+
+    it('moves the folder and the file, leaving nothing behind', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('Body'));
+        await doc.flush();
+
+        await doc.rename('Chapter One');
+
+        expect(doc.title).toBe('Chapter One');
+        expect(doc.location).toEqual({
+            folder: 'Chapter One',
+            file: 'Chapter One.md',
+            ownsFolder: true
+        });
+        expect(await readFile('Chapter One', 'Chapter One.md')).toBe('Body');
+        // The old folder is gone: a rename that leaves a copy behind shows the
+        // writer two documents where they have one.
+        await expect(
+            opfs.fileExists(root, 'Untitled', 'Untitled.md')
+        ).resolves.toBe(false);
+    });
+
+    // A saved document with a later edit still sitting in the debounce window.
+    // Renaming without flushing first would move the file as it was and drop
+    // that edit on the floor — the one failure this app exists to avoid.
+    it('lands a pending edit under the old name before moving it', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('First'));
+        await doc.flush();
+
+        doc.applyEdit(content('Written just before the rename'));
+        expect(doc.isDirty).toBe(true);
+
+        await doc.rename('Chapter One');
+
+        expect(await readFile('Chapter One', 'Chapter One.md')).toBe(
+            'Written just before the rename'
+        );
+        expect(doc.isDirty).toBe(false);
+    });
+
+    // There is no trash behind any of this, so a refused rename has to leave the
+    // document exactly where it was rather than half-moved.
+    it('keeps the source intact when the name is already taken', async () => {
+        await opfs.writeRaw(root, 'Taken', 'Taken.md', 'Somebody else');
+        await doc.createNew();
+        doc.applyEdit(content('Mine'));
+        await doc.flush();
+
+        await doc.rename('Taken');
+
+        expect(doc.error).not.toBe('');
+        expect(doc.title).toBe('Untitled');
+        expect(doc.location?.folder).toBe('Untitled');
+        expect(await readFile('Untitled', 'Untitled.md')).toBe('Mine');
+        // And the document that was already there is untouched.
+        expect(await readFile('Taken', 'Taken.md')).toBe('Somebody else');
+    });
+
+    it('ignores a title that sanitises away to nothing', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('Body'));
+        await doc.flush();
+        ignoreFixtureWrites();
+
+        await doc.rename('///');
+
+        expect(doc.title).toBe('Untitled');
+        expect(documentWrites()).toHaveLength(0);
+    });
+
+    it('does nothing when the title has not actually changed', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('Body'));
+        await doc.flush();
+        ignoreFixtureWrites();
+
+        await doc.rename('Untitled');
+
+        expect(documentWrites()).toHaveLength(0);
+        expect(doc.location?.folder).toBe('Untitled');
+    });
+
+    // Nothing in a rename is synchronous, so the document can be swapped while
+    // one is in flight. Whatever it goes on to work out belongs to a document
+    // nobody has open any more: assigning the title or location it produced
+    // would leave the editor showing one document and pointed at another's file.
+    it('does not write a rename back onto the document that replaced it', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('First'));
+        await doc.flush();
+
+        const renaming = doc.rename('Chapter One');
+        await doc.createNew();
+        await renaming;
+
+        expect(doc.title).not.toBe('Chapter One');
+        expect(doc.location?.folder).not.toBe('Chapter One');
+    });
+});
+
+// Writing a dropped or pasted image into the document's own directory.
+//
+// A document folder has to stay self-contained and portable as a unit, so the
+// image goes beside the markdown that references it and comes back as a relative
+// path — never base64, never a shared top-level images folder.
+describe('addImage', () => {
+    const png = (): File =>
+        new File([new Uint8Array([137, 80, 78, 71])], 'diagram.png', {
+            type: 'image/png'
+        });
+
+    it('writes the image into the document folder and returns a relative path', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('Body'));
+        await doc.flush();
+
+        const path = await doc.addImage(png());
+
+        expect(path).toBe('diagram.png');
+        await expect(
+            opfs.fileExists(root, 'Untitled', 'diagram.png')
+        ).resolves.toBe(true);
+    });
+
+    // An in-memory document has no folder yet, so there is nowhere for the image
+    // to land — the save is forced to make one rather than dropping the image.
+    it('forces the first save so the image has somewhere to go', async () => {
+        await doc.createNew();
+        expect(doc.location).toBeNull();
+
+        const path = await doc.addImage(png());
+
+        expect(path).toBe('diagram.png');
+        expect(doc.location?.folder).toBe('Untitled');
+        await expect(
+            opfs.fileExists(root, 'Untitled', 'diagram.png')
+        ).resolves.toBe(true);
+    });
+
+    it('says so rather than returning a path to nothing', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('Body'));
+        await doc.flush();
+
+        vi.spyOn(
+            FileSystemDirectoryHandle.prototype,
+            'getFileHandle'
+        ).mockRejectedValue(new DOMException('no', 'NotAllowedError'));
+
+        const path = await doc.addImage(png());
+
+        expect(path).toBeNull();
+        expect(doc.error).not.toBe('');
+    });
+
+    it('writes nothing when there is no working folder', async () => {
+        await doc.createNew();
+        workspace.root = null;
+
+        await expect(doc.addImage(png())).resolves.toBeNull();
+
+        workspace.root = root;
+    });
+});

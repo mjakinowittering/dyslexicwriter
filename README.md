@@ -240,14 +240,3 @@ Within each, related items sit next to each other.
       the mocks with it
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
-- [ ] Cover the workspace store and the `SpeechController` with tests. These are the two
-      most intricate stateful modules in the app and the two thinnest in the suite.
-      `workspace.svelte.ts` sits at **28%**: `leaveFolder`, `isEmpty` and `touch` are
-      tested, while `restore`, `reopen`, `chooseFolder`, `#adopt`, `refresh`'s error path,
-      `toggle`, `#replayOpened`'s `for(;;)` loop and `#persist` are not — that is folder
-      adoption, permission recovery and every preference write. `speech-controller`
-      covers `pickDefaultVoice` and nothing else, so the chunk queue, the watchdog,
-      skip/seek and teardown are untested — the exact machinery behind the tab-freeze
-      fixed in `7cc5f80`. `doc.rename` and `doc.addImage` (`document.svelte.ts:228-280`)
-      and `ensurePermission` are uncovered too. The OPFS harness in `tests/support/`
-      already does the hard part for the first of these
