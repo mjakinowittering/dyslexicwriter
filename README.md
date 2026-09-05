@@ -208,22 +208,6 @@ Within each, related items sit next to each other.
       through a message key. Return the parts (`{ hours, minutes, seconds }`) and let
       message keys own the words and the plurals, the way every other string in the app
       already works. `WelcomePreview.svelte:58` is the other call site
-- [ ] Reopen the document when `?doc=` changes. `path` is `$derived` from `page.url`
-      (`edit/+page.svelte:42`) but read only inside `onMount`, and same-route navigation
-      does not remount the page — so `/edit?doc=A` → `/edit?doc=B` would leave document A
-      open under a URL naming B. Latent: nothing in the app navigates that way today, both
-      routes into the editor come through a mount. It is armed for the first "open in
-      editor" link added anywhere, so an `$effect` on `path` that opens (after flushing
-      the current document) is the fix, not a note to remember
-- [ ] Guard the document store against a late `close()` landing on the next document.
-      `onDestroy` runs `void doc.close()` un-awaited (`edit/+page.svelte:93`) and
-      `close()` is `await flush(); #reset()`. If a `doc.open()` starts while that flush is
-      still in flight, the flush's continuation writes the _old_ document's
-      `location`/`saveState`/`savedAt` back into the store (`document.svelte.ts:204-207`)
-      and the trailing `#reset()` then wipes the newly-loaded one — leaving the editor
-      empty, or worse, pointed at the previous document's file. Same latency as the item
-      above and the same store: an epoch counter bumped by `#reset()` and checked after
-      every await would close both. Sits next to it deliberately
 
 ### Features
 
@@ -267,11 +251,3 @@ Within each, related items sit next to each other.
       fixed in `7cc5f80`. `doc.rename` and `doc.addImage` (`document.svelte.ts:228-280`)
       and `ensurePermission` are uncovered too. The OPFS harness in `tests/support/`
       already does the hard part for the first of these
-- [ ] Stop the write path giving up quietly, in two places. A failed autosave sets
-      `#dirty = true` and re-arms no timer (`document.svelte.ts:214-219`), so nothing
-      retries until the next keystroke or exit path — a writer who hits a transient
-      failure and then stops typing is relying on `pagehide` alone. And `restore()` adopts
-      a stored handle without the `folderIsReachable` check `reopen()` runs
-      (`workspace.svelte.ts:127-131`), so an unplugged drive lands on a "ready" Files
-      screen showing a read error rather than back at the picker. A backoff retry for the
-      first, the existing check for the second
