@@ -51,7 +51,15 @@ file like any other, and a typo in it must not propagate into a fresh
 `config.json`. `FALLBACK_PREFERENCES` mirrors it in code and takes over per key.
 
 Keys this version does not know are dropped rather than carried through — an old
-`documents` index parses fine, is ignored, and goes for good on the next write.
+`documents` index parses fine, is ignored, and goes for good when the folder is
+next adopted.
+
+That layering is also what makes the file **self-updating**: `refreshConfig` writes
+the merged result back whenever it differs from what is on disk, so a preference
+added in a later version appears in the user's `config.json` without their having to
+change anything. Adding a key to `preferencesSchema` and `defaults.json` is
+therefore the whole migration — see `[[filesystem-storage]]` for the two files it
+refuses to rewrite.
 
 ## Adding a persisted preference
 

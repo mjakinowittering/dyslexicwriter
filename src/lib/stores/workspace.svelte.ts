@@ -8,7 +8,7 @@ import {
     findDocument,
     folderIsReachable,
     loadDirectoryHandle,
-    readConfig,
+    refreshConfig,
     saveDirectoryHandle,
     scanFolder,
     updateConfig,
@@ -150,7 +150,7 @@ class WorkspaceStore implements PreferenceStore {
         // Permission survives the folder itself: a deleted folder, a renamed one
         // and an unmounted drive all still report 'granted'. Ask the folder
         // directly before adopting it, because everything `#adopt` does next
-        // swallows its own errors — `readConfig` would quietly hand back the
+        // swallows its own errors — `refreshConfig` would quietly hand back the
         // shipped defaults and flip the user's theme on the way past.
         if (!(await folderIsReachable(handle))) {
             this.pending = handle;
@@ -269,8 +269,14 @@ class WorkspaceStore implements PreferenceStore {
         // A settings file we cannot read must not stop the user reaching their
         // writing, so we carry on with the defaults in memory — but the folder
         // is adopted knowing they are a stand-in, not the user's choices.
+        //
+        // `refreshConfig` rather than `readConfig`: adopting is where the file is
+        // brought up to date with the preferences this version knows about, so a
+        // setting added since the folder was last opened is in the file the user
+        // hand-edits rather than only in memory. It never rewrites a file it could
+        // not parse, and a failed write is not surfaced — see fs/config.ts.
         try {
-            this.config = await readConfig(handle);
+            this.config = await refreshConfig(handle);
             this.settingsUnreadable = false;
         } catch {
             this.config = defaultConfig();

@@ -198,12 +198,24 @@ slow enough to read as broken. Dot-directories and `node_modules` are skipped.
 source for that list: `scanFolder` walks it into the workspace store on load, every
 screen renders from that `$state`, and it is scanned again rather than remembered. A
 copy in `config.json` would be written after every autosave and read by nobody. Older
-files still carrying a `documents` key parse fine — it is ignored, and dropped the next
-time anything writes the file.
+files still carrying a `documents` key parse fine — it is ignored, and dropped when the
+folder is next adopted.
 
 Validated with Valibot on read, **key by key**: a hand-edited mistake in one setting
 costs the user that setting alone, not every other preference they have chosen. A
 corrupt or unreadable file falls back to defaults rather than crashing the app.
+
+**Adopting a folder brings its `config.json` up to date.** The merged result is
+written back whenever the file has fallen behind what this version writes — a
+preference added since it was last saved, a value that failed validation, a legacy
+key now dropped — so a setting the app has learned about appears in the file the
+user hand-edits rather than living only in memory. A folder with no settings file
+gets one. Two files are never rewritten: one that could not be **parsed**, because
+that is a hand-edit caught mid-mistake and there is no trash behind it, and one that
+could not be **read**, because writing over settings we never saw is exactly what
+`readConfig`'s throw exists to prevent. The write is best-effort — the config is
+already correct in memory, so a failure to tidy the file is not put in front of a
+writer.
 
 The first-run value of every preference lives in `src/lib/config/defaults.json` —
 `theme`, `font`, `tts` and `prettier` only. `version` is structural rather than

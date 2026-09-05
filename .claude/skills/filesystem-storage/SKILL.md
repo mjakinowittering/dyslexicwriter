@@ -204,6 +204,28 @@ different version. It is parsed through `configSchema` (Valibot) via
 `parseConfig`, which falls back to defaults rather than throwing. A corrupt
 settings file must never stop the user reaching their writing.
 
+### The file catches up on adopt
+
+`#adopt` calls `refreshConfig`, not `readConfig`: it loads the settings and writes
+the merged result back when the file has fallen behind what this version writes — a
+preference added since it was last saved, a value that fell back, a legacy key now
+dropped. Without it a new setting lives only in memory until the user happens to
+change something else, and the file they hand-edit never mentions it.
+
+`loadConfig` decides, via its `outdated` flag, and refuses in two cases:
+
+- **a file that would not parse** — a hand-edit caught mid-mistake. Replacing it
+  with defaults would throw away what they were typing, unasked, with no trash
+  behind it
+- **a file that would not read** — `loadConfig` throws instead, and `#adopt` lands
+  on `settingsUnreadable`. Writing over settings we never saw is the thing
+  `readConfig`'s throw has always existed to prevent
+
+An up-to-date file is left alone rather than rewritten, so an ordinary launch does
+not move its mtime. The write is best-effort: the config is already correct in
+memory, and a folder that cannot be written to says so the moment the user changes
+a setting, so a failed tidy-up is not surfaced.
+
 `config.json` holds **preferences only**. The list of documents is not in it and
 never should be: `scanFolder` walks the folder into `workspace.tree` on load,
 every screen renders from that `$state`, and the list is scanned again rather
