@@ -84,7 +84,7 @@ is the _how_.
 | Components      | shadcn-svelte                                |
 | Rich text       | TipTap (`JSONContent` is the editing model)  |
 | File storage    | File System Access API                       |
-| Markdown ← JSON | turndown (+ GFM plugin for tables)           |
+| JSON → Markdown | turndown (+ GFM plugin for tables)           |
 | Markdown → JSON | marked → TipTap `generateJSON`               |
 | Folder handle   | Dexie (IndexedDB) — the handle, nothing else |
 | Read aloud      | Web Speech API (`speechSynthesis`)           |
@@ -454,6 +454,11 @@ project has no environment configuration.
   `<folder>/<Title>/<Title>.md` inside that folder — so its images stay its own. Either
   way the name is refused **before** the write, against a **file and a directory** of
   that name both, never worked around afterwards
+- A constant, type or function with a home already **is imported from it**, never
+  retyped. The empty document shape (`emptyDocument()`), `UNTITLED`, the TTS rate
+  bounds, the theme grounds in `layout.css`, a format control's `value` — each has
+  exactly one definition, and a second copy is a divergence waiting for the next
+  edit rather than a convenience
 - Any node or mark added to the editor must be taught to **both** `toMarkdown` **and**
   `fromMarkdown` in the **same commit** — the two converters and the editor's extension
   list share one exported array and must never drift

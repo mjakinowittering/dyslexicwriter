@@ -1,3 +1,6 @@
+import type { FolderNode } from '$lib/fs';
+import type { DocumentIndexEntry } from '$lib/models/document.model';
+
 // A real filesystem for the suites that drive the fs layer.
 //
 // navigator.storage.getDirectory() hands back genuine FileSystemDirectoryHandle
@@ -7,6 +10,19 @@
 //
 // Every helper takes the root explicitly, so a suite can bind it once in
 // beforeEach and call the wrappers with the paths alone.
+
+// Every document in a scanned tree, flattened into the order the Files screen
+// shows them — folders first, then the documents sitting directly in this one.
+//
+// A test-only convenience. The app renders the tree itself and has no index to
+// flatten it into, so this lives here rather than in `fs/documents.ts`: asserting
+// a scan as a flat list of paths is a thing suites want and the app never does.
+export function flattenDocuments(node: FolderNode): DocumentIndexEntry[] {
+    return [
+        ...node.folders.flatMap((child) => flattenDocuments(child)),
+        ...node.documents
+    ];
+}
 
 // Wipe OPFS and hand back the empty root, so one test can never see another's
 // files. Call it from beforeEach.

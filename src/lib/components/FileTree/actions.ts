@@ -16,13 +16,23 @@ export interface FileTreeActions {
     deleteFolder: (node: FolderNode) => void;
 }
 
-// The inline naming row: which folder it sits in, and which of the two things is
-// being made. `parent` is a folder's path, so '' is the working folder itself.
+// The one inline naming row the tree may have open.
 //
 // Held by the screen rather than by the tree, exactly as expansion state is —
 // there is only ever one of these open, and a recursive component has no level
 // at which to own something the whole tree shares.
-export interface FileTreeNaming {
-    parent: string;
-    kind: 'folder' | 'document';
-}
+//
+// Two shapes, because naming a new thing and renaming an existing one are the
+// same input in two different places: a `create` row is drawn at the top of the
+// folder it will land in, a `rename` row replaces the document's own row.
+export type FileTreeNaming =
+    | {
+          mode: 'create';
+          // The folder the new thing lands in. '' is the working folder itself.
+          parent: string;
+          kind: 'folder' | 'document';
+      }
+    | {
+          mode: 'rename';
+          entry: DocumentIndexEntry;
+      };

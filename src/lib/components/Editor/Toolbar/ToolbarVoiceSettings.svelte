@@ -104,30 +104,29 @@
     }
 </script>
 
+<!-- No `Tooltip.Provider`: `ToolbarTts` provides one for the whole transport. -->
 <Popover.Root bind:open>
-    <Tooltip.Provider>
-        <Tooltip.Root>
-            <Tooltip.Trigger>
-                {#snippet child({ props: tooltipProps })}
-                    <Popover.Trigger>
-                        {#snippet child({ props: popoverProps })}
-                            <ToggleGroup.Item
-                                {...tooltipProps}
-                                {...popoverProps}
-                                aria-label={m.content_tts_settings()}
-                                value="voice"
-                            >
-                                <Icon icon={PreferenceHorizontalIcon} />
-                            </ToggleGroup.Item>
-                        {/snippet}
-                    </Popover.Trigger>
-                {/snippet}
-            </Tooltip.Trigger>
-            <Tooltip.Content side="bottom">
-                <p>{m.content_tts_settings_hint()}</p>
-            </Tooltip.Content>
-        </Tooltip.Root>
-    </Tooltip.Provider>
+    <Tooltip.Root>
+        <Tooltip.Trigger>
+            {#snippet child({ props: tooltipProps })}
+                <Popover.Trigger>
+                    {#snippet child({ props: popoverProps })}
+                        <ToggleGroup.Item
+                            {...tooltipProps}
+                            {...popoverProps}
+                            aria-label={m.content_tts_settings()}
+                            value="voice"
+                        >
+                            <Icon icon={PreferenceHorizontalIcon} />
+                        </ToggleGroup.Item>
+                    {/snippet}
+                </Popover.Trigger>
+            {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content side="bottom">
+            <p>{m.content_tts_settings_hint()}</p>
+        </Tooltip.Content>
+    </Tooltip.Root>
 
     <Popover.Content side="bottom" align="end" class="w-72">
         <div class="flex flex-col gap-4">

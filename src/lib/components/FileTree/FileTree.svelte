@@ -60,9 +60,24 @@
         easing: motionEasing
     });
 
-    // The naming row belongs to exactly one directory in the tree, and this
-    // component is rendered once per directory.
-    const namingHere = $derived(naming?.parent === node.path ? naming : null);
+    // The create row belongs to exactly one directory in the tree, and this
+    // component is rendered once per directory. A rename row is not drawn here at
+    // all — it stands in for a document's own row, so `FileTreeDocument` draws it.
+    const creatingHere = $derived(
+        naming?.mode === 'create' && naming.parent === node.path ? naming : null
+    );
+
+    // Sibling names for the duplicate check, shared by the create row above and
+    // whichever document row is being renamed below. A folder-document is a real
+    // directory of that name on disk, so it blocks a folder; a file-document is
+    // `One.md` and never did.
+    const documentNames = $derived(node.documents.map((entry) => entry.title));
+    const folderNames = $derived(node.folders.map((folder) => folder.name));
+    const ownedFolderNames = $derived(
+        node.documents
+            .filter((entry) => entry.ownsFolder)
+            .map((entry) => entry.title)
+    );
 
     // Nothing to draw below this folder, so the disclosure says so rather than
     // opening onto a blank gap. True of a folder the depth cap stopped at as
@@ -79,23 +94,24 @@
     function isEmptyFolder(folder: FolderNode): boolean {
         return folder.loaded && showsNothing(folder);
     }
+
+    // A folder with nothing in it still has to render the tree below it while a
+    // create row is open in it, or there would be nowhere to type the name.
+    function isCreatingIn(folder: FolderNode): boolean {
+        return naming?.mode === 'create' && naming.parent === folder.path;
+    }
 </script>
 
 <ul class="flex flex-col">
-    {#if namingHere}
+    {#if creatingHere}
         <FileTreeNameRow
-            kind={namingHere.kind}
+            kind={creatingHere.kind}
             onCancel={onNamingCancel}
             onSubmit={onNamingSubmit}
-            takenDocuments={namingHere.kind === 'document'
-                ? node.documents.map((entry) => entry.title)
-                : // A folder-document is a real directory of that name on disk,
-                  // so it blocks a folder. A file-document is `One.md` and never
-                  // did.
-                  node.documents
-                      .filter((entry) => entry.ownsFolder)
-                      .map((entry) => entry.title)}
-            takenFolders={node.folders.map((folder) => folder.name)}
+            takenDocuments={creatingHere.kind === 'document'
+                ? documentNames
+                : ownedFolderNames}
+            takenFolders={folderNames}
         />
     {/if}
 
@@ -171,7 +187,7 @@
                          the other holds files this app cannot open. Saying
                          "nothing in here" about somebody's work reads as if the
                          app threw it away. -->
-                    {#if showsNothing(folder) && naming?.parent !== folder.path}
+                    {#if showsNothing(folder) && !isCreatingIn(folder)}
                         <p class="text-muted-foreground p-2 text-sm">
                             {folder.hasOtherEntries
                                 ? m.files_folder_no_writing()
@@ -194,6 +210,15 @@
     {/each}
 
     {#each node.documents as entry (documentPath(entry))}
-        <FileTreeDocument {actions} {entry} />
+        <FileTreeDocument
+            {actions}
+            {entry}
+            onRenameCancel={onNamingCancel}
+            onRenameSubmit={onNamingSubmit}
+            renaming={naming?.mode === 'rename' &&
+                documentPath(naming.entry) === documentPath(entry)}
+            takenDocuments={documentNames}
+            takenFolders={folderNames}
+        />
     {/each}
 </ul>

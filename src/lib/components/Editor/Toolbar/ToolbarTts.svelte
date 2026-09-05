@@ -2,6 +2,7 @@
     import type { Editor } from '@tiptap/core';
 
     import * as ToggleGroup from '$lib/components/ui/toggle-group';
+    import * as Tooltip from '$lib/components/ui/tooltip';
 
     import type { TtsPreferences } from '$lib/models/tts.model';
     import { speech } from '$lib/tts/speech-controller.svelte';
@@ -42,14 +43,18 @@
     ]);
 </script>
 
-<ToggleGroup.Root
-    type="multiple"
-    variant="outline"
-    bind:value={() => pressed, () => {}}
->
-    <SkipBack {controller} />
-    <Stop {controller} />
-    <Play {controller} {editor} {disabled} />
-    <SkipForward {controller} />
-    <VoiceSettings {controller} {persist} bind:open={settingsOpen} />
-</ToggleGroup.Root>
+<!-- One tooltip provider for the whole transport, the way `Format` provides one
+     for the formatting row. Each button used to bring its own. -->
+<Tooltip.Provider>
+    <ToggleGroup.Root
+        type="multiple"
+        variant="outline"
+        bind:value={() => pressed, () => {}}
+    >
+        <SkipBack {controller} />
+        <Stop {controller} />
+        <Play {controller} {editor} {disabled} />
+        <SkipForward {controller} />
+        <VoiceSettings {controller} {persist} bind:open={settingsOpen} />
+    </ToggleGroup.Root>
+</Tooltip.Provider>

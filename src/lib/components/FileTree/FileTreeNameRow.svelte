@@ -1,5 +1,6 @@
 <script lang="ts">
     import { File01Icon, Folder01Icon } from '@hugeicons/core-free-icons';
+    import { untrack } from 'svelte';
 
     import Icon from '$lib/components/Icon/Icon.svelte';
     import Button from '$lib/components/ui/button/button.svelte';
@@ -11,16 +12,22 @@
     } from '$lib/models/document.model';
     import * as m from '$lib/paraglide/messages';
 
-    // Naming a folder or a document as it is made, inline in the tree at the
-    // depth the thing will live at — so the indentation says where it is going
-    // rather than a dialog having to spell it out.
+    // Naming a folder or a document, inline in the tree at the depth the thing
+    // lives at — so the indentation says where it is going rather than a dialog
+    // having to spell it out.
+    //
+    // The same row does both jobs. Making something starts empty and sits at the
+    // top of its folder; renaming starts from the current name and stands in for
+    // the row it belongs to. Naming a thing and renaming it ask the writer the
+    // same question, and asking it two different ways — an inline row here, a
+    // `window.prompt` there — was never a decision, just drift.
     //
     // `takenDocuments` and `takenFolders` are the sibling names already in that
-    // directory, so a duplicate is caught before Create is reachable. They are
+    // directory, so a duplicate is caught before the button is reachable. They are
     // read off the tree, which is a scan snapshot and can be out of date; the
-    // filesystem guard behind createFolder and createDocument is the actual
-    // authority, and this is only here to stop the writer typing a name that was
-    // never going to work.
+    // filesystem guard behind createFolder, createDocument and renameDocument is
+    // the actual authority, and this is only here to stop the writer typing a name
+    // that was never going to work.
     //
     // Both lists matter whichever kind is being named, because a document the app
     // creates IS a directory — `My Doc/My Doc.md` — so its name collides with a
@@ -30,17 +37,26 @@
         kind,
         takenDocuments,
         takenFolders,
+        initialValue = '',
+        submitLabel = m.files_create(),
         onSubmit,
         onCancel
     }: {
         kind: 'folder' | 'document';
         takenDocuments: string[];
         takenFolders: string[];
+        // The name to start from. Renaming opens on the current one; making
+        // something new opens empty.
+        initialValue?: string;
+        submitLabel?: string;
         onSubmit: (name: string) => void;
         onCancel: () => void;
     } = $props();
 
-    let value = $state('');
+    // Seeded once, deliberately: the row is mounted fresh for each naming
+    // session, so the prop is a starting point rather than something the field
+    // has to stay in step with.
+    let value = $state(untrack(() => initialValue));
     let field = $state<HTMLInputElement | null>(null);
 
     // The name that would actually reach the disk — sanitiseTitle owns the
@@ -48,8 +64,17 @@
     // against what was typed.
     const safe = $derived(sanitiseTitle(value));
     const isBlank = $derived(value.trim().length === 0);
-    const takenByDocument = $derived(!isBlank && takenDocuments.includes(safe));
-    const takenByFolder = $derived(!isBlank && takenFolders.includes(safe));
+
+    // A rename has to be allowed to keep the name it started with, which is
+    // sitting in both lists precisely because it is already on disk. Compared
+    // sanitised, so it matches however the writer retypes it.
+    const own = $derived(initialValue ? sanitiseTitle(initialValue) : null);
+    const collides = $derived(
+        (names: string[]) => !isBlank && safe !== own && names.includes(safe)
+    );
+
+    const takenByDocument = $derived(collides(takenDocuments));
+    const takenByFolder = $derived(collides(takenFolders));
     const isTaken = $derived(takenByDocument || takenByFolder);
 
     // Blank is disabled rather than allowed through: sanitiseTitle never returns
@@ -67,9 +92,12 @@
     );
 
     // The row is opened deliberately, by a menu item or a button, and there is
-    // nothing else on it to do — so it takes the caret with it.
+    // nothing else on it to do — so it takes the caret with it. A rename opens
+    // on the existing name selected, so typing replaces it and the writer who
+    // wants to edit rather than replace can still arrow out of the selection.
     $effect(() => {
         field?.focus();
+        if (initialValue) field?.select();
     });
 
     function submit() {
@@ -120,7 +148,7 @@
             {m.confirm_cancel()}
         </Button>
         <Button disabled={!canCreate} onclick={submit} size="sm">
-            {m.files_create()}
+            {submitLabel}
         </Button>
     </div>
 

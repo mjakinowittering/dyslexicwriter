@@ -53,11 +53,18 @@
         />
 
         <!--
-            The dark `--background` from src/routes/layout.css, matching the app's
-            default mode. One tag, and no `media` query: the mode is a preference
-            in the user's config.json rather than the OS's, so mode-watcher
-            rewrites this `content` to match whichever theme is actually showing
-            (see the `themeColors` prop in src/routes/+layout.svelte).
+            `--ground-dark` from src/routes/layout.css, matching the app's default
+            mode. One tag, and no `media` query: the mode is a preference in the
+            user's config.json rather than the OS's, so mode-watcher rewrites this
+            `content` to match whichever theme is actually showing (see the
+            `themeColors` prop in src/routes/+layout.svelte, which READS the two
+            ground tokens rather than restating them).
+
+            This is the one place that value has to be written out: the shell is
+            served before any stylesheet, so there is no custom property to
+            reference yet. It only shows for the instant before mode-watcher runs
+            — but it must be kept in step with `--ground-dark` by hand, and it is
+            the only copy left that has to be.
         -->
         <meta name="theme-color" content="#0a0a0a" />
 

@@ -9,8 +9,12 @@ import {
     writeImage,
     type DocumentLocation
 } from '$lib/fs';
-import type { Frontmatter } from '$lib/markdown';
-import { fileNameFor, sanitiseTitle } from '$lib/models/document.model';
+import { emptyDocument, type Frontmatter } from '$lib/markdown';
+import {
+    fileNameFor,
+    sanitiseTitle,
+    UNTITLED
+} from '$lib/models/document.model';
 import * as m from '$lib/paraglide/messages';
 
 import { workspace } from './workspace.svelte';
@@ -134,8 +138,8 @@ class DocumentStore {
     async createNew(): Promise<void> {
         const root = workspace.root;
         this.#reset();
-        this.title = root ? await suggestUntitledName(root) : 'Untitled';
-        this.contentJson = { type: 'doc', content: [{ type: 'paragraph' }] };
+        this.title = root ? await suggestUntitledName(root) : UNTITLED;
+        this.contentJson = emptyDocument();
     }
 
     // `path` is the markdown file's path relative to the working folder —

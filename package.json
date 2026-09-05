@@ -38,7 +38,6 @@
         "@hugeicons/svelte": "^1.1.4",
         "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
         "@inlang/paraglide-js": "^2.15.2",
-        "@internationalized/date": "^3.12.2",
         "@lucide/svelte": "^1.31.0",
         "@storybook/addon-a11y": "^10.4.2",
         "@storybook/addon-docs": "^10.4.2",

@@ -13,6 +13,7 @@
     import { relativeTime } from '$lib/utils/relative-time';
 
     import type { FileTreeActions } from './actions';
+    import FileTreeNameRow from './FileTreeNameRow.svelte';
     import FileTreeRowMenu from './FileTreeRowMenu.svelte';
 
     // One document row in the Files tree: the title and when it was last edited,
@@ -22,42 +23,69 @@
     // No leading spacer before the file icon. The tree indents by exactly one
     // icon column, so with nothing in front of it this icon lands under the
     // folder icon of the folder holding it — see FileTree.svelte.
+    //
+    // While `renaming`, the row gives way to the naming field rather than opening
+    // a dialog — the writer edits the name where the name is.
     let {
         entry,
-        actions
+        actions,
+        renaming = false,
+        takenDocuments = [],
+        takenFolders = [],
+        onRenameSubmit,
+        onRenameCancel
     }: {
         entry: DocumentIndexEntry;
         actions: FileTreeActions;
+        renaming?: boolean;
+        takenDocuments?: string[];
+        takenFolders?: string[];
+        onRenameSubmit?: (name: string) => void;
+        onRenameCancel?: () => void;
     } = $props();
 </script>
 
-<!-- The hover surface is the row itself, menu included — the same treatment the
-     folder rows carry, so the two kinds read as one list. -->
-<li
-    class="group/row hover:bg-muted/40 hover:ring-border focus-within:bg-muted/40 focus-within:ring-border flex items-center gap-2 rounded-md ring-1 ring-transparent"
->
-    <button
-        class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 p-2 text-left"
-        onclick={() => actions.open(entry)}
-        type="button"
+{#if renaming}
+    <FileTreeNameRow
+        initialValue={entry.title}
+        kind="document"
+        onCancel={() => onRenameCancel?.()}
+        onSubmit={(name) => onRenameSubmit?.(name)}
+        submitLabel={m.files_rename()}
+        {takenDocuments}
+        {takenFolders}
+    />
+{:else}
+    <!-- The hover surface is the row itself, menu included — the same treatment
+         the folder rows carry, so the two kinds read as one list. -->
+    <li
+        class="group/row hover:bg-muted/40 hover:ring-border focus-within:bg-muted/40 focus-within:ring-border flex items-center gap-2 rounded-md ring-1 ring-transparent"
     >
-        <Icon class="text-muted-foreground shrink-0" icon={File01Icon} />
-        <span class="flex min-w-0 flex-col">
-            <span class="truncate font-medium">{entry.title}</span>
-            <span class="text-muted-foreground text-sm">
-                {m.files_modified({ when: relativeTime(entry.lastModified) })}
+        <button
+            class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 p-2 text-left"
+            onclick={() => actions.open(entry)}
+            type="button"
+        >
+            <Icon class="text-muted-foreground shrink-0" icon={File01Icon} />
+            <span class="flex min-w-0 flex-col">
+                <span class="truncate font-medium">{entry.title}</span>
+                <span class="text-muted-foreground text-sm">
+                    {m.files_modified({
+                        when: relativeTime(entry.lastModified)
+                    })}
+                </span>
             </span>
-        </span>
-    </button>
+        </button>
 
-    <FileTreeRowMenu label={m.files_document_menu({ title: entry.title })}>
-        <DropdownMenu.Item onSelect={() => actions.rename(entry)}>
-            <Icon icon={PencilEdit01Icon} />
-            {m.files_rename()}
-        </DropdownMenu.Item>
-        <DropdownMenu.Item onSelect={() => actions.delete(entry)}>
-            <Icon icon={Delete02Icon} />
-            {m.files_delete()}
-        </DropdownMenu.Item>
-    </FileTreeRowMenu>
-</li>
+        <FileTreeRowMenu label={m.files_document_menu({ title: entry.title })}>
+            <DropdownMenu.Item onSelect={() => actions.rename(entry)}>
+                <Icon icon={PencilEdit01Icon} />
+                {m.files_rename()}
+            </DropdownMenu.Item>
+            <DropdownMenu.Item onSelect={() => actions.delete(entry)}>
+                <Icon icon={Delete02Icon} />
+                {m.files_delete()}
+            </DropdownMenu.Item>
+        </FileTreeRowMenu>
+    </li>
+{/if}

@@ -27,15 +27,29 @@ here is just reactive state over the filesystem.
 
 ## The workspace status machine
 
+Six states, not three — the three extra ones all exist because a stored handle
+can outlive the writer's permission, or the folder itself.
+
 ```
-loading  ->  unsupported     (no File System Access API)
-         ->  needs-folder    (nothing stored, or permission not granted)
-         ->  ready           (handle + config in hand)
+loading  ->  unsupported        (no File System Access API)
+         ->  needs-folder       (nothing stored: first run, or the folder was let go)
+         ->  needs-permission   (a stored folder we may not touch until the user says so)
+         ->  folder-missing     (a stored folder we may read and cannot find)
+         ->  ready              (handle + config in hand)
 ```
 
-`restore()` runs on mount and only ever moves to `ready` silently. It never
-prompts for permission, because Chromium requires a user gesture for that — the
-picker button in the `needs-folder` state is that gesture.
+`restore()` runs on mount and only ever reaches `ready` silently. It never
+prompts, because Chromium requires a user gesture for that: a handle whose grant
+has lapsed is held aside as `pending` and the welcome screen offers a **Reopen**
+card, which is the gesture. Treating that as a first run would have hidden the
+folder the writer already chose.
+
+Permission outlives the folder — a deleted folder, a renamed one and an unmounted
+drive all still report `granted` — so `restore()` and `reopen()` both call
+`folderIsReachable()` before adopting, and land on `folder-missing` when it
+answers no. The handle is deliberately kept there: nothing in the API can tell a
+deleted folder from a drive that isn't plugged in this minute, and the second
+comes back at the same path.
 
 ## The autosave contract — the important part
 
