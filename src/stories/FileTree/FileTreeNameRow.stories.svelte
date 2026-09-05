@@ -12,6 +12,8 @@
             kind: { control: false },
             takenDocuments: { control: false },
             takenFolders: { control: false },
+            initialValue: { control: false },
+            submitLabel: { control: false },
             onSubmit: { control: false },
             onCancel: { control: false }
         },
@@ -20,7 +22,7 @@
             docs: {
                 description: {
                     component:
-                        'Naming a folder or a document as it is made, inline in the tree at the depth the thing will live at. Create is out of reach while the field is blank or the name is already taken; `.md` sits in an addon for a document, because the title *is* the filename.'
+                        'Naming a folder or a document, inline in the tree at the depth the thing lives at. The same row renames one: it opens on the current name, selected. The submit button is out of reach while the field is blank or the name is already taken; `.md` sits in an addon for a document, because the title *is* the filename.'
                 }
             }
         }
@@ -105,6 +107,48 @@
             canvas.getByRole('button', { name: 'Create' })
         ).toBeDisabled();
         await expect(field).toHaveAttribute('aria-invalid', 'true');
+    }}
+>
+    {#snippet template(args)}
+        <ul class="bg-background w-full max-w-2xl p-6">
+            <FileTreeNameRow {...args} />
+        </ul>
+    {/snippet}
+</Story>
+
+<!-- The same row, renaming. It opens on the current name rather than empty, and
+     the button says what it will do. -->
+<Story
+    name="Rename"
+    args={{
+        kind: 'document',
+        initialValue: 'Chapter One',
+        submitLabel: 'Rename',
+        takenDocuments: ['Chapter One', 'Chapter Two'],
+        takenFolders: [],
+        ...handlers
+    }}
+    play={async ({ canvas }) => {
+        const field = canvas.getByRole('textbox', { name: 'Document name' });
+        await expect(field).toHaveFocus();
+        await expect(field).toHaveValue('Chapter One');
+
+        // Its own name sits in `takenDocuments` — it is on disk — so keeping it
+        // must not read as a collision.
+        await expect(
+            canvas.getByRole('button', { name: 'Rename' })
+        ).toBeEnabled();
+
+        // A sibling's name still does.
+        await userEvent.clear(field);
+        await userEvent.type(field, 'Chapter Two');
+        await expect(
+            canvas.getByRole('button', { name: 'Rename' })
+        ).toBeDisabled();
+
+        await userEvent.clear(field);
+        await userEvent.type(field, 'Chapter Nine{Enter}');
+        await expect(handlers.onSubmit).toHaveBeenCalledWith('Chapter Nine');
     }}
 >
     {#snippet template(args)}

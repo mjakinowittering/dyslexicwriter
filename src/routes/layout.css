@@ -21,7 +21,18 @@
        just short of it. Otherwise this is shadcn-svelte's neutral palette — every
        token chroma 0 — with the ramp shifted down ~0.02 so its step sizes still
        read against a 0.98 page rather than the reference's 1.0 one. */
-    --background: oklch(0.98 0 0);
+
+    /* The two theme grounds, defined once here and nowhere else.
+       `--background` below takes the light one and `.dark` swaps in the other,
+       and the root layout reads BOTH off `:root` to tell the browser what colour
+       to paint its own chrome. They stay on `:root` unconditionally for that
+       reason: the dark ground has to be readable while the light theme is the
+       one showing. Previously the layout carried hand-converted hex copies of
+       these two values, which is one edit away from a mismatched address bar. */
+    --ground-light: oklch(0.98 0 0);
+    --ground-dark: oklch(0.145 0 0);
+
+    --background: var(--ground-light);
     --foreground: oklch(0.145 0 0);
     --card: oklch(0.99 0 0);
     --card-foreground: oklch(0.145 0 0);
@@ -103,7 +114,7 @@
        brown rather than neutral, and the reference palette is what the app now
        follows. The ladder below is the design — canvas, page, chrome, paper,
        states, ink — and every step in it is achromatic. */
-    --background: oklch(0.145 0 0);
+    --background: var(--ground-dark);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);
     --card-foreground: oklch(0.985 0 0);

@@ -1,28 +1,16 @@
 <script lang="ts">
-    import { TextItalicIcon } from '@hugeicons/core-free-icons';
     import type { Editor } from '@tiptap/core';
 
-    import Icon from '$lib/components/Icon/Icon.svelte';
+    import { formatToggles } from './definitions';
+    import FormatToggleControl from './FormatToggleControl.svelte';
 
-    import * as m from '$lib/paraglide/messages';
-
-    import FormatToggle from './FormatToggle.svelte';
-    import { toggleWithWordBoundary } from './index.js';
-
+    // Italic.
+    // Everything about it — icon, label, shortcut, command — is the
+    // `italic` row of `definitions.ts`.
     let {
         disabled,
         editor
     }: { disabled: boolean; editor: Editor | undefined } = $props();
 </script>
 
-<FormatToggle
-    ariaLabel={m.content_format_italic()}
-    {disabled}
-    onClick={() =>
-        editor && toggleWithWordBoundary(editor, (c) => c.toggleItalic())}
-    shortcut={['Mod', 'I']}
-    tooltip={m.content_format_italic_hint()}
-    value="italic"
->
-    <Icon icon={TextItalicIcon} />
-</FormatToggle>
+<FormatToggleControl definition={formatToggles.italic} {disabled} {editor} />

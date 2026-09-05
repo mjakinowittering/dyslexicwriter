@@ -27,6 +27,14 @@ that keeps everything else off it.
 - no bubble menus, no slash menus, no embeds or media widgets
 - **Default to "no".** When in doubt, remove UI rather than add it.
 
+Every stateful control on that row is a row in
+`Editor/Format/definitions.ts` — icon, label, hint, shortcut, the `value` it
+reports itself under, and the TipTap command. `getFormattingActive()` derives
+from the same table, so a control's pressed key and the question asked of the
+editor cannot disagree; the named components (`Format.Bold`, …) are thin wrappers
+that pick one row. Undo, redo and the two inserts are not in it — they have no
+on/off state to report.
+
 The one deliberate exception is **read-aloud** — an accessibility feature for the
 person this app is for, not chrome. See `[[content-tts]]`.
 
@@ -43,12 +51,17 @@ They all call **one** factory, `documentExtensions()` in
 teaching turndown and marked about it will fail the round-trip tests, which is
 exactly the point.
 
-| File                          | Responsibility                                      |
-| ----------------------------- | --------------------------------------------------- |
-| `markdown/extensions.ts`      | The single definition of the allowed node/mark set  |
-| `markdown/to-markdown.ts`     | JSON → HTML → normalise → markdown (turndown + GFM) |
-| `markdown/from-markdown.ts`   | markdown → HTML → JSON (marked + `generateJSON`)    |
-| `markdown/round-trip.test.ts` | Every supported node, asserted byte-identical       |
+| File                                    | Responsibility                                      |
+| --------------------------------------- | --------------------------------------------------- |
+| `lib/markdown/extensions.ts`            | The single definition of the allowed node/mark set  |
+| `lib/markdown/to-markdown.ts`           | JSON → HTML → normalise → markdown (turndown + GFM) |
+| `lib/markdown/from-markdown.ts`         | markdown → HTML → JSON (marked + `generateJSON`)    |
+| `tests/lib/markdown/round-trip.test.ts` | Every supported node, asserted byte-identical       |
+
+`from-markdown.ts` also exports `emptyDocument()` — the one definition of the
+`doc > paragraph` shape a blank document starts from. A new document, one created
+from the Files screen, and a file that parsed to nothing all call it; none of them
+writes the literal out.
 
 **Adding a node or mark means, in the same commit:** add it to
 `documentExtensions()`, confirm turndown emits it (add a rule if not), confirm

@@ -1,6 +1,6 @@
 ---
 name: ui-components
-description: shadcn-svelte component library usage — components are copied into `src/lib/components/ui/` (add via CLI), the full component catalogue, doc URL pattern for exact props, and the optional MCP server. Load when building any UI, choosing a component, or needing exact prop names / variants. Never hand-roll buttons, inputs, or form elements.
+description: shadcn-svelte component library usage — components are copied into `src/lib/components/ui/` (add via CLI), the doc URL pattern for exact props, and this project's prop-ordering rule. Load when building any UI, choosing a component, or needing exact prop names / variants. Never hand-roll buttons, inputs, or form elements.
 ---
 
 # shadcn-svelte
@@ -9,9 +9,17 @@ shadcn-svelte is the component library for this project. Components are copied i
 
 Add components via the CLI: `npx shadcn-svelte@latest add <name> --yes` (writes into `src/lib/components/ui/`).
 
+**Only what the app actually renders is checked in.** A component nobody imports
+is deleted rather than kept "in case" — it is one command away, and an unused copy
+still shows up in the tree, the bundle analysis and every grep. Equally: do not
+hand-edit anything under `ui/`. The next `shadcn-svelte add` overwrites it. Change
+the call site instead.
+
 ### Documentation
 
-Full component index (llms.txt): `https://www.shadcn-svelte.com/llms.txt`
+Full component index (llms.txt): `https://www.shadcn-svelte.com/llms.txt` — the
+catalogue lives there rather than being copied here, where it would rot as
+shadcn ships components.
 
 Individual component docs follow this pattern — fetch when you need exact prop names, usage examples, or variant options:
 
@@ -32,59 +40,30 @@ by **semantic prominence**, not alphabetically and not required-before-optional:
 
 1. **Content / identity props first** — what the component _is_: `icon`, `title`,
    `description`, `label`, `content`. Reading order, not A–Z.
-2. **Behaviour / config props next** — flags and options: `canEdit = false`,
-   `align`, `editRedirect`. Optional props stay grouped by meaning; do **not**
-   push every defaulted prop to the end (`ContentSection` keeps `canEdit`
-   mid-list).
+2. **Behaviour / config props next** — flags and options: `disabled = false`,
+   `align`, `renaming`. Optional props stay grouped by meaning; do **not** push
+   every defaulted prop to the end (`FileTreeNameRow` keeps `initialValue`
+   mid-list, beside the other naming props).
 3. **`class: className` always dead last** — the styling escape hatch.
 
 ```svelte
 let {
-    label,               // identity
-    editHref,
-    canEdit = false,     // behaviour
+    entry,               // identity
+    actions,
+    renaming = false,    // behaviour
     icon: Icon,          // renames keep the `original: Alias` form, in place
     class: className     // escape hatch — always last
 }: {
-    label: string;
-    editHref: string;
-    canEdit?: boolean;
+    entry: DocumentIndexEntry;
+    actions: FileTreeActions;
+    renaming?: boolean;
     icon: Component;
     class?: string;      // type annotation order matches the destructure
 } = $props();
 ```
 
 The semantic ordering is a **judgment call** and isn't linted. The one
-mechanical part — **`class` last** — is enforced by a `no-restricted-syntax`
-rule in `eslint.config.js` (report-only, on both the destructure and the type
-literal), so a misplaced `class` fails lint. Reference examples:
-`EmptyState.svelte`, `ContentEmpty.svelte`, `ContentSection.svelte`.
-
-### Component catalogue
-
-Form & Input: Button, Button Group, Calendar, Checkbox, Combobox, Date Picker, Field, Input, Input Group, Input OTP, Label, Native Select, Radio Group, Select, Slider, Switch, Textarea
-
-Layout & Navigation: Accordion, Breadcrumb, Navigation Menu, Resizable, Scroll Area, Separator, Sidebar, Tabs
-
-Overlays & Dialogs: Alert Dialog, Command, Context Menu, Dialog, Drawer, Dropdown Menu, Hover Card, Menubar, Popover, Sheet, Tooltip
-
-Feedback & Status: Alert, Badge, Empty, Progress, Skeleton, Sonner, Spinner
-
-Display & Media: Aspect Ratio, Avatar, Card, Carousel, Chart, Data Table, Item, Kbd, Table, Typography
-
-Misc: Collapsible, Pagination, Range Calendar, Toggle, Toggle Group
-
-### MCP Server (optional)
-
-A multi-framework MCP server is available via `@jpisnice/shadcn-ui-mcp-server`. Install it for direct component source code and demo access:
-
-```bash
-claude mcp add shadcn -- bunx -y @jpisnice/shadcn-ui-mcp-server --framework svelte --github-api-key YOUR_TOKEN
-```
-
-When installed, use these tools:
-
-- `list_components` — browse all available components
-- `get_component` — retrieve source code for a specific component
-- `get_component_demo` — access usage examples and documentation
-- `get_component_metadata` — get dependencies and metadata
+mechanical part — **`class` last** — is an `error`-level `no-restricted-syntax`
+rule in `eslint.config.js`, checked on both the destructure and the type literal,
+so a misplaced `class` fails `npm run lint`. Reference examples:
+`EmptyState.svelte`, `FileTreeDocument.svelte`, `ConfirmDialog.svelte`.

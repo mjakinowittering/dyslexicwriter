@@ -1,18 +1,25 @@
 ---
 name: testing
-description: The Vitest strategy — what is worth testing in an app whose only job is not losing the user's writing, the three vitest projects (server/client/storybook), and the OPFS filesystem harness. Load when writing tests, or before committing changes to the markdown round-trip, `lib/fs/`, or the models.
+description: The Vitest strategy — what is worth testing in an app whose only job is not losing the user's writing, the four vitest projects (server/client/storybook × 2 themes), and the OPFS filesystem harness. Load when writing tests, or before committing changes to the markdown round-trip, `lib/fs/`, or the models.
 ---
 
 # Testing
 
-Vitest, three projects, configured inside `vite.config.ts` (there is no separate
+Vitest, four projects, configured inside `vite.config.ts` (there is no separate
 vitest config):
 
-| Project     | Environment           | Picks up                                                      |
-| ----------- | --------------------- | ------------------------------------------------------------- |
-| `server`    | node                  | `src/**/*.{test,spec}.ts` — pure logic (models, text-map)     |
-| `client`    | chromium (playwright) | `*.svelte.{test,spec}.ts` **and** `src/tests/lib/markdown/**` |
-| `storybook` | chromium              | every story, as a render smoke test                           |
+| Project           | Environment           | Picks up                                                      |
+| ----------------- | --------------------- | ------------------------------------------------------------- |
+| `server`          | node                  | `src/**/*.{test,spec}.ts` — pure logic (models, text-map)     |
+| `client`          | chromium (playwright) | `*.svelte.{test,spec}.ts` **and** `src/tests/lib/markdown/**` |
+| `storybook-light` | chromium              | every story, as a render smoke test                           |
+| `storybook-dark`  | chromium              | every story again, in the other theme                         |
+
+The storybook project is generated twice, once per theme, differing only in the
+setup file that pins the theme global. The a11y addon is enforcing (`test:
+'error'` in `.storybook/preview.ts`) and axe only ever sees the colours the run
+happens to render in — a single project would leave every light-theme contrast
+defect invisible. That also means **a new story costs two test cases, not one.**
 
 Every suite lives under `src/tests/`, mirroring the source tree — a test for
 `src/lib/fs/documents.ts` is `src/tests/lib/fs/documents.svelte.test.ts`. Shared

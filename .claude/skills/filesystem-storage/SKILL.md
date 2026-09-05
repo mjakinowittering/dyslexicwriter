@@ -24,33 +24,13 @@ more than elegance here.
 | `stores/workspace.svelte.ts` | The chosen folder, the parsed config, the document tree, and the `WorkspaceStatus` machine                             |
 | `stores/document.svelte.ts`  | The open document: autosave debounce, flush, rename, image insert                                                      |
 
-## On-disk shape
-
-The app **creates** one folder per document. It **finds** whatever is there.
-
-```
-<working folder>/
-├── config.json              <- ALL preferences, and nothing else
-├── My Chapter/              <- a folder-document: what the app creates
-│   ├── My Chapter.md        <- the document
-│   └── diagram.png          <- images belong to the document that uses them
-├── notes.md                 <- a file-document: found, not created
-└── Book/
-    └── Chapters/
-        ├── One.md           <- also file-documents; they share the folder
-        └── Two.md
-```
-
 ## Two kinds of document
 
-Every operation in `documents.ts` branches on `location.ownsFolder`:
+**The on-disk shape and what separates a folder-document from a file-document are
+CLAUDE.md's Data Model — read that first.** This section is only what the code
+adds on top of it.
 
-- **folder-document** — `X/X.md`, alone in its folder. Rename copies the whole
-  folder inside its own **parent** and removes the source last; delete removes it
-  recursively; images go inside it.
-- **file-document** — a markdown file among others, at any depth. Rename renames
-  only the file (new file first, old one last — same guarantee); delete removes
-  only that file; images land beside it, in the user's own folder.
+Every operation in `documents.ts` branches on `location.ownsFolder`.
 
 `ownsItsFolder()` requires the folder to be named after the file **and** to hold
 exactly that one markdown file **and** no subdirectories. The last two conditions
@@ -237,9 +217,14 @@ a collision afterwards:
   off however the caller is gated. `deleteDocument` passes `recursive: true` on
   purpose, because a folder-document's folder _is_ the document.
 - `createDocument(root, folder, title)` — named before it is made and written
-  straight away, as a **file-document** inside the chosen folder, always `.md`. It
-  goes through `writeDocument` so the file is derived by the same `toMarkdown` path
-  as every other write. `ownsFolder` is a placeholder here; the scan recomputes it.
+  straight away, as a **folder-document**: `<folder>/<Title>/<Title>.md`, always
+  `.md`. Every document the app creates gets a folder of its own, because images
+  belong to the document that uses them and only a folder of its own can hold
+  them — written flat, its images would sit in the chosen folder shared with every
+  sibling, and renaming or deleting it would strand them. It goes through
+  `writeDocument`, so the folder is created before the file inside it, the same
+  ordering the editor's first save uses. The Files screen is unchanged by this:
+  `onlyDocument()` collapses `X/X.md` back into one row.
 
 The Files screen also checks a name against the tree while it is being typed, so the
 writer sees the collision before Create is reachable. That check is a courtesy over a

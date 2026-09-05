@@ -1,6 +1,7 @@
 import type { JSONContent } from '@tiptap/core';
 
 import {
+    emptyDocument,
     fromMarkdown,
     joinFrontmatter,
     splitFrontmatter,
@@ -22,29 +23,16 @@ import {
 } from '$lib/models/document.model';
 import * as m from '$lib/paraglide/messages';
 
-// Every filesystem operation on documents.
+import { isNotFoundError, writeFile } from './io';
+
+// Every filesystem operation on documents: scan, read, write, rename, delete,
+// images, and the folders around them.
 //
-// The app CREATES one folder per document, holding a markdown file of the same
-// name plus that document's images:
-//
-//   My Chapter/
-//     My Chapter.md
-//     diagram.png
-//
-// but it FINDS whatever is actually there. Point it at an existing writing folder
-// and there will be loose files at the root and chapters nested several levels
-// down, so the scan walks the tree and takes every markdown file it reaches.
-//
-// That gives two kinds of document:
-//
-//   folder-document  `X/X.md`, alone in its folder — the shape above. Renaming
-//                    moves the folder, deleting removes it whole, images go inside.
-//   file-document    a markdown file sitting among others. Renaming renames the
-//                    file alone, deleting removes only it, images go beside it.
-//
-// The folder on disk is the only authority. Nothing caches this list: `scanFolder`
-// walks it into the workspace store on load, every screen renders from there, and
-// it is scanned again rather than remembered.
+// The on-disk shape and the two kinds of document it produces — folder-document
+// and file-document — are CLAUDE.md's Data Model, and are not restated here.
+// What every function below adds is why its particular ordering is what it is,
+// and those comments are load-bearing: the rename and delete paths are the two
+// places in this app where getting it wrong costs the writer their work.
 
 // How many directory levels below the working folder the initial scan walks. A
 // directory the cap stops at is returned unloaded, and the Files screen scans it
@@ -194,24 +182,10 @@ async function stillOwnsFolder(
     return found;
 }
 
-// Did this fail because the thing we were reading is no longer there?
-//
-// The folder is live, and a listing is only ever a snapshot: an entry it saw can
-// be gone by the time we stat it. This app's own rename is one cause — it writes
-// the new name and removes the old one a moment later — and the writer's other
-// tools (a file manager, a sync client) are under no obligation to hold still
-// either. A scan that failed whole for one vanished entry told the writer their
-// folder had moved when it had not, so a missing entry drops out of this pass and
-// the next scan tells the truth.
-//
-// Narrow on purpose. Every other failure — a permission we no longer have, most
-// of all — still fails the scan, because that one really does need saying.
-function isMissingEntry(cause: unknown): boolean {
-    return cause instanceof DOMException && cause.name === 'NotFoundError';
-}
-
-// Null when the file vanished between the listing and this read — see
-// `isMissingEntry`. The caller drops it from the folder's documents.
+// Null when the file vanished between the listing and this read. A scan that
+// failed whole for one entry that has since gone told the writer their folder had
+// moved when it had not, so it drops out of this pass and the next scan tells the
+// truth. The caller drops it from the folder's documents.
 async function toIndexEntry(
     handle: FileSystemFileHandle,
     folder: string,
@@ -222,7 +196,7 @@ async function toIndexEntry(
     try {
         lastModified = (await handle.getFile()).lastModified;
     } catch (cause) {
-        if (isMissingEntry(cause)) return null;
+        if (isNotFoundError(cause)) return null;
         throw cause;
     }
 
@@ -336,7 +310,7 @@ async function walk(
             } catch (cause) {
                 // Removed while we were walking towards it — a folder-document's
                 // rename does exactly this. Nothing to show, and nothing wrong.
-                if (isMissingEntry(cause)) continue;
+                if (isNotFoundError(cause)) continue;
                 throw cause;
             }
         } else {
@@ -384,19 +358,6 @@ export async function scanFolder(
     const dir = await resolveDirectory(root, path);
 
     return walk(dir, path, options?.depth ?? SCAN_DEPTH);
-}
-
-// Every document in a scanned tree, flattened into the order the Files screen
-// shows them — folders first, then the documents sitting directly in this one.
-// Nothing in the app calls this: the Files screen renders the tree itself, and
-// there is no index to flatten it into (config.json holds preferences only). It
-// stays for the OPFS suites, which assert against a scan as a flat list of
-// paths, and is deliberately not re-exported from `$lib/fs`.
-export function flattenDocuments(node: FolderNode): DocumentIndexEntry[] {
-    return [
-        ...node.folders.flatMap((child) => flattenDocuments(child)),
-        ...node.documents
-    ];
 }
 
 // Locate a document within an already-scanned tree, so its row can be updated
@@ -552,11 +513,7 @@ export async function writeDocument(
     const markdown = joinFrontmatter(frontmatter, toMarkdown(contentJson));
 
     const dir = await resolveDirectory(root, location.folder, { create: true });
-    const handle = await dir.getFileHandle(location.file, { create: true });
-
-    const writable = await handle.createWritable();
-    await writable.write(markdown);
-    await writable.close();
+    await writeFile(dir, location.file, markdown);
 
     return {
         title: titleFromFileName(location.file),
@@ -608,10 +565,7 @@ export async function createDocument(
             file: fileName,
             ownsFolder: true
         },
-        {
-            type: 'doc',
-            content: [{ type: 'paragraph' }]
-        }
+        emptyDocument()
     );
 }
 
@@ -647,10 +601,7 @@ async function copyFile(
     name: string
 ): Promise<void> {
     const data = await source.getFile();
-    const handle = await destination.getFileHandle(name, { create: true });
-    const writable = await handle.createWritable();
-    await writable.write(await data.arrayBuffer());
-    await writable.close();
+    await writeFile(destination, name, await data.arrayBuffer());
 }
 
 // Rename a document. Whichever kind it is, the ORDERING is the same: establish
@@ -934,10 +885,7 @@ export async function writeImage(
     const dir = await resolveDirectory(root, folder, { create: true });
     const name = await uniqueImageName(dir, file.name);
 
-    const handle = await dir.getFileHandle(name, { create: true });
-    const writable = await handle.createWritable();
-    await writable.write(await file.arrayBuffer());
-    await writable.close();
+    await writeFile(dir, name, await file.arrayBuffer());
 
     return name;
 }

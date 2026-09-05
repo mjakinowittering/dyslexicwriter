@@ -168,10 +168,10 @@ Within each, related items sit next to each other.
       (horizontal overflow) and `.selectedCell` (cell-selection tint). Column resizing is
       off by design, so `.column-resize-handle` is not needed
 - [ ] Ship a real `og:image`. `static/og-image.png` is a 0-byte placeholder, but
-      `src/app.html:36` and `:52` already point at it and declare it 1200x630, so
+      `src/app.html` already points at it (both the Open Graph and Twitter tags) and declare it 1200x630, so
       every link preview of the deployed site resolves to an empty image. The rest
       of the GitHub Pages work is done: the `404.html` fallback
-      (`svelte.config.js:21`), `static/.nojekyll`, the base path from `BASE_PATH`
+      (`svelte.config.js`), `static/.nojekyll`, the base path from `BASE_PATH`
       via `actions/configure-pages`, the deploy workflow
       (`.github/workflows/build-and-deploy.yml`) and the full head metadata
       including the `<noscript>` prose. Add a real 1200x630 PNG under `static/`;
@@ -180,22 +180,21 @@ Within each, related items sit next to each other.
       the right, in the app's own achromatic palette. Three things go with it: the window
       needs more separation from the near-black ground than `oklch(1 0 0 / 10%)` gives it
       (a light ring, ~`oklch(1 0 0 / 0.16)`, plus a soft glow); the tagline becomes "Write
-      it. Hear it. Keep it."; and `src/app.html:42`'s `og:image:alt` still carries the old
+      it. Hear it. Keep it."; and `src/app.html`'s `og:image:alt` still carries the old
       "write, and hear it back", so it changes in the same commit or the alt text
       describes a different picture. Re-render the mock once the highlight colours land
 - [ ] Handle a pasted image the way a dropped one is handled. `PageEditor.svelte` wires
-      `handleDrop` only, but its own prop doc (`:33`) and `writeImage`'s comment
-      (`documents.ts:812`) both say "dropped or pasted" — and `allowBase64: false` on the
+      `handleDrop` only, but its own prop doc for `onDropImage` and `writeImage`'s comment in
+      `documents.ts` both say "dropped or pasted" — and `allowBase64: false` on the
       Image extension means a pasted image is discarded rather than degrading to a data
       URI, so nothing appears and nothing says why. Add `handlePaste` alongside
       `handleDrop`, taking the first `image/*` item off `event.clipboardData.files`,
       claiming the event, and routing it through the same `onDropImage` → `doc.addImage`
       path so the file lands in the document's own directory. The insertion position is
       the caret rather than `posAtCoords`; everything else is the drop handler's shape
-- [ ] Fix the double rename fired by the title field. `edit/+page.svelte:146-147` binds
-      both `onchange` and `onblur` to `doc.rename(title)`, and for a text input `change`
-      fires immediately before `blur` — so both run. The guard in `rename()`
-      (`document.svelte.ts:232`) is `target === this.title`, and `this.title` is only
+- [ ] Fix the double rename fired by the title field. `edit/+page.svelte`'s title field binds
+      both `onchange` and `onblur` to `renameFromTitle`, and for a text input `change`
+      fires immediately before `blur` — so both run. The guard in the document store's `rename()` is `target === this.title`, and `this.title` is only
       updated _after_ `await renameDocument(...)` resolves, so the second call passes it
       and starts a concurrent rename against the same location. The writer sees a
       spurious "already exists", or the two race the `removeEntry` of the old file. One
@@ -207,7 +206,7 @@ Within each, related items sit next to each other.
       into `m.content_read_time({ time })` — English hardcoded in a util and smuggled
       through a message key. Return the parts (`{ hours, minutes, seconds }`) and let
       message keys own the words and the plurals, the way every other string in the app
-      already works. `WelcomePreview.svelte:58` is the other call site
+      already works. `WelcomePreview.svelte` is the other call site
 
 ### Features
 
