@@ -8,11 +8,12 @@
     import type { SaveState } from '$lib/stores/document.svelte';
 
     // What is happening to the disk right now. Two states, one row: writing the
-    // disk has not seen yet, and a write actually in flight. Autosave waits for a
-    // pause of half a minute, so the first is up for most of an active writing
-    // session — which is the point: the writer should never have to wonder, and
-    // never has to look anywhere else to find out. Its sibling says how old the
-    // copy on disk is and nothing else, so the two never contradict each other.
+    // disk has not seen yet, and a write actually in flight. Autosave waits a few
+    // seconds for a pause, so the first comes up whenever a sentence is being
+    // written and goes again shortly after it stops — which is the point: the
+    // writer should never have to wonder, and never has to look anywhere else to
+    // find out. Its sibling says how old the copy on disk is and nothing else, so
+    // the two never contradict each other.
     //
     // A step darker than the rest of the bar so it registers, but not
     // `destructive` — pending is the normal state of a document being written,

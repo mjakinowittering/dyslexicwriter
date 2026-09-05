@@ -41,14 +41,27 @@ picker button in the `needs-folder` state is that gesture.
 
 `document.svelte.ts` is the only place the user's writing can be lost, so:
 
-- `applyEdit()` marks dirty and (re)starts a ~600ms debounce.
-- `flush()` cancels the timer and writes immediately. It is called on **blur**,
+- `applyEdit()` marks dirty and (re)starts the `AUTOSAVE_DEBOUNCE_MS` timer (5s
+  from the last keystroke), under an `AUTOSAVE_MAX_WAIT_MS` ceiling (30s from the
+  first unsaved edit, never extended) so unbroken typing still gets written.
+- `flush()` cancels both timers and writes immediately. It is called on **blur**,
   **`pagehide`**, **`visibilitychange` → hidden**, **destroy**, and **before a
   rename**. The debounce is an optimisation; this list is the guarantee.
 - Writes are serialised through a `#writing` promise chain, so a flush can never
   overlap an in-flight autosave.
 - A failed write sets `#dirty` back to `true` so the next attempt retries, and
   surfaces a message the status bar renders. Never fail silently.
+
+**`applyEdit()` is a signal the store cannot verify, so the editor verifies it.**
+`flush()` is a no-op on a clean document, which means one missed `onUpdate` takes
+every exit path above down with it. `PageEditor.svelte` therefore compares
+`editor.state.doc` against the last one it reported — ProseMirror nodes are
+immutable, so identity is an exact, O(1) answer — on blur, on a
+`CONTENT_CHECK_MS` heartbeat, and via its exported `reconcile()`, which the edit
+page calls before every flush. That is what catches an edit made from outside the
+editor: a browser extension rewriting the contenteditable raises no TipTap event.
+Content loaded rather than typed (the constructor's, and the seeding effect's) is
+recorded as already-reported, or opening a document would write it straight back.
 
 Full detail, including the rename ordering, is in `[[filesystem-storage]]`.
 

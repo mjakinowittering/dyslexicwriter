@@ -148,7 +148,7 @@
     name="Unsaved, Never Saved"
     args={{ wordCount: 842, saveState: 'pending', savedAt: null }}
     play={async ({ canvas }) => {
-        // The first thirty seconds of a brand-new document. There is no age to
+        // A brand-new document, before its first write. There is no age to
         // report yet, so the unsaved chip carries the bar on its own — this is the
         // state that used to leave it completely blank.
         await expect(canvas.getByText(m.editor_unsaved())).toBeInTheDocument();
