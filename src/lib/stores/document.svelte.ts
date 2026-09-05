@@ -22,11 +22,20 @@ import { workspace } from './workspace.svelte';
 // but every exit path (blur, tab hidden, page unload, navigation) FLUSHES: the
 // debounce is an optimisation, never the thing standing between a keystroke and
 // the disk.
+//
+// Note what this store is NOT told about. `applyEdit` is the only thing that
+// marks the document dirty, and `flush` is a no-op on a clean one — so an edit
+// that never reaches `applyEdit` is invisible to every exit path at once. The
+// editor does not rely on being handed each change as it happens: it compares
+// its own content against what it last reported (see PageEditor's CONTENT_CHECK_MS)
+// and calls in anything that arrived by some other route — a browser extension
+// rewriting the DOM, say.
 
-// Long enough that a writer mid-paragraph is not interrupted by a write on every
-// pause for thought, short enough that the gap between the last keystroke and the
-// disk stays small. Measured from the LAST edit, so it restarts on every keystroke.
-export const AUTOSAVE_DEBOUNCE_MS = 30_000;
+// Long enough that a writer mid-word is not interrupted by a write between one
+// keystroke and the next, short enough that "unsaved" is a state a writer passes
+// through rather than the one they sit in all session. Measured from the LAST
+// edit, so it restarts on every keystroke.
+export const AUTOSAVE_DEBOUNCE_MS = 5_000;
 
 // …which is why the debounce cannot be the only timer. A deadline that every
 // keystroke pushes further away is never reached while the typing is unbroken: a
@@ -34,7 +43,7 @@ export const AUTOSAVE_DEBOUNCE_MS = 30_000;
 // have no way of knowing. This is the ceiling on that, measured from the FIRST
 // unsaved edit and never extended, so a run of continuous writing still gets
 // written. Only a pause shorter than the debounce can be paid for with it.
-export const AUTOSAVE_MAX_WAIT_MS = 60_000;
+export const AUTOSAVE_MAX_WAIT_MS = 30_000;
 
 // `idle` is the opening state and means nothing has happened yet — distinct from
 // `pending`, which means there are edits the disk has not seen. The status bar

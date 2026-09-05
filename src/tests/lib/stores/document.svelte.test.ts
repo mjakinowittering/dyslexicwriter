@@ -140,7 +140,8 @@ describe('autosave', () => {
         // `pending` is what the status bar renders the unsaved marker from. It has
         // to be true the instant the key is pressed and stay true for the whole
         // wait — `#dirty` is private and unobservable, so a state left on 'idle'
-        // here is thirty seconds of the bar claiming there is nothing to report.
+        // here is the whole debounce spent with the bar claiming there is nothing
+        // to report.
         expect(doc.saveState).toBe('pending');
 
         await vi.advanceTimersByTimeAsync(AUTOSAVE_DEBOUNCE_MS - 1);

@@ -10,9 +10,14 @@
     // disk. That is the path the seeding effect exists for.
     let {
         onTransaction,
+        onUpdate,
         register
     }: {
         onTransaction?: (editor: Editor) => void;
+        // The "there is writing the disk has not seen" signal. On the real page
+        // this is what marks the document dirty, so a test watching it is
+        // watching the one thing standing between an edit and the bin.
+        onUpdate?: () => void;
         // Called once during init with a function that seeds the document.
         register: (seed: (content: JSONContent) => void) => void;
     } = $props();
@@ -28,4 +33,4 @@
     untrack(() => register(seed));
 </script>
 
-<PageEditor {content} {onTransaction} />
+<PageEditor {content} {onTransaction} {onUpdate} />

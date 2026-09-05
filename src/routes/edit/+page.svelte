@@ -27,6 +27,12 @@
     import { speech } from '$lib/tts/speech-controller.svelte';
 
     let editor = $state<TipTapEditor>();
+    // The editor component itself, for `reconcile()`. The exit paths below have to
+    // ask it whether it is holding anything the store has not been told about
+    // before they flush — a flush is a no-op on a document the store believes is
+    // clean, and an edit made from outside the editor (a browser extension
+    // rewriting the text) raises no event to tell it otherwise.
+    let pageEditor: ReturnType<typeof Page.Editor> | undefined;
     let settingsOpen = $state(false);
     let title = $state('');
 
@@ -76,13 +82,17 @@
     // talking with nothing left on screen to silence it.
     function onPageHide() {
         speech.stop();
+        pageEditor?.reconcile();
         void doc.flush();
     }
 
     // Deliberately does not stop the read: a writer listening while they look at
     // another window is using the feature, not leaving it.
     function onVisibilityChange() {
-        if (document.visibilityState === 'hidden') void doc.flush();
+        if (document.visibilityState !== 'hidden') return;
+
+        pageEditor?.reconcile();
+        void doc.flush();
     }
 
     onDestroy(() => {
@@ -90,10 +100,15 @@
         // would target a destroyed view.
         speech.stop();
         speech.unloadVoices();
+        // Best-effort: the child may already be torn down by the time this runs.
+        // `onBack` is the in-app navigation path that reliably catches this, and
+        // the editor's own heartbeat is the backstop behind both.
+        pageEditor?.reconcile();
         void doc.close();
     });
 
     async function onBack() {
+        pageEditor?.reconcile();
         await doc.flush();
         await goto(resolve('/'));
     }
@@ -228,6 +243,7 @@
             reading={speech.isPlaying}
         >
             <Page.Editor
+                bind:this={pageEditor}
                 bind:editor
                 bind:wordCount={doc.wordCount}
                 class="flex flex-1 flex-col"

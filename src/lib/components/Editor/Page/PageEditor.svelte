@@ -1,7 +1,17 @@
+<script lang="ts" module>
+    // How often the editor checks its own content against what it last reported.
+    //
+    // The check is an object-identity comparison, so this can be short without
+    // costing anything: it is the interval between a change nobody told us about
+    // and the store hearing of it, and nothing else.
+    export const CONTENT_CHECK_MS = 2_000;
+</script>
+
 <script lang="ts">
     import type { JSONContent } from '@tiptap/core';
     import { Editor } from '@tiptap/core';
     import { CharacterCount, Placeholder } from '@tiptap/extensions';
+    import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
     import { onDestroy, onMount, untrack } from 'svelte';
 
     import { documentExtensions } from '$lib/markdown';
@@ -56,6 +66,40 @@
     // done so a later echo of the same prop can't overwrite what has been typed
     // since.
     let loaded = $state(false);
+
+    // The document last handed to `onUpdate`.
+    //
+    // ProseMirror nodes are immutable: a transaction that changes nothing hands
+    // back the same object, so identity is an exact answer to "has anything
+    // changed since?" — no traversal, no serialising a document on a timer.
+    //
+    // Deliberately a plain `let`. Nothing renders from it, and a ProseMirror node
+    // behind a $state proxy is the bug the TTS highlight already documents.
+    let reportedDoc: ProseMirrorNode | null = null;
+
+    // Tell the page there is writing it has not seen — but only if there is.
+    //
+    // `onUpdate` firing is the fast path, not the guarantee. TipTap emits it from
+    // its own dispatch, so a change that reaches the document by some other route
+    // — a browser extension rewriting the contenteditable, a transaction carrying
+    // `preventUpdate` — never raises it, and the store's every exit path is a
+    // no-op on a document it believes is clean. This is what closes that: the
+    // question becomes what the editor is holding, not what it remembered to say.
+    export function reconcile(): void {
+        if (!editor || editor.isDestroyed) return;
+        if (editor.state.doc === reportedDoc) return;
+
+        reportedDoc = editor.state.doc;
+        onUpdate?.();
+    }
+
+    // Content that arrived rather than being written: the constructor's, and the
+    // seeding effect's. Recording it is what stops a freshly-opened document
+    // reading as an edit and being written straight back — TrailingNode's
+    // appended paragraph and all.
+    function markSeeded(): void {
+        reportedDoc = editor?.state.doc ?? null;
+    }
 
     function wordsOf(instance: Editor): number {
         return (
@@ -147,8 +191,15 @@
                 wordCount = wordsOf(e);
                 onTransaction?.(e);
             },
-            onUpdate: () => onUpdate?.(),
-            onBlur: () => onBlur?.()
+            onUpdate: () => reconcile(),
+            // Reconcile BEFORE the page's own handler: it flushes, and a flush
+            // is a no-op until the store has been told there is something to
+            // write. Accepting an extension's suggestion blurs the editor, so
+            // for those this is the exit path that matters.
+            onBlur: () => {
+                reconcile();
+                onBlur?.();
+            }
         });
     }
 
@@ -163,6 +214,16 @@
             loaded = true;
             wordCount = wordsOf(editor);
         }
+        markSeeded();
+
+        // The heartbeat. Blur and the page's exit paths cover a writer who leaves;
+        // this covers the one who doesn't — accepting a spelling suggestion can be
+        // the last thing that happens before the tab sits idle for an hour, with
+        // no keystroke, no blur and nothing else armed to notice.
+        if (!editable) return;
+
+        const beat = setInterval(reconcile, CONTENT_CHECK_MS);
+        return () => clearInterval(beat);
     });
 
     // Seed the editor once when the document arrives after mount. emitUpdate: false
@@ -184,6 +245,7 @@
                 .setContent(incoming, { emitUpdate: false })
                 .run();
             if (editor) wordCount = wordsOf(editor);
+            markSeeded();
             loaded = true;
         });
     });

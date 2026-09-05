@@ -97,7 +97,7 @@ open" instead of "nothing in here".
 
 `workspace.refresh()` re-walks from the root and replays the folders the user had
 opened past the cap, so a rescan never folds the tree back up. Autosave calls
-`workspace.touch(entry)` instead — a full re-walk on a 600ms debounce is far too
+`workspace.touch(entry)` instead — a full re-walk on every autosave is far too
 much work, so `touch` moves one entry's mtime in the tree and only falls back to
 `refresh()` when the document is one the tree has never seen (a first save).
 Nothing is written to disk either way: the tree is the only copy of this list.
