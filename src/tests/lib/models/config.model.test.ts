@@ -39,6 +39,7 @@ describe('defaults.json', () => {
     it('holds preferences only', () => {
         expect(Object.keys(shippedDefaults).sort()).toEqual([
             'font',
+            'prettier',
             'theme',
             'tts'
         ]);
@@ -65,7 +66,8 @@ describe('parseConfig', () => {
         version: CONFIG_VERSION,
         theme: 'dark',
         font: 'sans',
-        tts: { voiceUri: 'urn:moz-tts:sapi:Zira', rate: 1.4 }
+        tts: { voiceUri: 'urn:moz-tts:sapi:Zira', rate: 1.4 },
+        prettier: { printWidth: 72, proseWrap: 'always' }
     };
 
     it('returns a valid config unchanged', () => {
@@ -110,6 +112,28 @@ describe('parseConfig', () => {
 
         expect(parsed.tts.voiceUri).toBe('urn:moz-tts:sapi:Zira');
         expect(parsed.tts.rate).toBe(defaultConfig().tts.rate);
+    });
+
+    it('keeps the wrap mode when the print width is out of range', () => {
+        const parsed = parseConfig({
+            ...saved,
+            prettier: { printWidth: 5000, proseWrap: 'preserve' }
+        });
+
+        expect(parsed.prettier.proseWrap).toBe('preserve');
+        expect(parsed.prettier.printWidth).toBe(
+            defaultConfig().prettier.printWidth
+        );
+    });
+
+    // The formatting keys are the newest arrivals, so this is the case that proves
+    // they are layered like every other rather than replaced wholesale.
+    it('keeps the sibling preferences when the formatting block is corrupt', () => {
+        const parsed = parseConfig({ ...saved, prettier: 'wrap it please' });
+
+        expect(parsed.prettier).toEqual(defaultConfig().prettier);
+        expect(parsed.font).toBe('sans');
+        expect(parsed.tts).toEqual(saved.tts);
     });
 
     it('falls back to defaults for a missing key', () => {

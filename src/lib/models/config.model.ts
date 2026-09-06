@@ -3,6 +3,11 @@ import * as v from 'valibot';
 import shippedDefaults from '$lib/config/defaults.json';
 
 import {
+    prettierPreferencesSchema,
+    PRINT_WIDTH_DEFAULT,
+    type PrettierPreferences
+} from './prettier.model';
+import {
     TTS_DEFAULT_RATE,
     ttsPreferencesSchema,
     type TtsPreferences
@@ -41,7 +46,8 @@ const versionSchema = v.pipe(v.number(), v.integer());
 export const preferencesSchema = v.object({
     theme: themeSchema,
     font: fontSchema,
-    tts: ttsPreferencesSchema
+    tts: ttsPreferencesSchema,
+    prettier: prettierPreferencesSchema
 });
 
 export const configSchema = v.object({
@@ -60,7 +66,8 @@ export type Config = v.InferOutput<typeof configSchema>;
 const FALLBACK_PREFERENCES: Preferences = {
     theme: 'dark',
     font: 'dyslexic',
-    tts: { voiceUri: null, rate: TTS_DEFAULT_RATE }
+    tts: { voiceUri: null, rate: TTS_DEFAULT_RATE },
+    prettier: { printWidth: PRINT_WIDTH_DEFAULT, proseWrap: 'always' }
 };
 
 // Parse one value against one schema, falling back rather than throwing. The
@@ -95,6 +102,27 @@ function layerTts(input: unknown, base: TtsPreferences): TtsPreferences {
     };
 }
 
+function layerPrettier(
+    input: unknown,
+    base: PrettierPreferences
+): PrettierPreferences {
+    const raw = asRecord(input);
+    if (!raw) return base;
+
+    return {
+        printWidth: pick(
+            prettierPreferencesSchema.entries.printWidth,
+            raw.printWidth,
+            base.printWidth
+        ),
+        proseWrap: pick(
+            prettierPreferencesSchema.entries.proseWrap,
+            raw.proseWrap,
+            base.proseWrap
+        )
+    };
+}
+
 // Layer one set of preferences over another, key by key. Used twice: to lay the
 // shipped `defaults.json` over the in-code fallbacks, and to lay the user's
 // saved `config.json` over those defaults.
@@ -105,7 +133,8 @@ function layerPreferences(input: unknown, base: Preferences): Preferences {
     return {
         theme: pick(themeSchema, raw.theme, base.theme),
         font: pick(fontSchema, raw.font, base.font),
-        tts: layerTts(raw.tts, base.tts)
+        tts: layerTts(raw.tts, base.tts),
+        prettier: layerPrettier(raw.prettier, base.prettier)
     };
 }
 

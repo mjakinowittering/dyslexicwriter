@@ -1,7 +1,13 @@
 import * as opfs from '../../support/opfs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { readConfig, updateConfig, writeConfig } from '$lib/fs/config';
+import {
+    loadConfig,
+    readConfig,
+    refreshConfig,
+    updateConfig,
+    writeConfig
+} from '$lib/fs/config';
 import {
     CONFIG_FILE_NAME,
     CONFIG_VERSION,
@@ -104,6 +110,131 @@ describe('readConfig', () => {
         const config = await readConfig(root);
         expect(config.font).toBe(defaultConfig().font);
         expect(config.theme).toBe('dark');
+    });
+});
+
+// Adopting a folder brings its config.json up to date with the preferences this
+// version knows about, so a setting added since the folder was last opened lands
+// in the file the user hand-edits rather than living only in memory.
+describe('refreshConfig', () => {
+    it('creates the file on a folder that has never had one', async () => {
+        const config = await refreshConfig(root);
+
+        expect(config).toEqual(defaultConfig());
+        expect(JSON.parse(await readRaw())).toEqual(defaultConfig());
+    });
+
+    // The reason for the whole change: a folder last opened before a preference
+    // existed must gain it, not be stuck without it until something else is saved.
+    it('writes in a preference the file does not have yet', async () => {
+        const { prettier, ...withoutPrettier } = defaultConfig();
+        expect(prettier).toBeDefined();
+        await writeRaw(`${JSON.stringify(withoutPrettier, null, 2)}\n`);
+
+        const config = await refreshConfig(root);
+
+        expect(config.prettier).toEqual(prettier);
+        expect(JSON.parse(await readRaw()).prettier).toEqual(prettier);
+    });
+
+    it('keeps the settings the user had chosen while adding the new one', async () => {
+        const { prettier: _prettier, ...withoutPrettier } = defaultConfig();
+        await writeRaw(
+            `${JSON.stringify({ ...withoutPrettier, font: 'sans', theme: 'light' }, null, 2)}\n`
+        );
+
+        const config = await refreshConfig(root);
+
+        expect(config.font).toBe('sans');
+        expect(config.theme).toBe('light');
+        expect(JSON.parse(await readRaw()).font).toBe('sans');
+    });
+
+    it('repairs a value that failed validation', async () => {
+        await writeRaw(
+            `${JSON.stringify({ ...defaultConfig(), theme: 'aubergine' }, null, 2)}\n`
+        );
+
+        await refreshConfig(root);
+
+        expect(JSON.parse(await readRaw()).theme).toBe(defaultConfig().theme);
+    });
+
+    it('drops an index left behind by an older version', async () => {
+        await writeRaw(
+            `${JSON.stringify({ ...defaultConfig(), documents: [{ title: 'Old' }] }, null, 2)}\n`
+        );
+
+        await refreshConfig(root);
+
+        expect(await readRaw()).not.toContain('documents');
+    });
+
+    // Every launch calls this. Rewriting a file that already says the right thing
+    // would move its mtime for nothing.
+    it('leaves an up-to-date file untouched', async () => {
+        await writeConfig(root, { ...defaultConfig(), font: 'sans' });
+        const before = await readRaw();
+
+        const write = vi.spyOn(
+            FileSystemFileHandle.prototype,
+            'createWritable'
+        );
+        await refreshConfig(root);
+
+        expect(write).not.toHaveBeenCalled();
+        expect(await readRaw()).toBe(before);
+    });
+
+    // The one file it must never replace. A broken hand-edit is something the
+    // writer was part-way through, and there is no trash behind config.json.
+    it('leaves a file it cannot parse exactly as it found it', async () => {
+        const broken = '{ "theme": "dark", }';
+        await writeRaw(broken);
+
+        const config = await refreshConfig(root);
+
+        expect(config).toEqual(defaultConfig());
+        expect(await readRaw()).toBe(broken);
+    });
+
+    // Reading threw — a revoked permission, an unplugged drive. Answering with
+    // defaults would be indistinguishable from a real read, so it rejects and the
+    // caller decides; writing over settings we never saw is the thing to avoid.
+    it('rejects rather than writing over settings it could not read', async () => {
+        failNextRead();
+
+        await expect(refreshConfig(root)).rejects.toThrow(DOMException);
+    });
+
+    // Nothing of the user's is lost when the tidy-up write fails: the config is
+    // already correct in memory, and a folder that cannot be written to says so
+    // the moment they change a setting.
+    it('still returns the settings when the file cannot be written', async () => {
+        vi.spyOn(
+            FileSystemFileHandle.prototype,
+            'createWritable'
+        ).mockRejectedValue(new DOMException('read-only', 'NotAllowedError'));
+
+        await expect(refreshConfig(root)).resolves.toEqual(defaultConfig());
+    });
+});
+
+describe('loadConfig', () => {
+    it.each([
+        ['no file at all', null, true],
+        ['a file missing a preference', '{"theme":"dark"}', true],
+        ['a file that is not JSON', '{ nope', false]
+    ])('reports %s as outdated=%s', async (_label, raw, outdated) => {
+        if (raw !== null) await writeRaw(raw);
+
+        expect((await loadConfig(root)).outdated).toBe(outdated);
+    });
+
+    it('reports a file it just wrote as up to date', async () => {
+        await writeConfig(root, defaultConfig());
+
+        expect((await loadConfig(root)).outdated).toBe(false);
     });
 });
 

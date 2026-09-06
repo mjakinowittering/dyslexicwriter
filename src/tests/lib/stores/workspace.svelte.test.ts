@@ -5,7 +5,7 @@ import {
     clearDirectoryHandle,
     ensurePermission,
     loadDirectoryHandle,
-    readConfig,
+    refreshConfig,
     saveDirectoryHandle,
     scanFolder,
     updateConfig,
@@ -24,7 +24,7 @@ import { workspace } from '$lib/stores/workspace.svelte';
 // folder the next launch will silently reopen.
 //
 // `$lib/fs` is mocked through to the real module so `clearDirectoryHandle` and
-// `readConfig` can be made to reject on demand and `updateConfig` can be watched;
+// `refreshConfig` can be made to reject on demand and `updateConfig` can be watched;
 // every other export is the genuine one. `ensurePermission` is here because an
 // OPFS handle does not answer `queryPermission`, and `restore()` will not reach
 // the folder without it.
@@ -34,7 +34,7 @@ vi.mock('$lib/fs', async (importOriginal) => {
         ...actual,
         clearDirectoryHandle: vi.fn(actual.clearDirectoryHandle),
         ensurePermission: vi.fn(actual.ensurePermission),
-        readConfig: vi.fn(actual.readConfig),
+        refreshConfig: vi.fn(actual.refreshConfig),
         // Stubbed outright in the adopt tests. The OPFS root these use is shared
         // with the fs suites on purpose (see below), so walking it for real would
         // race them; what is under test here is what `#adopt` does with the
@@ -85,7 +85,7 @@ function node(contents: Partial<FolderNode> = {}): FolderNode {
 afterEach(async () => {
     vi.mocked(clearDirectoryHandle).mockClear();
     vi.mocked(ensurePermission).mockReset();
-    vi.mocked(readConfig).mockReset();
+    vi.mocked(refreshConfig).mockReset();
     vi.mocked(scanFolder).mockReset();
     vi.mocked(updateConfig).mockReset();
     vi.mocked(setMode).mockClear();
@@ -196,7 +196,7 @@ describe('#adopt, when the settings cannot be read', () => {
     });
 
     it('opens the folder anyway, flagged, and says why', async () => {
-        vi.mocked(readConfig).mockRejectedValue(
+        vi.mocked(refreshConfig).mockRejectedValue(
             new DOMException(
                 'the folder is no longer available',
                 'NotAllowedError'
@@ -219,7 +219,7 @@ describe('#adopt, when the settings cannot be read', () => {
     });
 
     it('leaves the theme where it was rather than flipping to a default', async () => {
-        vi.mocked(readConfig).mockRejectedValue(
+        vi.mocked(refreshConfig).mockRejectedValue(
             new DOMException(
                 'the folder is no longer available',
                 'NotAllowedError'
@@ -232,7 +232,7 @@ describe('#adopt, when the settings cannot be read', () => {
     });
 
     it('applies the theme as usual when the settings do read', async () => {
-        vi.mocked(readConfig).mockResolvedValue({
+        vi.mocked(refreshConfig).mockResolvedValue({
             ...defaultConfig(),
             theme: 'light'
         });
@@ -241,6 +241,17 @@ describe('#adopt, when the settings cannot be read', () => {
 
         expect(setMode).toHaveBeenCalledWith('light');
         expect(workspace.settingsUnreadable).toBe(false);
+    });
+
+    // Adopting is where the file catches up with the preferences this version
+    // knows about — the folder is the one place the settings live, so a setting
+    // added since it was last opened has to reach it without the user having to
+    // change something else first. The behaviour itself is covered against real
+    // files in the fs suite; this pins that `#adopt` is what triggers it.
+    it('brings the settings file up to date with this version', async () => {
+        await workspace.restore();
+
+        expect(refreshConfig).toHaveBeenCalledWith(root);
     });
 });
 
@@ -341,7 +352,7 @@ describe('a working folder that has gone', () => {
     });
 
     // Everything `#adopt` does next swallows its own errors, so a folder adopted
-    // here fails silently: readConfig hands back the shipped defaults, and a
+    // here fails silently: refreshConfig hands back the shipped defaults, and a
     // writer on the light theme watches the app go dark on the way past.
     it('is not adopted on restore, and keeps the stored handle', async () => {
         await saveDirectoryHandle(missing);
@@ -462,7 +473,7 @@ describe('chooseFolder', () => {
             create: true
         });
         vi.mocked(ensurePermission).mockResolvedValue(true);
-        vi.mocked(readConfig).mockResolvedValue(defaultConfig());
+        vi.mocked(refreshConfig).mockResolvedValue(defaultConfig());
         vi.mocked(scanFolder).mockResolvedValue(node());
         vi.stubGlobal('showDirectoryPicker', vi.fn().mockResolvedValue(picked));
         workspace.root = null;

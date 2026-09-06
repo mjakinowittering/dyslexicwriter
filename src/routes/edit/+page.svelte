@@ -134,10 +134,16 @@
     // doesn't run on a real tab close or reload — and Chrome's speech queue
     // outlives the page that started it, so a read in progress would carry on
     // talking with nothing left on screen to silence it.
+    //
+    // Formatting is skipped here and below. Both handlers fire un-awaited on a page
+    // the browser may terminate at once, and the formatter runs in a worker — a
+    // message hop is not something this path can afford to wait for. The edit lands
+    // unwrapped and the next ordinary save tidies it, which is the right way round:
+    // a tidier file is never worth an unsaved one.
     function onPageHide() {
         speech.stop();
         pageEditor?.reconcile();
-        void doc.flush();
+        void doc.flush({ format: false });
     }
 
     // Deliberately does not stop the read: a writer listening while they look at
@@ -146,7 +152,7 @@
         if (document.visibilityState !== 'hidden') return;
 
         pageEditor?.reconcile();
-        void doc.flush();
+        void doc.flush({ format: false });
     }
 
     onDestroy(() => {
@@ -237,7 +243,22 @@
                     </div>
                 </div>
 
-                <div class="flex items-center gap-2 px-3 pb-2">
+                <!-- Clipped, so the controls that don't fit are hidden rather
+                     than spilling into the settings panel's column beside them.
+                     The formatting row cannot shrink below its buttons, so once
+                     the panel narrows the editor this row overflows to the right.
+
+                     `-mt-1 pt-1` is not spacing: it is 4px of room inside the clip
+                     for the 3px focus ring, which is drawn outside the button's
+                     box and would otherwise be cut along the top edge. The
+                     negative margin cancels the padding, so nothing moves. The
+                     sides and bottom already have `px-3`/`pb-2` to sit in.
+
+                     Tooltips, the voice popover and its select all portal to the
+                     body, so none of them are clipped by this. -->
+                <div
+                    class="-mt-1 flex items-center gap-2 overflow-hidden px-3 pt-1 pb-2"
+                >
                     <Format.Root>
                         <!-- No `formatting`, so a plain button group: undoing is
                              a one-shot action with no state to report. -->

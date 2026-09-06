@@ -56,6 +56,9 @@ exactly the point.
 | `lib/markdown/extensions.ts`            | The single definition of the allowed node/mark set  |
 | `lib/markdown/to-markdown.ts`           | JSON → HTML → normalise → markdown (turndown + GFM) |
 | `lib/markdown/from-markdown.ts`         | markdown → HTML → JSON (marked + `generateJSON`)    |
+| `lib/markdown/format.ts`                | Prettier over the derived markdown — the pure call  |
+| `lib/markdown/format.worker.ts`         | That call, off the main thread                      |
+| `lib/markdown/format-client.ts`         | The port, and the never-reject contract             |
 | `tests/lib/markdown/round-trip.test.ts` | Every supported node, asserted byte-identical       |
 
 `from-markdown.ts` also exports `emptyDocument()` — the one definition of the
@@ -95,6 +98,38 @@ nodes**: `Placeholder`, `CharacterCount`, and `TtsHighlightExtension`.
 - `Page.svelte` is the document sheet. Its `narrow` prop mirrors the settings
   panel and tweens the measure — a persistent element, so a `Tween` rather than a
   `transition:` (see `[[animations]]`).
+
+## Formatting on the way to disk
+
+`toMarkdown` produces markdown that parses correctly and reads badly — `-   One`
+with three spaces, `* * *` for a thematic break, unpadded table pipes, a paragraph
+on one unbounded line. Prettier's markdown printer tidies all of it, wrapping prose
+at `config.json`'s `prettier.printWidth`.
+
+It runs **between `toMarkdown` and `joinFrontmatter`**, which is the only seam
+where the markdown exists, the frontmatter is not yet attached (so Prettier's YAML
+printer never sees the fence), and the writable is not yet open (so a throw cannot
+truncate a chapter). `writeDocument` takes the formatter as a **parameter** — `fs/`
+imports neither Prettier nor the worker.
+
+Two things are load-bearing and easy to undo by accident:
+
+- **`proseWrap` is what wraps.** `printWidth` alone does nothing to prose:
+  Prettier's default `preserve` leaves every existing break where it is. Both keys
+  are stored, and both matter.
+- **The formatter never rejects.** `markdownFormatter.format()` answers every
+  failure with the _unformatted_ body. The autosave retry has no give-up ceiling,
+  so a rejection here loops forever on a document that never lands. Preferences are
+  also rebuilt as plain values at the port — `workspace.config` is `$state`, and a
+  Svelte proxy throws `DataCloneError` on `postMessage`.
+
+`toMarkdown` cannot move into the worker (it needs `DOMParser` and `@tiptap/html`'s
+browser build), and neither can the write — see `[[filesystem-storage]]` for why
+`pagehide` skips formatting entirely.
+
+Formatting changes the bytes deliberately; what must hold is that it never changes
+the **document**. `round-trip.test.ts` asserts that, including the hazard of a
+`1.`, `-`, `#`, `>` or `+` pushed to a line start by a wrap.
 
 ## Editing model rules
 
