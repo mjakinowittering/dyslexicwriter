@@ -264,6 +264,7 @@
                         <Format.Group bind:formatting={doc.formatting}>
                             <Format.BulletList {disabled} {editor} />
                             <Format.OrderedList {disabled} {editor} />
+                            <Format.TaskList {disabled} {editor} />
                         </Format.Group>
                         <Format.Group bind:formatting={doc.formatting}>
                             <Format.Blockquote {disabled} {editor} />

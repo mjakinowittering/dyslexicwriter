@@ -1,4 +1,5 @@
 import { Image } from '@tiptap/extension-image';
+import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { TableKit } from '@tiptap/extension-table';
 import StarterKit from '@tiptap/starter-kit';
 
@@ -42,6 +43,15 @@ export function documentExtensions({
         // represent, so it is off — the round-trip would discard it anyway.
         TableKit.configure({
             table: { resizable: false }
-        })
+        }),
+        // Task lists. GFM's `- [x] done` is the on-disk form, and both converters
+        // normalise around it — see the taskList sections of to-markdown.ts and
+        // from-markdown.ts, which are a matched pair.
+        TaskList,
+        // `nested: false` is the default and would make a task item hold a single
+        // paragraph and nothing else. Bullet and ordered lists already nest, so a
+        // task list that could not would be the odd one out; GFM nests them and
+        // the round-trip carries it.
+        TaskItem.configure({ nested: true })
     ];
 }

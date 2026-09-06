@@ -15,6 +15,7 @@ import BulletList from './FormatToggleBulletList.svelte';
 import Heading from './FormatToggleHeading.svelte';
 import Italic from './FormatToggleItalic.svelte';
 import OrderedList from './FormatToggleOrderedList.svelte';
+import TaskList from './FormatToggleTaskList.svelte';
 import Undo from './FormatUndo.svelte';
 
 // Which controls are currently on, as the group's pressed keys.
@@ -86,6 +87,7 @@ export {
     OrderedList,
     Redo,
     Root,
+    TaskList,
     Toggle,
     toggleWithWordBoundary,
     Undo

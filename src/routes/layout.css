@@ -238,5 +238,159 @@
        readers, and it costs nothing for everyone else. */
     .prose {
         line-height: 1.75;
+        /* Where a list's text begins, and so how far its marker is pulled back to
+           reach the margin. 2em is exact rather than chosen: Typography indents a
+           list in two steps, the ul/ol and the li each taking a share, and the two
+           always sum to 2em at every prose size —
+
+               prose-sm 22/14 + 6/14   prose 26/16 + 6/16   prose-lg 28/18 + 8/18
+               prose-xl 32/20 + 8/20   prose-2xl 38/24 + 10/24
+
+           so nothing here needs re-tuning when the type scale steps up. */
+        --list-indent: 2em;
+        /* The checkbox — and the column every marker is set in. The bullet is
+           centred on this rather than filling it, so a dot and a box read as one
+           marker column rather than two. */
+        --list-box: 1.05em;
+        /* Where an item's first line actually starts. `li p` carries a block
+           margin (from the editor's prose classes in PageEditor.svelte), so the
+           writing sits this far below the item's own top and every marker has to
+           drop with it or float above the line it belongs to. */
+        --list-line-offset: 0.375rem;
+    }
+
+    /* Markers, for all three kinds of list.
+
+       A number or a checkbox starts where the writing above and below it starts:
+       flush with the paragraph margin, the marker hanging in the indent and the
+       text picking up at 2em. The browser will not do this on its own — a
+       `::marker` sits outside the content box *right*-aligned against it, so `1.`
+       and `10.` end together and begin apart, and neither begins where the prose
+       does. Generated content is positionable where a marker is not, so the two
+       list types that have one give it up and draw their own.
+
+       The marker is positioned against the *list*, not the item. Typography
+       splits a list's indent between the two, and its share of that split is a
+       fraction that changes with the prose size — but the list's own left edge is
+       the paragraph margin at every size, so `left: 0` against it is the whole
+       answer and there is nothing here to keep in step. Overriding the two
+       paddings to make the item's edge predictable was the other way round, and
+       silently did nothing: these rules are in `@layer base` and Typography's are
+       in a later layer, which outranks it whatever the specificity. */
+    .prose ol,
+    .prose ul {
+        position: relative;
+    }
+
+    .prose ol > li,
+    .prose ul > li {
+        list-style: none;
+    }
+
+    /* Taken out of flow rather than set inline: TipTap wraps an item's content in
+       a `<p>`, and a block sibling would push an inline marker onto a line of its
+       own with the writing beneath it. A real `::marker` never had that problem
+       because it lives outside the principal box — absolute positioning is how a
+       replacement gets the same freedom.
+
+       `top` is left to the static position — where the marker would have sat, on
+       its own item's line — so one rule serves every item in the list, and only
+       the horizontal edge is claimed from the list itself.
+
+       `counter(list-item)` is the browser's own list counter rather than one
+       declared here, so `start` on an ordered list, and the numbering of a list
+       nested inside another, both keep working untouched. */
+    .prose ol > li::before,
+    .prose ul:not([data-type='taskList']) > li::before {
+        position: absolute;
+        left: 0;
+        margin-top: var(--list-line-offset);
+    }
+
+    .prose ol > li::before {
+        content: counter(list-item) '.';
+        width: var(--list-indent);
+        color: var(--tw-prose-counters);
+    }
+
+    /* Centred on where the checkbox sits, so a bulleted list under a checklist
+       shares its marker column. Typography's own colour token, so replacing the
+       marker does not also restyle it — and it keeps following prose-invert
+       between the two themes. */
+    .prose ul:not([data-type='taskList']) > li::before {
+        content: '•';
+        width: var(--list-box);
+        text-align: center;
+        color: var(--tw-prose-bullets);
+    }
+
+    /* Checklists. TipTap ships headless, so without this a task list renders as a
+       plain bullet list with a stray checkbox — the marker and the box both, one
+       of them meaningless. It takes its indent from the rules above with every
+       other list, so the three stay in one column. */
+    .prose ul[data-type='taskList'] {
+        /* One line of prose, matching the line-height set above — the box is
+           centred in this rather than nudged down by a guessed margin, so it
+           stays centred as the prose size changes under it. */
+        --task-line: 1.75em;
+    }
+
+    .prose ul[data-type='taskList'] > li {
+        display: flex;
+        align-items: flex-start;
+    }
+
+    /* The checkbox, drawn in the same marker column as a number and a bullet:
+       pulled back the whole indent so its left edge lands on the paragraph margin,
+       and flush to the start of that slot so the slack falls between the box and
+       the text rather than in front of the box.
+
+       The label is what holds the checkbox — `contenteditable="false"` is set by
+       TipTap's node view, and the cursor says so. It is given the first line's own
+       height and centres the box inside it, so the checkbox sits on the middle of
+       the line the way a bullet does, rather than being nudged towards it by a
+       fixed margin that only holds at one font size. */
+    .prose ul[data-type='taskList'] > li > label {
+        display: flex;
+        flex: 0 0 var(--list-indent);
+        align-items: center;
+        height: var(--task-line);
+        margin-inline-start: calc(-1 * var(--list-indent));
+        margin-top: var(--list-line-offset);
+        cursor: pointer;
+        user-select: none;
+    }
+
+    /* A generous hit target: this is the one control in the document a writer
+       actually clicks, and small checkboxes are a poor target for anybody. Its
+       width is `--list-box` rather than a second copy of the number, because the
+       bullet is centred on that same width — the two drifting apart would put a
+       dot and a box in different columns. */
+    .prose ul[data-type='taskList'] > li > label input[type='checkbox'] {
+        width: var(--list-box);
+        height: var(--list-box);
+        /* The UA sheet gives a checkbox its own margin — 3px, and 4px on the left
+           in Chromium. Left alone it pushes the box off the start of the gutter,
+           which is the whitespace-before-the-box a number never has. */
+        margin: 0;
+        cursor: pointer;
+        /* The native control, tinted. An `appearance: none` rebuild would mean
+           hand-drawing the tick, the focus ring and the disabled state — three
+           things the browser already does accessibly, for a box the theme only
+           needs to recolour. Both themes are chroma 0, so the tick reads on it. */
+        accent-color: var(--primary);
+    }
+
+    .prose ul[data-type='taskList'] > li > div {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    /* Crossed out when ticked — the point of the checkbox. Presentation only: the
+       strike is CSS on the `data-checked` attribute, never a strike mark in the
+       document, so it can never reach the markdown as `~~done~~`. */
+    .prose ul[data-type='taskList'] > li[data-checked='true'] > div {
+        color: var(--muted-foreground);
+        text-decoration: line-through;
     }
 }
