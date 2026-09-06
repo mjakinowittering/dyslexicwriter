@@ -6,7 +6,7 @@ description: How to author the Valibot schemas in `src/lib/models/*.model.ts` �
 # Models — Valibot schemas and inferred types
 
 `src/lib/models/` owns the shape of anything the app does not create itself, and
-the TypeScript types inferred from those shapes. There are three files and there
+the TypeScript types inferred from those shapes. There are four files and there
 is no server, no database and no ORM — the only untrusted input in this app is
 `config.json`, a file in the user's own folder that they may hand-edit, truncate,
 or have written with an older version.
@@ -15,6 +15,7 @@ or have written with an older version.
 | ------------------- | ---------------------------------------------------------------------- |
 | `config.model.ts`   | `config.json`: the schema, the defaults, and the key-by-key safe parse |
 | `tts.model.ts`      | Read-aloud voice/rate bounds, shared by the schema and the settings UI |
+| `prettier.model.ts` | Markdown print width and wrap mode, shared by the schema and formatter |
 | `document.model.ts` | Title sanitisation, path helpers, `DocumentIndexEntry` — **no schema** |
 
 ## Not everything here is a schema
@@ -50,7 +51,15 @@ file like any other, and a typo in it must not propagate into a fresh
 `config.json`. `FALLBACK_PREFERENCES` mirrors it in code and takes over per key.
 
 Keys this version does not know are dropped rather than carried through — an old
-`documents` index parses fine, is ignored, and goes for good on the next write.
+`documents` index parses fine, is ignored, and goes for good when the folder is
+next adopted.
+
+That layering is also what makes the file **self-updating**: `refreshConfig` writes
+the merged result back whenever it differs from what is on disk, so a preference
+added in a later version appears in the user's `config.json` without their having to
+change anything. Adding a key to `preferencesSchema` and `defaults.json` is
+therefore the whole migration — see `[[filesystem-storage]]` for the two files it
+refuses to rewrite.
 
 ## Adding a persisted preference
 

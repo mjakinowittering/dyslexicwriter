@@ -23,6 +23,8 @@
     "content_format_redo_hint": "Redo the last change",
     "content_format_table": "Table",
     "content_format_table_hint": "Insert a table",
+    "content_format_task_list": "Toggle checklist",
+    "content_format_task_list_hint": "Checklist",
     "content_format_undo": "Undo",
     "content_format_undo_hint": "Undo the last change",
     "content_read_time": "Read in {time}",

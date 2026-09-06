@@ -1,4 +1,5 @@
 import {
+    CheckListIcon,
     Heading01Icon,
     Heading02Icon,
     Heading03Icon,
@@ -125,6 +126,19 @@ export const formatToggles = {
         wordBoundary: false,
         run: (chain) => chain.toggleOrderedList(),
         isActive: (editor) => editor.isActive('orderedList')
+    },
+    taskList: {
+        icon: CheckListIcon,
+        label: () => m.content_format_task_list(),
+        hint: () => m.content_format_task_list_hint(),
+        // TaskList's own default, so the tooltip is describing a keymap the
+        // extension already binds — and it lands beside the bullet list's
+        // Mod+Shift+8 and the numbered list's Mod+Shift+7.
+        shortcut: ['Mod', 'Shift', '9'],
+        value: 'taskList',
+        wordBoundary: false,
+        run: (chain) => chain.toggleTaskList(),
+        isActive: (editor) => editor.isActive('taskList')
     }
 } satisfies Record<string, FormatToggleDefinition>;
 

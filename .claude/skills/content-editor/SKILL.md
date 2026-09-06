@@ -15,7 +15,7 @@ lost the next time the file is opened.
 The editor is deliberately minimal, and that is a product constraint rather than a
 gap. The writer sees their prose, a placeholder, and a quiet word count.
 
-The toolbar is **capped**: undo/redo, headings, bold, italic, bullet/ordered
+The toolbar is **capped**: undo/redo, headings, bold, italic, bullet/ordered/task
 list, blockquote, horizontal rule, table, image. That is the whole list.
 
 Undo and redo are on it because they surface a keymap the writer already has
@@ -56,6 +56,9 @@ exactly the point.
 | `lib/markdown/extensions.ts`            | The single definition of the allowed node/mark set  |
 | `lib/markdown/to-markdown.ts`           | JSON → HTML → normalise → markdown (turndown + GFM) |
 | `lib/markdown/from-markdown.ts`         | markdown → HTML → JSON (marked + `generateJSON`)    |
+| `lib/markdown/format.ts`                | Prettier over the derived markdown — the pure call  |
+| `lib/markdown/format.worker.ts`         | That call, off the main thread                      |
+| `lib/markdown/format-client.ts`         | The port, and the never-reject contract             |
 | `tests/lib/markdown/round-trip.test.ts` | Every supported node, asserted byte-identical       |
 
 `from-markdown.ts` also exports `emptyDocument()` — the one definition of the
@@ -75,7 +78,22 @@ round-trip does not get added to the editor.
 - **TipTap wraps list-item and table-cell content in `<p>`**. Left alone, turndown
   renders loose lists (a blank line between bullets) and newlines inside table
   cells, which breaks table syntax outright. The `unwrapSoleParagraph` rule
-  collapses the wrapper when it is the only child.
+  collapses the wrapper when the item's own text is that one paragraph —
+  deliberately not "when it is the only child", because a nested list and a task
+  item's checkbox both sit beside it without making the item loose.
+- **Task lists need a normaliser at each end, and they are a matched pair.**
+  TipTap buries the checkbox in a `<label>` and the content in a `<div>`, while
+  turndown-plugin-gfm's `taskListItems` rule only fires on a checkbox that is a
+  direct child of the `<li>` — so `normaliseTaskLists` in `to-markdown.ts`
+  flattens the item into the shape that rule recognises. marked goes the other
+  way, emitting a bare checkbox with no `data-type` for TipTap's `parseHTML` to
+  match on, so `from-markdown.ts` carries a normaliser of the same name putting
+  those attributes back. Break either one and every tick in the user's file is
+  dropped the next time it is opened — silently, because the text survives.
+- **A list mixing tasks and plain bullets becomes a task list**, the plain items
+  gaining an empty box. TipTap's `taskList` holds `taskItem`s and nothing else.
+  Likewise an ordered task list (`1. [ ] One`, which GFM allows) loses its
+  numbering rather than its ticks — a lost number is visible, a lost tick is not.
 - **TipTap emits `<th>` inside `<tbody>` with no `<thead>`**, and adds a
   `<colgroup>`. turndown-plugin-gfm detects the header row via `<thead>`, so
   without `normaliseTables()` it bails and writes raw HTML into the user's file.
@@ -95,6 +113,38 @@ nodes**: `Placeholder`, `CharacterCount`, and `TtsHighlightExtension`.
 - `Page.svelte` is the document sheet. Its `narrow` prop mirrors the settings
   panel and tweens the measure — a persistent element, so a `Tween` rather than a
   `transition:` (see `[[animations]]`).
+
+## Formatting on the way to disk
+
+`toMarkdown` produces markdown that parses correctly and reads badly — `-   One`
+with three spaces, `* * *` for a thematic break, unpadded table pipes, a paragraph
+on one unbounded line. Prettier's markdown printer tidies all of it, wrapping prose
+at `config.json`'s `prettier.printWidth`.
+
+It runs **between `toMarkdown` and `joinFrontmatter`**, which is the only seam
+where the markdown exists, the frontmatter is not yet attached (so Prettier's YAML
+printer never sees the fence), and the writable is not yet open (so a throw cannot
+truncate a chapter). `writeDocument` takes the formatter as a **parameter** — `fs/`
+imports neither Prettier nor the worker.
+
+Two things are load-bearing and easy to undo by accident:
+
+- **`proseWrap` is what wraps.** `printWidth` alone does nothing to prose:
+  Prettier's default `preserve` leaves every existing break where it is. Both keys
+  are stored, and both matter.
+- **The formatter never rejects.** `markdownFormatter.format()` answers every
+  failure with the _unformatted_ body. The autosave retry has no give-up ceiling,
+  so a rejection here loops forever on a document that never lands. Preferences are
+  also rebuilt as plain values at the port — `workspace.config` is `$state`, and a
+  Svelte proxy throws `DataCloneError` on `postMessage`.
+
+`toMarkdown` cannot move into the worker (it needs `DOMParser` and `@tiptap/html`'s
+browser build), and neither can the write — see `[[filesystem-storage]]` for why
+`pagehide` skips formatting entirely.
+
+Formatting changes the bytes deliberately; what must hold is that it never changes
+the **document**. `round-trip.test.ts` asserts that, including the hazard of a
+`1.`, `-`, `#`, `>` or `+` pushed to a line start by a wrap.
 
 ## Editing model rules
 

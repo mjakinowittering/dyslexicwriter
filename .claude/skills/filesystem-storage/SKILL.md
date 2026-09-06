@@ -132,9 +132,29 @@ overlap an in-flight autosave and land the two out of order.
 
 ### Derive the markdown BEFORE opening the writable
 
-`writeDocument` calls `toMarkdown()` first, then opens the writable. Opening a
-writable truncates the file, so serialising after that point means a throw leaves
-an empty file where the user's chapter was.
+`writeDocument` calls `toMarkdown()` first, **awaits the formatter**, and only then
+opens the writable. Opening a writable truncates the file, so anything that can
+throw after that point leaves an empty file where the user's chapter was — which is
+why `format` is awaited at the top of the function and not any closer to the write.
+
+### Formatting is optional, and never fatal
+
+`writeDocument` takes `{ frontmatter, format }`. The `format` callback is passed in
+rather than imported: it runs in a worker and reads a preference off the config,
+neither of which is anything `fs/` should know about. Omitted, the markdown is
+written exactly as turndown emitted it.
+
+`doc.flush({ format: false })` is what the two exit paths that cannot wait for a
+worker — `pagehide` and `visibilitychange` — pass. Both fire un-awaited on a page
+the browser may kill at once, so they write immediately and leave the file
+unwrapped; the next ordinary save tidies it. Content is never at stake, only
+formatting.
+
+`createDocument` passes no formatter either: it writes `emptyDocument()`, and an
+empty file is what an empty document has always produced.
+
+**A rename never reformats.** `copyFile` moves bytes; reformatting a file the writer
+did not edit is not this feature's business.
 
 ### A failed save must return to the dirty state
 
@@ -183,6 +203,28 @@ document.
 different version. It is parsed through `configSchema` (Valibot) via
 `parseConfig`, which falls back to defaults rather than throwing. A corrupt
 settings file must never stop the user reaching their writing.
+
+### The file catches up on adopt
+
+`#adopt` calls `refreshConfig`, not `readConfig`: it loads the settings and writes
+the merged result back when the file has fallen behind what this version writes — a
+preference added since it was last saved, a value that fell back, a legacy key now
+dropped. Without it a new setting lives only in memory until the user happens to
+change something else, and the file they hand-edit never mentions it.
+
+`loadConfig` decides, via its `outdated` flag, and refuses in two cases:
+
+- **a file that would not parse** — a hand-edit caught mid-mistake. Replacing it
+  with defaults would throw away what they were typing, unasked, with no trash
+  behind it
+- **a file that would not read** — `loadConfig` throws instead, and `#adopt` lands
+  on `settingsUnreadable`. Writing over settings we never saw is the thing
+  `readConfig`'s throw has always existed to prevent
+
+An up-to-date file is left alone rather than rewritten, so an ordinary launch does
+not move its mtime. The write is best-effort: the config is already correct in
+memory, and a folder that cannot be written to says so the moment the user changes
+a setting, so a failed tidy-up is not surfaced.
 
 `config.json` holds **preferences only**. The list of documents is not in it and
 never should be: `scanFolder` walks the folder into `workspace.tree` on load,
