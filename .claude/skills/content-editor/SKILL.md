@@ -15,7 +15,7 @@ lost the next time the file is opened.
 The editor is deliberately minimal, and that is a product constraint rather than a
 gap. The writer sees their prose, a placeholder, and a quiet word count.
 
-The toolbar is **capped**: undo/redo, headings, bold, italic, bullet/ordered
+The toolbar is **capped**: undo/redo, headings, bold, italic, bullet/ordered/task
 list, blockquote, horizontal rule, table, image. That is the whole list.
 
 Undo and redo are on it because they surface a keymap the writer already has
@@ -78,7 +78,22 @@ round-trip does not get added to the editor.
 - **TipTap wraps list-item and table-cell content in `<p>`**. Left alone, turndown
   renders loose lists (a blank line between bullets) and newlines inside table
   cells, which breaks table syntax outright. The `unwrapSoleParagraph` rule
-  collapses the wrapper when it is the only child.
+  collapses the wrapper when the item's own text is that one paragraph —
+  deliberately not "when it is the only child", because a nested list and a task
+  item's checkbox both sit beside it without making the item loose.
+- **Task lists need a normaliser at each end, and they are a matched pair.**
+  TipTap buries the checkbox in a `<label>` and the content in a `<div>`, while
+  turndown-plugin-gfm's `taskListItems` rule only fires on a checkbox that is a
+  direct child of the `<li>` — so `normaliseTaskLists` in `to-markdown.ts`
+  flattens the item into the shape that rule recognises. marked goes the other
+  way, emitting a bare checkbox with no `data-type` for TipTap's `parseHTML` to
+  match on, so `from-markdown.ts` carries a normaliser of the same name putting
+  those attributes back. Break either one and every tick in the user's file is
+  dropped the next time it is opened — silently, because the text survives.
+- **A list mixing tasks and plain bullets becomes a task list**, the plain items
+  gaining an empty box. TipTap's `taskList` holds `taskItem`s and nothing else.
+  Likewise an ordered task list (`1. [ ] One`, which GFM allows) loses its
+  numbering rather than its ticks — a lost number is visible, a lost tick is not.
 - **TipTap emits `<th>` inside `<tbody>` with no `<thead>`**, and adds a
   `<colgroup>`. turndown-plugin-gfm detects the header row via `<thead>`, so
   without `normaliseTables()` it bails and writes raw HTML into the user's file.
