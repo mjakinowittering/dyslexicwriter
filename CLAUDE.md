@@ -40,7 +40,7 @@ is the _how_.
 | `ui-components`      | building UI with shadcn-svelte, component props/variants                                                                                                                                              |
 | `animations`         | any motion — Svelte transitions/motion/easing, shared `motion.ts` timings, the two-phase reveal pattern                                                                                               |
 | `testing`            | writing Vitest tests; before committing changes to the markdown round-trip, the fs layer, or models                                                                                                   |
-| `branch-and-commit`  | starting an approved plan (the branch is its first step), naming a branch, staging, or writing a commit message                                                                                       |
+| `branch-and-commit`  | starting an approved plan (the branch is its first step), naming a branch, staging, writing a commit message, pushing a branch, or opening a PR — which always targets `develop`                      |
 
 > When a domain skill contradicts a stale line here, the skill is the more detailed
 > source — but hard invariants (the General Rules) always hold regardless of which skill

@@ -1,24 +1,28 @@
 ---
 name: branch-and-commit
-description: How work is branched and committed in this repo — the branch is cut off `develop` as the first step of implementing an approved plan, and the commit is a short imperative subject plus a bulleted body. Load before starting implementation of any approved plan, before creating a branch, and before writing a commit message or staging a change.
+description: How work is branched, committed, pushed and turned into a PR in this repo — the branch is cut off `develop` as the first step of implementing an approved plan, the commit is a short imperative subject plus a bulleted body, and a newly published branch always prompts an offer to open a PR into `develop` (never `master`). Load before starting implementation of any approved plan, before creating a branch, before writing a commit message or staging a change, and before pushing a branch or running `gh pr create`.
 ---
 
 # Branch and commit
 
-Two rules, at the two ends of a piece of work:
+Three rules, along the length of a piece of work:
 
 1. **A branch is cut before the first edit**, off `develop`, named for the work.
 2. **A commit is a short imperative subject plus a bulleted body** saying what
    changed and why.
+3. **A branch that has just been pushed prompts an offer of a PR into `develop`** —
+   and that PR is opened with an explicit `--base develop`, never the repo default.
 
-Neither is a formality. The branch is what keeps `develop` clean while work is in
-flight; the body is what a reader gets months later when the diff alone doesn't
-explain the reasoning.
+None of them is a formality. The branch is what keeps `develop` clean while work
+is in flight; the body is what a reader gets months later when the diff alone
+doesn't explain the reasoning; and the base is the one detail nobody notices until
+the PR is already sitting against `master`.
 
-They sit at opposite ends of a task, so a skill that runs a whole piece of work —
-`todo-review`, say — loads this one **twice**: once the moment a plan is
-approved, to cut the branch, and again once the change is finished and green, to
-stage and commit. Reload rather than working from memory of the first load.
+They sit at different points in a task, so a skill that runs a whole piece of work
+— `todo-review`, say — loads this one **more than once**: the moment a plan is
+approved, to cut the branch; again once the change is finished and green, to stage
+and commit; and again if the user asks for a push, to offer the PR. Reload rather
+than working from memory of an earlier load.
 
 ---
 
@@ -142,10 +146,65 @@ Replace welcome button with folder cards
 
 ---
 
+## Publishing and the PR
+
+### Pushing
+
+A push happens only when the user asks for one. When it does, publish the branch
+with its upstream set:
+
+```
+git push -u origin <name>
+```
+
+### Offer the PR, every time
+
+**A branch that has just been published is a branch with no PR yet.** The moment
+the push succeeds — whether it was asked for on its own, or as part of "commit
+and push" — **ask whether to open a PR from it into `develop`**. Ask once, plainly,
+naming both ends:
+
+> Pushed `feature/read-aloud-highlight-list-markers`. Open a PR into `develop`?
+
+Then stop and wait. A PR is outward-facing and gets reviewers' attention, so it is
+never opened on a guess. A "no" ends it — don't re-offer on the next push in the
+same session unless the user brings it up.
+
+### `--base develop`, always
+
+This repo's default branch on GitHub is `master` (`origin/HEAD` points at it), so
+**`gh pr create` bases the PR on `master` unless told otherwise**. That is the
+mistake this step exists to stop. Pass the base explicitly, every single time:
+
+```
+gh pr create --base develop --head <name> --title "<subject>" --body "<body>"
+```
+
+- **Never omit `--base`.** Not "it'll pick the right one", not "the last PR went
+  to develop" — the flag is the whole point
+- `master` is a valid base only when the user says so in that message — a release
+  or a hotfix going straight to production. Otherwise `develop`
+- After it is created, **print the PR URL and the base branch back**, so a wrong
+  base is visible immediately rather than at review time:
+  `#45 → develop: https://github.com/…`
+- Got it wrong anyway? `gh pr edit <n> --base develop` retargets an open PR in
+  place; no need to close and reopen
+
+### The PR body
+
+The commit message is the source — it was written for exactly this. Reuse the
+subject as the title and the bullets as the body; add a line of context above
+them only where the PR spans more than the one commit. End the body with the
+usual `🤖 Generated with [Claude Code]` attribution line.
+
+---
+
 ## What this skill does not decide
 
-- **Pushing and PRs.** Neither happens unless the user asks. When they do, PRs go
-  against `develop`
+- **Whether to push.** The user asks; this skill only makes sure that once a
+  branch is published, the PR into `develop` is offered rather than forgotten
+- **Merging.** Opening a PR is where this stops — never merge one on the user's
+  behalf
 - **Rebasing, squashing, amending.** Not done on the user's behalf; ask
 - **Anything that rewrites published history.** Never without an explicit
   instruction
