@@ -200,13 +200,6 @@ Within each, related items sit next to each other.
       spurious "already exists", or the two race the `removeEntry` of the old file. One
       trigger is enough — `change` already fires on blur — or the store tracks the rename
       in flight and coalesces
-- [ ] Route the reading-time copy through Paraglide.
-      `src/lib/utils/calculateReadingTime.ts` builds `"3 minutes"`, `"45 seconds"` and
-      `"1 hour 20 minutes"` in code, and `StatusbarTimeToRead.svelte` injects the result
-      into `m.content_read_time({ time })` — English hardcoded in a util and smuggled
-      through a message key. Return the parts (`{ hours, minutes, seconds }`) and let
-      message keys own the words and the plurals, the way every other string in the app
-      already works. `WelcomePreview.svelte` is the other call site
 
 ### Features
 
