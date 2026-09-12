@@ -62,13 +62,22 @@ export default defineConfig(
             // Project classes rather than generated Tailwind. `reading-font`
             // is declared in layout.css and dresses the document surface in
             // OpenDyslexic; it is deliberately not a `font-*` utility name.
+            // `editor-surface` is the writing surface itself, and carries the
+            // read-aloud tints declared in PageEditor.svelte's own <style>
+            // block for the decoration classes below it to inherit.
             // The other three are the welcome preview's window traffic lights,
             // coloured from WelcomePreview.svelte's own <style> block — that is
             // functional colour, and layout.css stays chroma 0.
             'tailwindcss/no-custom-classname': [
                 'warn',
                 {
-                    whitelist: ['reading-font', 'close', 'minimise', 'maximise']
+                    whitelist: [
+                        'reading-font',
+                        'editor-surface',
+                        'close',
+                        'minimise',
+                        'maximise'
+                    ]
                 }
             ]
         }
