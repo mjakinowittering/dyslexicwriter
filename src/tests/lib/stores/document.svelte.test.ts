@@ -586,6 +586,48 @@ describe('rename', () => {
         expect(doc.isDirty).toBe(false);
     });
 
+    // A rename writes the document into a new file and removes the old one, so
+    // the copy on disk is as new as the rename however old the last edit was.
+    // The status bar ages this figure, and left alone it went on reporting the
+    // mtime of a file that no longer exists.
+    it('counts the rename as a fresh save', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('Body'));
+        await doc.flush();
+
+        const saved = doc.savedAt;
+        await vi.advanceTimersByTimeAsync(10 * 60_000);
+
+        await doc.rename('Chapter One');
+
+        expect(saved).not.toBeNull();
+        expect(doc.savedAt).toBeGreaterThan(saved ?? 0);
+        expect(doc.savedAt).toBeGreaterThanOrEqual(Date.now() - 1_000);
+    });
+
+    // The title field fires `change` and then `blur` for one edit, and Return
+    // blurs it — so the same rename arrives twice, back to back. Run as two
+    // renames they race each other over one folder: whichever loses finds the
+    // source already moved and reports a failure for work that succeeded.
+    it('ignores a second rename to the name already in flight', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('Body'));
+        await doc.flush();
+
+        // Deliberately not awaited: this is the change/blur pair, one after the
+        // other with nothing in between.
+        const first = doc.rename('Chapter One');
+        const second = doc.rename('Chapter One');
+        await Promise.all([first, second]);
+
+        expect(doc.error).toBe('');
+        expect(doc.title).toBe('Chapter One');
+        expect(await readFile('Chapter One', 'Chapter One.md')).toBe('Body');
+        await expect(
+            opfs.fileExists(root, 'Untitled', 'Untitled.md')
+        ).resolves.toBe(false);
+    });
+
     // There is no trash behind any of this, so a refused rename has to leave the
     // document exactly where it was rather than half-moved.
     it('keeps the source intact when the name is already taken', async () => {

@@ -118,6 +118,13 @@ class DocumentStore {
     // await and gives up quietly if it has moved on: the work it was doing belongs
     // to a document nobody is looking at any more.
     #epoch = 0;
+    // The name a rename is currently working toward, or null when none is in
+    // flight. The title field fires `change` and then `blur` for one edit — and
+    // Return blurs the field, so both land on a single keystroke — which without
+    // this starts two renames of the same document at once: the second reads a
+    // location the first is half-way through moving, and the writer is told the
+    // rename failed while it was busy succeeding.
+    #renaming: string | null = null;
     // The open file's YAML frontmatter, held only so the next write can put it
     // back exactly as it was. Deliberately not $state: nothing in the UI reads it,
     // and a state proxy has no business being handed to a YAML serialiser.
@@ -344,6 +351,8 @@ class DocumentStore {
         const target = sanitiseTitle(nextTitle);
 
         if (target.length === 0 || target === this.title) return;
+        // Already on its way to exactly this name — see #renaming.
+        if (target === this.#renaming) return;
 
         // Still in memory — renaming is just relabelling until the first save.
         if (this.location === null) {
@@ -352,15 +361,16 @@ class DocumentStore {
         }
 
         const epoch = this.#epoch;
-
-        // Pending edits must land under the OLD name before anything moves.
-        await this.flush();
-        if (epoch !== this.#epoch) return;
-
-        const location = this.location;
-        if (!root || location === null) return;
+        this.#renaming = target;
 
         try {
+            // Pending edits must land under the OLD name before anything moves.
+            await this.flush();
+            if (epoch !== this.#epoch) return;
+
+            const location = this.location;
+            if (!root || location === null) return;
+
             const entry = await renameDocument(root, location, target);
             // The document was closed or swapped while the rename was running.
             // The file on disk has its new name — that part stands — but this
@@ -373,6 +383,12 @@ class DocumentStore {
                 file: entry.file,
                 ownsFolder: entry.ownsFolder
             };
+            // A rename writes the document to a new file and removes the old
+            // one, so the copy on disk was made just now however long ago the
+            // last edit was. Leaving this alone left the status bar ageing a
+            // file that no longer exists — "Saved 3 days ago" about bytes
+            // written a second earlier.
+            this.savedAt = entry.lastModified;
             this.error = '';
             await workspace.refresh();
         } catch (cause) {
@@ -382,6 +398,10 @@ class DocumentStore {
                 cause instanceof DocumentError
                     ? cause.message
                     : m.editor_rename_error();
+        } finally {
+            // Only ours to clear: a later rename to a different name may have
+            // claimed it while this one was in flight.
+            if (this.#renaming === target) this.#renaming = null;
         }
     }
 
@@ -419,6 +439,7 @@ class DocumentStore {
         this.#clearTimers();
         this.#dirty = false;
         this.#retries = 0;
+        this.#renaming = null;
         // Everything in flight against the document being cleared is now working
         // for nobody, and this is what tells it so.
         this.#epoch += 1;

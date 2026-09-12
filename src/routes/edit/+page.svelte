@@ -35,6 +35,7 @@
     let pageEditor: ReturnType<typeof Page.Editor> | undefined;
     let settingsOpen = $state(false);
     let title = $state('');
+    let titleField = $state<HTMLInputElement | null>(null);
 
     // Whether there is anything to undo or redo. `editor.can()` reads ProseMirror
     // state, which is not a signal, so these are refreshed from the editor's own
@@ -181,6 +182,18 @@
         void doc.rename(title);
     }
 
+    // There is no form behind this field, so Return has nothing to submit and
+    // would otherwise do nothing at all — leaving the writer typing into a name
+    // they have already finished. Letting go of the field is what they mean by
+    // it, and the blur is what commits the rename: the browser fires `change` on
+    // its way out, exactly as clicking away does.
+    function onTitleKeydown(event: KeyboardEvent) {
+        if (event.key !== 'Enter') return;
+
+        event.preventDefault();
+        titleField?.blur();
+    }
+
     function persistTtsPreferences(prefs: TtsPreferences) {
         void workspace.setTtsPreferences(prefs);
     }
@@ -224,10 +237,12 @@
                         <InputGroup.Root>
                             <InputGroup.Input
                                 aria-label={m.editor_title_label()}
+                                bind:ref={titleField}
                                 class="font-medium"
                                 maxlength={TITLE_MAX_LENGTH}
-                                onchange={renameFromTitle}
                                 onblur={renameFromTitle}
+                                onchange={renameFromTitle}
+                                onkeydown={onTitleKeydown}
                                 placeholder={m.content_title_placeholder()}
                                 bind:value={title}
                             />
