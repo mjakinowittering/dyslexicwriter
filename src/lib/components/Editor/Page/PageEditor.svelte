@@ -259,7 +259,11 @@
      fixed when the editor is constructed, and ProseMirror inherits from here anyway. -->
 <div
     bind:this={editorElement}
-    class={cn('cursor-text', font === 'dyslexic' && 'reading-font', className)}
+    class={cn(
+        'editor-surface cursor-text',
+        font === 'dyslexic' && 'reading-font',
+        className
+    )}
 ></div>
 
 <style>
@@ -277,17 +281,47 @@
        and the ink is dark on both by definition. The sentence and the word are a
        tonal pair rather than two alphas of one colour: 0.92 against 1.0 is not a
        visible step. */
+
+    /* The two tints, declared once on the surface and inherited by everything
+       below — the band, the word inside it, and the list marker beside them.
+       `--tts-tint` stays per-class on top of these so the reading-font rule can
+       go on painting both with one gradient. */
+    .editor-surface {
+        --tts-sentence-tint: rgb(255 204 153 / 0.92);
+        --tts-word-tint: rgb(255 153 0);
+    }
+
     :global(.tts-sentence) {
-        --tts-tint: rgb(255 204 153 / 0.92);
+        --tts-tint: var(--tts-sentence-tint);
         background-color: var(--tts-tint);
         color: oklch(0.145 0 0);
         border-radius: 0.15rem;
     }
     :global(.tts-word) {
-        --tts-tint: rgb(255 153 0);
+        --tts-tint: var(--tts-word-tint);
         background-color: var(--tts-tint);
         color: oklch(0.145 0 0);
         border-radius: 0.15rem;
+    }
+
+    /* The marker of a list item the spoken sentence sits in — the colour only,
+       never the band. The word tint rather than the sentence's: this is ink on
+       the page rather than a wash behind it, and at 0.92 alpha over the light
+       theme's near-white the sentence tint would barely register.
+
+       These markers are drawn by layout.css in @layer base — a bullet and a
+       number as `::before` generated content, a checkbox as a real input. A
+       component `<style>` is unlayered and so outranks all of it, whatever the
+       specificity, which is the other reason this belongs here.
+
+       The class is deliberately not `.tts-sentence`: the reading-font rules
+       below key off that name, and the gradient band has no business on a
+       marker. */
+    :global(.tts-marker::before) {
+        color: var(--tts-word-tint);
+    }
+    :global(.tts-marker > label input[type='checkbox']) {
+        accent-color: var(--tts-word-tint);
     }
 
     /* Ink over anything the band covers. Typography's element rules (strong, a, code,

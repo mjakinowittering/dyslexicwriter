@@ -1,6 +1,6 @@
 <script lang="ts" module>
     import { defineMeta } from '@storybook/addon-svelte-csf';
-    import { expect } from 'storybook/test';
+    import { expect, waitFor } from 'storybook/test';
 
     import PageEditor from '$lib/components/Editor/Page/PageEditor.svelte';
 
@@ -30,6 +30,22 @@
         }
     });
 
+    function paragraph(text: string) {
+        return { type: 'paragraph', content: [{ type: 'text', text }] };
+    }
+
+    function listItem(text: string) {
+        return { type: 'listItem', content: [paragraph(text)] };
+    }
+
+    function taskItem(text: string, checked: boolean) {
+        return {
+            type: 'taskItem',
+            attrs: { checked },
+            content: [paragraph(text)]
+        };
+    }
+
     // Read-aloud harness content. Deliberately long enough to wrap, and stocked with
     // the shapes whose ink sits closest to (or past) the edge of the box the browser
     // paints a background across — W A V y g j q f, brackets, a trailing full stop.
@@ -52,6 +68,41 @@
                         type: 'text',
                         text: 'Jaded zombies acted quaintly but kept driving their oxen forward.'
                     }
+                ]
+            }
+        ]
+    };
+
+    // One of each kind of list, for the marker half of the highlight. A sentence
+    // never crosses a block (`splitSentences` stops at the separator), so exactly
+    // one item is ever lit — each item below is its own sentence, and its
+    // neighbour is there to show the marker beside it staying dark.
+    const ttsListSample = {
+        type: 'doc',
+        content: [
+            paragraph(
+                'A read-aloud sentence lights the marker beside it, whichever kind of list it sits in.'
+            ),
+            {
+                type: 'bulletList',
+                content: [
+                    listItem('A bullet takes the highlight colour.'),
+                    listItem('Its neighbour is left alone.')
+                ]
+            },
+            {
+                type: 'orderedList',
+                attrs: { start: 1 },
+                content: [
+                    listItem('A number does the same.'),
+                    listItem('So this one stays as it was.')
+                ]
+            },
+            {
+                type: 'taskList',
+                content: [
+                    taskItem('A checkbox tints with the rest.', false),
+                    taskItem('And a ticked one still reads as done.', true)
                 ]
             }
         ]
@@ -118,6 +169,12 @@
     // way to see either band while working on how it's drawn.
     let sansEditor = $state<TipTapEditor>();
     let dyslexicEditor = $state<TipTapEditor>();
+    let listEditor = $state<TipTapEditor>();
+
+    // The word tint, as the browser reports it back. One definition lives in
+    // PageEditor.svelte's <style> block; this is the assertion's copy of it and
+    // the reason the marker story fails if that value moves.
+    const TINT = 'rgb(255, 153, 0)';
 
     // Light a sentence, and a word inside it, exactly as playback would: the ranges
     // come from the same pure helpers the SpeechController uses, so the harness can't
@@ -156,6 +213,12 @@
 
     $effect(() => {
         if (dyslexicEditor) showHighlight(dyslexicEditor, 0, 'jackdaws');
+    });
+
+    // Sentence 1 is the first bullet — sentence 0 is the intro paragraph, and
+    // each list item is its own sentence after that.
+    $effect(() => {
+        if (listEditor) showHighlight(listEditor, 1, 'bullet');
     });
 </script>
 
@@ -230,6 +293,68 @@
     {#snippet template(args)}
         <div class="bg-background min-h-96 w-full p-6">
             <PageEditor {...args} bind:editor={dyslexicEditor} />
+        </div>
+    {/snippet}
+</Story>
+
+<Story
+    name="TTS Highlight (Lists)"
+    args={{ editable: true, content: ttsListSample }}
+    parameters={{
+        docs: {
+            description: {
+                story: "The marker half of the highlight. A spoken sentence inside a list item lights that item's bullet, number or checkbox in the word tint — the colour only, never the band — and leaves its neighbours alone. Driven by a `Decoration.node` on the item, because the markers are drawn as generated content and a real `<input>`, neither of which an inline span over the text can reach."
+            }
+        }
+    }}
+    play={async ({ canvasElement }) => {
+        // Queried off the lit sentence rather than by its words: the word
+        // highlight splits the text across three spans, so there is no one
+        // element holding the whole of it.
+        const litItem = () =>
+            canvasElement.querySelector('.tts-sentence')?.closest('li');
+        const marked = () => canvasElement.querySelectorAll('.tts-marker');
+
+        // The decoration has to land on the item rather than the text — a class
+        // on the wrong element styles nothing, and nothing about that would show
+        // up in a screenshot.
+        await waitFor(() => expect(litItem()).toHaveClass('tts-marker'));
+        // And on that item alone: a list item's range encloses everything
+        // nested in it, so lighting every item the range touches is the
+        // obvious way to get this wrong.
+        await expect(marked()).toHaveLength(1);
+
+        // And that the class actually paints. The markers are drawn from
+        // layout.css in `@layer base`, so this rule wins only because a
+        // component <style> is unlayered — moving it into a layer would leave
+        // the decoration landing correctly and changing nothing.
+        const bullet = litItem() as HTMLElement;
+        await expect(getComputedStyle(bullet, '::before').color).toBe(TINT);
+        // Its neighbour is the control: same list, same rule, no decoration.
+        const neighbour = bullet.nextElementSibling as HTMLElement;
+        await expect(getComputedStyle(neighbour, '::before').color).not.toBe(
+            TINT
+        );
+
+        // A task item's `<li>` comes from a TipTap node view rather than being
+        // rendered plainly, so ProseMirror has to merge the node decoration onto
+        // it — the one part of this that isn't the ordinary path. Its marker is
+        // a real checkbox rather than generated content, so it tints through
+        // `accent-color`. Move the highlight there, check, then put it back for
+        // the screenshot.
+        if (!listEditor) return;
+        showHighlight(listEditor, 5, 'checkbox');
+        await waitFor(() => expect(litItem()).toHaveClass('tts-marker'));
+        const task = litItem() as HTMLElement;
+        await expect(task).toHaveAttribute('data-checked');
+        const box = task.querySelector('input[type="checkbox"]') as HTMLElement;
+        await expect(getComputedStyle(box).accentColor).toBe(TINT);
+        showHighlight(listEditor, 1, 'bullet');
+    }}
+>
+    {#snippet template(args)}
+        <div class="bg-background min-h-96 w-full p-6">
+            <PageEditor {...args} bind:editor={listEditor} />
         </div>
     {/snippet}
 </Story>
