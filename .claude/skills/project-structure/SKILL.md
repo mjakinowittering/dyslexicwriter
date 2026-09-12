@@ -86,7 +86,7 @@ src/
 │   │   └── chirp.ts                  //   synthesized start/stop chirps (no assets)
 │   │
 │   ├── utils/
-│   │   ├── calculateReadingTime.ts   // 238 wpm → { minutes, display }
+│   │   ├── reading-time.ts           // 238 wpm → parts, + the Paraglide label
 │   │   ├── relative-time.ts          // "2 hours ago" for the Files screen
 │   │   ├── scroll-animator.svelte.ts // one rAF loop shared by the scrollers
 │   │   └── shortcut.ts               // `Mod+B` → ⌘B or Ctrl+B, for tooltips

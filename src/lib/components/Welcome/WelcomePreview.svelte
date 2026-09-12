@@ -29,7 +29,7 @@
     import Icon from '$lib/components/Icon/Icon.svelte';
 
     import * as m from '$lib/paraglide/messages';
-    import calculateReadingTime from '$lib/utils/calculateReadingTime';
+    import { readingTimeLabel } from '$lib/utils/reading-time';
 
     // A picture of the editor, on the welcome screen, so it is obvious what the
     // app does before a folder is handed over. Deliberately a STATIC mock and not
@@ -59,7 +59,7 @@
 
     // The same document the design record shows in the editor, so the two agree.
     const WORD_COUNT = 1284;
-    const readingTime = calculateReadingTime(WORD_COUNT).display;
+    const readingTime = readingTimeLabel(WORD_COUNT);
 
     // Every group the editor's toolbar has, in its order. Joined, bordered
     // segments — `Format.Group` passes `variant="outline"`.
@@ -222,7 +222,7 @@
             </span>
             <span class="flex items-center gap-1.5">
                 <Icon class="size-3.5" icon={EyeIcon} />
-                <span>{m.content_read_time({ time: readingTime })}</span>
+                <span>{readingTime}</span>
             </span>
             <span class="ml-auto">{m.editor_saved_recent()}</span>
         </div>
