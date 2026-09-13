@@ -36,9 +36,12 @@ preserve it in every mode below.
   commitment") and project chores (deployment, enforcing a11y checks) that go with it.
   A chore with no user-visible defect behind it belongs here, not in Bugs
 
-Within each subsection, **related items sit next to each other** — the two read-aloud
-bugs are adjacent, as are the two read-aloud features. The order inside a subsection
-carries no priority; it is grouping only.
+Within each subsection, **related items sit under a `####` theme heading** — "Images and
+tables in the editor", "Links in the editor", "Deleting and recovering documents". The
+order inside a subsection carries no priority; it is grouping only. The theme headings
+are part of the shape too: an item goes under the theme it belongs to, a new theme is
+added only when nothing existing fits, and a theme emptied by a removal goes with it
+(unlike the `###` headings, which always stay).
 
 Each **top-level `- [ ]` bullet is one item**. Items wrap across several lines
 (continuations indented six spaces) and some carry nested sub-bullets indented four
@@ -51,21 +54,54 @@ Ignore `- [x]` items unless the user asks about completed work.
 
 ## Step 2 — show the list, then ask the mode
 
-Print the numbered list under its two headings, **one line per item** — a short summary
-of each, not the full paragraph. The first clause of an item is usually its summary
-already. Keep the numbering unbroken across the headings.
+Print the numbered list as a **digest**: enough of each item that the user can choose
+without opening the README, far less than the full paragraph. A one-line summary is too
+thin to choose from; the README's own prose is too dense to scan. Keep the numbering
+unbroken across the headings.
+
+**Layout:**
+
+- `## Bugs` and `## Features` as headings, each theme (`####` in the README) as a bold
+  line above its items
+- each item as a numbered entry: a **bold one-line headline** stating the problem or the
+  change, then two to four sentences of plain prose on what exists today and why it
+  falls short
+- then a labelled line or two, only where the item actually has one:
+    - _Fix:_ the named approach, in a sentence
+    - _Out of scope:_ the item's own fence ("column resizing, which is off by design")
+    - **Open decision:** anything the item leaves for the user to rule on
+    - _Depends on:_ another item by number, when the README says to do it after
+- short sub-bullets only where the README item has genuinely separate parts; collapse
+  its sub-bullets into a sentence otherwise
+- plain language over symbols: say "the image is inserted correctly" rather than quoting
+  three identifiers; keep a backticked file or symbol only where it pins the item down
 
 ```
-Bugs
- 1. Fix the empty read-aloud voice picker — `loadVoices()` is never called
- 2. Fix sentence splitting breaking on a `.` inside a word (`diagram.png`)
- 3. Make inserted images actually display — resolve `src` to a `blob:` URL
+## Bugs
 
-Features
- 4. Read-aloud: karaoke-style auto-scroll to follow the spoken sentence
- 5. Reconsider the read-aloud speed control — presets instead of a slider
- ...
+**Images and tables in the editor**
+
+1. **Inserted images don't display.** The image is inserted correctly with `setImage`,
+   but its `src` is a path relative to the document's folder, which the browser can't
+   load, so only the alt text shows.
+   *Fix:* point each rendered image at a `blob:` URL from its file handle, released on
+   unmount. The relative path stays in the saved content.
+
+3. **Tables are effectively invisible.** The extension is installed, but there is no
+   table CSS and `prose` draws no cell borders.
+   *Fix:* borders, a header background and `min-width` in `layout.css`.
+   *Out of scope:* column resizing, which is off by design.
 ```
+
+**Flag work already in flight.** Check `git status` and the current branch name against
+the list. Uncommitted files or a branch named after an item mean it is partly underway —
+say so on that item ("uncommitted work for this already exists on this branch"), because
+planning it from scratch would duplicate or overwrite it. This is a note, not a
+verification; Step 3a does the checking.
+
+**Close with the natural groupings** — one line naming the item sets that would plan well
+together and why (`1 + 2` share the image node; `8 → 9 → 10` are ordered by dependency).
+It is what the user is really choosing between, and it saves them re-deriving it.
 
 Then use **AskUserQuestion** with a single question, header `Mode`:
 
@@ -280,10 +316,11 @@ decisions, in order:
    a feature and is a bug, because the tooltips already exist and state the wrong keys on
    that platform. Where it is genuinely borderline, say which way you filed it and why in
    one line, so the user can move it
-2. **Which neighbours?** Within that subsection, put it next to the items sharing its
-   area — the same feature, the same files, the same subsystem. Name the item it now sits
-   beside when you show it. Only when nothing in the subsection is related does it go at
-   the end, and say so rather than leaving it looking arbitrary
+2. **Which theme?** Within that subsection, put it under the `####` theme sharing its
+   area — the same feature, the same files, the same subsystem — next to its closest
+   relative. Name the theme and the item it now sits beside when you show it. Only when
+   no theme fits does it get a new `####` heading of its own, and say so rather than
+   leaving it looking arbitrary
 
 Placing an item may show that an existing one is really its neighbour two groups away.
 Moving that one too is fine and often right, but it is an edit the user didn't ask for —
