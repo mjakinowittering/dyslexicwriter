@@ -149,9 +149,32 @@ licence notices travel with the build.
 
 Split into **Bugs** — something already built that doesn't behave as intended — and
 **Features** — work not yet built, plus the decisions and chores that go with it.
-Within each, related items sit next to each other.
+Within each, items are grouped under a theme so related work can be picked up together.
 
 ### Bugs
+
+#### Welcome screen and page layout
+
+- [ ] Widen the welcome screen's folder cards to match the editor preview below them —
+      each card should be half the preview's width less the gap. The grid is capped by
+      the `max-w-2xl` wrapper at `Welcome.svelte:90` while `WelcomePreview.svelte:110`
+      is `w-full` of the route's `md:max-w-5xl` column, so the cards sit visibly narrower
+      than the picture they introduce. Drop the cap and let the existing
+      `sm:grid-cols-2 gap-5` grid span the column; the gap then supplies the "less the
+      gap". Two comments describe the old cap and change with it — `Welcome.svelte:122`
+      and `+page.svelte:363`. The preview is `hidden` below `lg`, so there the cards
+      simply fill the column: stacked on phones, side by side from `sm`
+- [ ] Put the scrollbar on the far right of the viewport, not beside a centred column.
+      The Files list's scroll container is also its measure —
+      `mx-auto max-w-3xl … overflow-y-auto` on one element at `+page.svelte:389` — so
+      the scrollbar is drawn at the column's right edge, mid-screen. Split the two: a
+      full-width outer element owns `overflow-y-auto` (keeping the `min-h-0` behaviour
+      its comment relies on to hold the footer in place), and a centred `max-w-3xl`
+      inner column holds the list. The welcome branch at `+page.svelte:368` has the same
+      shape with `md:max-w-5xl` and gets the same fix — it starts to matter once the
+      hero and wider cards make that screen taller
+
+#### Images and tables in the editor
 
 - [ ] Make inserted images actually display — insertion is already a proper TipTap image
       node (`setImage` in `FormatInsertImage.svelte`), but its `src` is a path relative to
@@ -159,6 +182,15 @@ Within each, related items sit next to each other.
       and fails to load, so only the alt text shows. Resolve each image's `src` to a
       `blob:` URL from its file handle at render time, revoke on unmount/document switch,
       and keep the relative path in the JSON so the markdown round-trip is unaffected
+- [ ] Handle a pasted image the way a dropped one is handled. `PageEditor.svelte` wires
+      `handleDrop` only, but its own prop doc for `onDropImage` and `writeImage`'s comment in
+      `documents.ts` both say "dropped or pasted" — and `allowBase64: false` on the
+      Image extension means a pasted image is discarded rather than degrading to a data
+      URI, so nothing appears and nothing says why. Add `handlePaste` alongside
+      `handleDrop`, taking the first `image/*` item off `event.clipboardData.files`,
+      claiming the event, and routing it through the same `onDropImage` → `doc.addImage`
+      path so the file lands in the document's own directory. The insertion position is
+      the caret rather than `posAtCoords`; everything else is the drop handler's shape
 - [ ] Style tables in the editor — an inserted table is effectively invisible. No plugin
       is missing (`@tiptap/extension-table` is installed and configured); TipTap ships
       headless, and there is currently no table CSS at all. Tailwind Typography's `prose`
@@ -167,6 +199,20 @@ Within each, related items sit next to each other.
       `min-width` in `layout.css`, plus the ProseMirror table internals — `.tableWrapper`
       (horizontal overflow) and `.selectedCell` (cell-selection tint). Column resizing is
       off by design, so `.column-resize-handle` is not needed
+
+#### Title and rename
+
+- [ ] Fix the double rename fired by the title field. `edit/+page.svelte`'s title field binds
+      both `onchange` and `onblur` to `renameFromTitle`, and for a text input `change`
+      fires immediately before `blur` — so both run. The guard in the document store's `rename()` is `target === this.title`, and `this.title` is only
+      updated _after_ `await renameDocument(...)` resolves, so the second call passes it
+      and starts a concurrent rename against the same location. The writer sees a
+      spurious "already exists", or the two race the `removeEntry` of the old file. One
+      trigger is enough — `change` already fires on blur — or the store tracks the rename
+      in flight and coalesces
+
+#### Deployment
+
 - [ ] Ship a real `og:image`. `static/og-image.png` is a 0-byte placeholder, but
       `src/app.html` already points at it (both the Open Graph and Twitter tags) and declare it 1200x630, so
       every link preview of the deployed site resolves to an empty image. The rest
@@ -183,26 +229,24 @@ Within each, related items sit next to each other.
       it. Hear it. Keep it."; and `src/app.html`'s `og:image:alt` still carries the old
       "write, and hear it back", so it changes in the same commit or the alt text
       describes a different picture. Re-render the mock once the highlight colours land
-- [ ] Handle a pasted image the way a dropped one is handled. `PageEditor.svelte` wires
-      `handleDrop` only, but its own prop doc for `onDropImage` and `writeImage`'s comment in
-      `documents.ts` both say "dropped or pasted" — and `allowBase64: false` on the
-      Image extension means a pasted image is discarded rather than degrading to a data
-      URI, so nothing appears and nothing says why. Add `handlePaste` alongside
-      `handleDrop`, taking the first `image/*` item off `event.clipboardData.files`,
-      claiming the event, and routing it through the same `onDropImage` → `doc.addImage`
-      path so the file lands in the document's own directory. The insertion position is
-      the caret rather than `posAtCoords`; everything else is the drop handler's shape
-- [ ] Fix the double rename fired by the title field. `edit/+page.svelte`'s title field binds
-      both `onchange` and `onblur` to `renameFromTitle`, and for a text input `change`
-      fires immediately before `blur` — so both run. The guard in the document store's `rename()` is `target === this.title`, and `this.title` is only
-      updated _after_ `await renameDocument(...)` resolves, so the second call passes it
-      and starts a concurrent rename against the same location. The writer sees a
-      spurious "already exists", or the two race the `removeEntry` of the old file. One
-      trigger is enough — `change` already fires on blur — or the store tracks the rename
-      in flight and coalesces
 
 ### Features
 
+#### Welcome and first run
+
+- [ ] Give the welcome screen a proper hero in place of the `Empty` block. The title
+      and description ("Welcome to DyslexicWriter / Choose a folder on your computer…")
+      are an `Empty.Root` at `Welcome.svelte:72-88`, sized like an empty state rather
+      than the front page of the app. Build a `WelcomeHero.svelte` beside `Welcome.svelte`
+      — our own markup and theme tokens, since shadcn-svelte has no hero and the vendored
+      `ui/` stays untouched — markedly taller, pushing the cards and preview down the
+      page. Covers both states: `welcome_title` / `welcome_description` and
+      `welcome_back_title` / `welcome_back_description`. Story in `src/stories/Welcome/`
+    - Two decisions to take at planning time: whether the folder icon above the title
+      stays, and how much taller. Check it at 1536x864 as well as 1080-tall — a big hero
+      pushes the preview below the fold there
+    - Pairs with the cards and scrollbar items under **Bugs** — the three are one pass
+      over the same screen
 - [ ] Show the read-aloud highlight in the welcome screen's editor preview —
       `WelcomePreview.svelte` draws the transport controls but never the band, so the one
       screen a stranger sees before handing over a folder doesn't show the feature the app
@@ -247,5 +291,86 @@ Within each, related items sit next to each other.
       shows what the editor does and still survives the markdown round-trip. No image:
       that means shipping a binary and writing it beside the markdown, and the point
       here is the type
+
+#### Links in the editor
+
+- [ ] Add a link dialog to the editor — a toolbar button to insert a link, and clicking
+      an existing link to edit it. No plugin is missing: StarterKit's Link mark is already
+      on (`markdown/extensions.ts:28-33`, `openOnClick: false`) and the round-trip
+      already covers it (`round-trip.test.ts:30`), so a pasted link saves and reloads
+      today — what's missing is any UI. Add `FormatInsertLink.svelte` beside
+      `FormatInsertImage.svelte` and register it in `Format/definitions.ts`; add the
+      shadcn **Dialog** (`npx shadcn-svelte@latest add dialog --yes`, not yet installed)
+      with Label and URI fields (Input and Label are installed), OK and Cancel, plus
+      Remove when editing
+    - Capture the selection when the dialog opens — it takes focus — and apply at that
+      position on OK. A non-empty selection seeds the label and becomes the link text;
+      clicking a link selects its whole mark range and seeds both fields
+    - Accept `http:`, `https:` and `mailto:` only, via the Link extension's
+      `isAllowedUri`/`protocols` as well as the form; prefix a bare `www.` with
+      `https://`; refuse `javascript:` and friends — these links land in files on disk
+    - This moves the capped toolbar: add "link" to the permitted list in CLAUDE.md's
+      General Rules and to the `content-editor` skill in the same commit
+- [ ] Show a hover card on links — the shadcn **Hover Card**
+      (`npx shadcn-svelte@latest add hover-card --yes`, not yet installed) revealing the
+      label, the full URI and its domain, with **Open** (new tab,
+      `rel="noopener noreferrer"`) and **Edit** (the dialog above). Open is the only way
+      to follow a link once clicking edits it, so this lands with or after the dialog.
+      Anchor it to the hovered `<a>` in the ProseMirror view and let it follow edits
+    - No Open Graph preview. Reading another site's OG tags from the browser is blocked
+      by CORS, and the ways round it — our own proxy, or a third-party unfurl service —
+      are a server this project doesn't have, or every hovered URL sent to someone else.
+      Reconsider only as a deliberate proposal
+    - Not a bubble menu in the CLAUDE.md sense (no formatting controls), but say so in
+      the `content-editor` skill so the next reader doesn't have to rule on it again
+- [ ] Suffix every link in the editor with an external-link icon, since following it
+      leaves the app. Presentation only: a CSS `::after` on the link class set in
+      `extensions.ts:31`, or a widget decoration — never a node, mark or text, so it stays
+      out of `getJSON()`, the markdown, and read-aloud's text map
+      (`tts/text-map.ts`). Same Hugeicons set as the rest of the app, coloured from
+      `layout.css` tokens
+
+#### Editor display settings
+
+- [ ] Add a "Show invisible characters" setting — a **Switch** in `SettingsPanel.svelte`
+      (already imported at line 10) that draws markers for spaces `·`, hard breaks `↵`
+      and paragraph ends `¶`, and nothing else: exactly what TipTap's
+      `InvisibleCharacters` and `prosemirror-invisibles` support, no tabs or
+      non-breaking spaces. TipTap's own extension is Pro (paid, private registry), so
+      write a small ProseMirror decoration plugin in the shape of
+      `tts/tiptap-tts-highlight.ts` — decorations only, never in `getJSON()` or the
+      markdown — toggled live without rebuilding the editor
+    - A new preference, so both halves in one commit: a key in `preferencesSchema`
+      (`models/config.model.ts:46`, key-by-key fallback) and its first-run `false` in
+      `config/defaults.json`, wired through the workspace store like `font`. Paraglide
+      keys for the label and hint; recompile. Marker colour from a muted `layout.css`
+      token so both themes read
+
+#### Deleting and recovering documents
+
+- [ ] Delete to a `.trash/` folder instead of permanently, and add Delete to the editor.
+      Browsers can't reach the OS recycle bin — the File System Access API only offers
+      `removeEntry`, which is final — so the trash lives in the working folder, where the
+      scan already skips dot-directories. Today `deleteDocument` (`fs/documents.ts:750`)
+      removes outright and is only reachable from the Files screen
+      (`+page.svelte:148-173`)
+    - Move with rename's ordering: copy into `<working folder>/.trash/` first, remove
+      the original last, so a failure leaves a duplicate, never a loss. A folder-document
+      takes its whole folder and images; a file-document only its `.md`. Keep the
+      `stillOwnsFolder` re-check and its refusal. Suffix the trashed name with a
+      timestamp — `My Chapter (2026-09-13 14.02)` — so trashing a title twice never
+      overwrites the earlier copy
+    - One path for both screens: the Files screen's Delete moves to trash too. Rewrite
+      `files_delete_description` / `files_delete_file_description`
+      (`messages/en.json:80-82`), which promise "cannot be undone", to say where it goes.
+      `deleteFolder` for an _empty_ folder stays a plain remove — nothing to recover
+    - Editor: a Delete button with the trash icon (`Delete02Icon`, as the Files tree
+      uses) in the header near `Toolbar.Title` (`edit/+page.svelte:236`), not in the
+      capped formatting toolbar. Confirm, then cancel the pending autosave **before**
+      moving — a flush on destroy would otherwise write the file straight back — then
+      `speech.stop()` and `goto('/')`
+    - Update CLAUDE.md ("there is no trash", the Delete rows in the document-kinds
+      table) and the `filesystem-storage` skill in the same commit. Emptying the trash
+      stays the writer's job in their file manager — out of scope
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
