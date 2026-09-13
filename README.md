@@ -179,17 +179,6 @@ Within each, items are grouped under a theme so related work can be picked up to
       (horizontal overflow) and `.selectedCell` (cell-selection tint). Column resizing is
       off by design, so `.column-resize-handle` is not needed
 
-#### Title and rename
-
-- [ ] Fix the double rename fired by the title field. `edit/+page.svelte`'s title field binds
-      both `onchange` and `onblur` to `renameFromTitle`, and for a text input `change`
-      fires immediately before `blur` — so both run. The guard in the document store's `rename()` is `target === this.title`, and `this.title` is only
-      updated _after_ `await renameDocument(...)` resolves, so the second call passes it
-      and starts a concurrent rename against the same location. The writer sees a
-      spurious "already exists", or the two race the `removeEntry` of the old file. One
-      trigger is enough — `change` already fires on blur — or the store tracks the rename
-      in flight and coalesces
-
 #### Deployment
 
 - [ ] Ship a real `og:image`. `static/og-image.png` is a 0-byte placeholder, but
