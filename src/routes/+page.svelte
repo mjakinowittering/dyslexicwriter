@@ -40,6 +40,7 @@
     import * as m from '$lib/paraglide/messages';
     import { doc } from '$lib/stores/document.svelte';
     import { workspace } from '$lib/stores/workspace.svelte';
+    import { editorRoute } from '$lib/utils/editor-route';
 
     // The Files screen. Deliberately plain: a utility list, not a marketing
     // surface. Its final layout is still open, so nothing here is precious.
@@ -112,13 +113,11 @@
 
     async function onCreate() {
         await doc.createNew();
-        await goto(resolve('/edit'));
+        await goto(resolve(editorRoute(null)));
     }
 
     async function onOpen(entry: DocumentIndexEntry) {
-        await goto(
-            resolve(`/edit?doc=${encodeURIComponent(documentPath(entry))}`)
-        );
+        await goto(resolve(editorRoute(documentPath(entry))));
     }
 
     // Opens the naming row on that document's own row. The work happens in
@@ -138,8 +137,10 @@
 
         // `rename` swallows its failures into the store's own error field, which
         // this screen does not render — so carry it across before closing clears
-        // it, or a refused rename says nothing at all.
-        const failure = doc.error;
+        // it, or a refused rename says nothing at all. A document that could not
+        // even be opened reports through `openError` instead, and `rename` then
+        // has no location to move, so that has to be carried across too.
+        const failure = doc.openError || doc.error;
         await doc.close();
         if (failure) workspace.error = failure;
     }

@@ -64,6 +64,7 @@
     "content_word_count": "Words {count}",
     "editor_back": "Back to files",
     "editor_image_error": "Couldn't save that image",
+    "editor_open_description": "It may have been moved, renamed or deleted outside DyslexicWriter.",
     "editor_open_error": "Couldn't open that document",
     "editor_rename_error": "Couldn't rename that document",
     "editor_save_error": "Couldn't save — is the folder still available?",

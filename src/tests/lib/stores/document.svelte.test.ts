@@ -508,6 +508,28 @@ describe('switching documents', () => {
     });
 });
 
+// The editor puts a failed open in a dialog that leads back to the file list, and
+// keeps save and rename failures inline — so the store has to keep them apart.
+describe('a document that cannot be opened', () => {
+    it('reports the failure apart from save and rename errors', async () => {
+        await doc.open('Gone/Gone.md');
+
+        expect(doc.openError).not.toBe('');
+        expect(doc.error).toBe('');
+        expect(doc.location).toBeNull();
+    });
+
+    it('clears the failure when another document opens', async () => {
+        await opfs.writeRaw(root, 'Here', 'Here.md', 'Here body');
+        ignoreFixtureWrites();
+
+        await doc.open('Gone/Gone.md');
+        await doc.open('Here/Here.md');
+
+        expect(doc.openError).toBe('');
+    });
+});
+
 describe('close', () => {
     it('flushes the last edit and then clears the document', async () => {
         await opfs.writeRaw(root, 'Charlie', 'Charlie.md', 'Charlie body');
