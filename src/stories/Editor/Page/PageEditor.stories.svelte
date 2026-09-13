@@ -324,17 +324,14 @@
         // obvious way to get this wrong.
         await expect(marked()).toHaveLength(1);
 
-        // And that the class actually paints. The markers are drawn from
-        // layout.css in `@layer base`, so this rule wins only because a
+        // Every marker is tinted, lit or not. The markers are drawn from
+        // layout.css in `@layer base`, so the tint wins only because a
         // component <style> is unlayered — moving it into a layer would leave
-        // the decoration landing correctly and changing nothing.
+        // them Typography's grey.
         const bullet = litItem() as HTMLElement;
         await expect(getComputedStyle(bullet, '::before').color).toBe(TINT);
-        // Its neighbour is the control: same list, same rule, no decoration.
         const neighbour = bullet.nextElementSibling as HTMLElement;
-        await expect(getComputedStyle(neighbour, '::before').color).not.toBe(
-            TINT
-        );
+        await expect(getComputedStyle(neighbour, '::before').color).toBe(TINT);
 
         // A task item's `<li>` comes from a TipTap node view rather than being
         // rendered plainly, so ProseMirror has to merge the node decoration onto

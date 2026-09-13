@@ -304,23 +304,24 @@
         border-radius: 0.15rem;
     }
 
-    /* The marker of a list item the spoken sentence sits in — the colour only,
-       never the band. The word tint rather than the sentence's: this is ink on
-       the page rather than a wash behind it, and at 0.92 alpha over the light
-       theme's near-white the sentence tint would barely register.
+    /* Every list marker, in both themes and whether or not anything is being
+       read — the colour only, never the band. The word tint rather than the
+       sentence's: this is ink on the page rather than a wash behind it, and at
+       0.92 alpha over the light theme's near-white the sentence tint would
+       barely register. Read-aloud still decorates the spoken item with
+       `.tts-marker`, which now has nothing further to paint.
 
        These markers are drawn by layout.css in @layer base — a bullet and a
        number as `::before` generated content, a checkbox as a real input. A
        component `<style>` is unlayered and so outranks all of it, whatever the
-       specificity, which is the other reason this belongs here.
-
-       The class is deliberately not `.tts-sentence`: the reading-font rules
-       below key off that name, and the gradient band has no business on a
-       marker. */
-    :global(.tts-marker::before) {
+       specificity, which is the other reason this belongs here. `accent-color`
+       tints a ticked box; an unticked one keeps the browser's own border. */
+    .editor-surface :global(ol > li::before),
+    .editor-surface :global(ul > li::before) {
         color: var(--tts-word-tint);
     }
-    :global(.tts-marker > label input[type='checkbox']) {
+    .editor-surface
+        :global(ul[data-type='taskList'] > li > label input[type='checkbox']) {
         accent-color: var(--tts-word-tint);
     }
 
