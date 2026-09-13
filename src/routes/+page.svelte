@@ -356,40 +356,49 @@
         </EmptyState>
     </div>
 {:else if workspace.status === 'needs-folder' || workspace.status === 'needs-permission'}
-    <!-- Wider than the cards need: the editor preview below them takes the extra
-         measure, and Welcome's own Empty.Content keeps the cards at `max-w-2xl`.
-
-         `overflow-y-auto` for the same reason the Files list has it. Nothing in
+    <!-- `overflow-y-auto` for the same reason the Files list has it. Nothing in
          this branch resizes itself to fit the window — the preview is drawn at
          the column's full width and stands as tall as its own contents — so on
          a short screen it simply runs past the fold. Without this it would
          spill out of the branch and paint over the footer; with it the screen
-         scrolls inside it and the chrome stays put. -->
-    <div
-        class="mx-auto flex min-h-0 w-full flex-1 overflow-y-auto px-6 md:max-w-5xl"
-    >
-        <!-- `pendingName` is empty in the first-run case, which is what picks
-             the "start a new folder" card over "reopen". -->
-        <Welcome.Root
-            error={workspace.error}
-            folderName={workspace.pendingName}
-            onChoose={() => workspace.chooseFolder()}
-            onDismissError={() => (workspace.error = '')}
-            onReopen={() => workspace.reopen()}
-            onSuggested={() =>
-                workspace.chooseFolder({ subfolder: SUGGESTED_FOLDER_NAME })}
-        />
+         scrolls inside it and the chrome stays put.
+
+         Two elements, not one: the full-width outer owns the scrolling, so the
+         scrollbar sits at the window's right edge rather than beside the
+         centred column; the inner is the measure. -->
+    <div class="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
+        <!-- The cards and the preview share this one measure. -->
+        <div class="mx-auto flex w-full flex-1 px-6 md:max-w-5xl">
+            <!-- `pendingName` is empty in the first-run case, which is what
+                 picks the "start a new folder" card over "reopen". -->
+            <Welcome.Root
+                error={workspace.error}
+                folderName={workspace.pendingName}
+                onChoose={() => workspace.chooseFolder()}
+                onDismissError={() => (workspace.error = '')}
+                onReopen={() => workspace.reopen()}
+                onSuggested={() =>
+                    workspace.chooseFolder({
+                        subfolder: SUGGESTED_FOLDER_NAME
+                    })}
+            />
+        </div>
     </div>
 {:else}
     <!-- The one branch that can outgrow the window, so the one that owns the
          scrolling. `overflow-y-auto` also resolves this flex item's implicit
          `min-height: auto` to 0, which is what stops a long list pushing the
          footer off the bottom edge — the same shape the editor uses, where its
-         chrome is `shrink-0` and Editor/Page is the scroll container. -->
-    <div
-        class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 overflow-y-auto px-6 py-10"
-    >
-        <!-- The list's own title row, not a landmark: the two folder actions
+         chrome is `shrink-0` and Editor/Page is the scroll container.
+
+         Full width, with the measure on a column inside it, so the scrollbar is
+         drawn at the window's right edge rather than beside the list. The
+         column's `flex-1` keeps an empty folder's EmptyState centred. -->
+    <div class="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
+        <div
+            class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-10"
+        >
+            <!-- The list's own title row, not a landmark: the two folder actions
              that used to sit here have moved up into the app header's menu, and
              the page's one <header> is that.
 
@@ -397,109 +406,112 @@
              primary action, so Refresh and "New folder" ride behind it as a
              split button instead of standing beside it as two more buttons
              competing for the same corner. -->
-        <div class="flex items-center justify-between gap-4">
-            <h1 class="text-xl font-semibold">{m.files_title()}</h1>
-            <ButtonGroup.Root>
-                <Button onclick={onCreate}>
-                    <Icon icon={FileAddIcon} />
-                    {m.files_new()}
-                </Button>
-                <DropdownMenu.Root>
-                    <DropdownMenu.Trigger>
-                        {#snippet child({ props })}
-                            <Button
-                                {...props}
-                                aria-label={m.files_more_actions()}
-                            >
-                                <Icon icon={ArrowDown01Icon} />
-                            </Button>
-                        {/snippet}
-                    </DropdownMenu.Trigger>
-                    <!-- w-auto because nova pins menu content to its anchor's
-                         width, and this anchor is a bare chevron button. -->
-                    <DropdownMenu.Content align="end" class="w-auto">
-                        <!-- The automatic rescans cover most of it; this is for
-                             the writer who has just saved something from another
-                             app and wants to see it now rather than wonder. -->
-                        <DropdownMenu.Item
-                            disabled={workspace.scanning}
-                            onSelect={() => workspace.refresh()}
-                        >
-                            <Icon icon={RefreshIcon} />
-                            {m.files_refresh()}
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Item onSelect={onNewFolderAtRoot}>
-                            <Icon icon={FolderAddIcon} />
-                            {m.files_new_folder()}
-                        </DropdownMenu.Item>
-                    </DropdownMenu.Content>
-                </DropdownMenu.Root>
-            </ButtonGroup.Root>
-        </div>
-
-        {#if workspace.error}
-            <p class="text-destructive text-sm">{workspace.error}</p>
-        {/if}
-
-        <!-- Two different empty folders, and they must not read alike: one has
-             nothing in it, the other is full of files this app cannot open.
-             `naming` beats both: the tree is where the naming row is drawn, so
-             an empty folder still has to render one to name the first thing
-             into it. -->
-        {#if workspace.isEmpty && !naming}
-            <EmptyState
-                description={workspace.hasUnopenableFiles
-                    ? m.files_no_writing_description()
-                    : m.files_empty_description()}
-                icon={File01Icon}
-                title={workspace.hasUnopenableFiles
-                    ? m.files_no_writing_title()
-                    : m.files_empty_title()}
-            >
-                {#snippet action()}
+            <div class="flex items-center justify-between gap-4">
+                <h1 class="text-xl font-semibold">{m.files_title()}</h1>
+                <ButtonGroup.Root>
                     <Button onclick={onCreate}>
                         <Icon icon={FileAddIcon} />
                         {m.files_new()}
                     </Button>
-                {/snippet}
-            </EmptyState>
-        {:else if workspace.tree}
-            <FileTree.Root
-                actions={treeActions}
-                isExpanded={(node) => workspace.isExpanded(node)}
-                {naming}
-                node={workspace.tree}
-                onNamingCancel={() => (naming = null)}
-                {onNamingSubmit}
-                onToggle={(node) => workspace.toggle(node)}
-            />
-        {/if}
+                    <DropdownMenu.Root>
+                        <DropdownMenu.Trigger>
+                            {#snippet child({ props })}
+                                <Button
+                                    {...props}
+                                    aria-label={m.files_more_actions()}
+                                >
+                                    <Icon icon={ArrowDown01Icon} />
+                                </Button>
+                            {/snippet}
+                        </DropdownMenu.Trigger>
+                        <!-- w-auto because nova pins menu content to its anchor's
+                         width, and this anchor is a bare chevron button. -->
+                        <DropdownMenu.Content align="end" class="w-auto">
+                            <!-- The automatic rescans cover most of it; this is for
+                             the writer who has just saved something from another
+                             app and wants to see it now rather than wonder. -->
+                            <DropdownMenu.Item
+                                disabled={workspace.scanning}
+                                onSelect={() => workspace.refresh()}
+                            >
+                                <Icon icon={RefreshIcon} />
+                                {m.files_refresh()}
+                            </DropdownMenu.Item>
+                            <DropdownMenu.Item onSelect={onNewFolderAtRoot}>
+                                <Icon icon={FolderAddIcon} />
+                                {m.files_new_folder()}
+                            </DropdownMenu.Item>
+                        </DropdownMenu.Content>
+                    </DropdownMenu.Root>
+                </ButtonGroup.Root>
+            </div>
 
-        <!-- Portals to <body>, so where it sits in the markup is immaterial;
+            {#if workspace.error}
+                <p class="text-destructive text-sm">{workspace.error}</p>
+            {/if}
+
+            <!-- Two different empty folders, and they must not read alike: one has
+             nothing in it, the other is full of files this app cannot open.
+             `naming` beats both: the tree is where the naming row is drawn, so
+             an empty folder still has to render one to name the first thing
+             into it. -->
+            {#if workspace.isEmpty && !naming}
+                <EmptyState
+                    description={workspace.hasUnopenableFiles
+                        ? m.files_no_writing_description()
+                        : m.files_empty_description()}
+                    icon={File01Icon}
+                    title={workspace.hasUnopenableFiles
+                        ? m.files_no_writing_title()
+                        : m.files_empty_title()}
+                >
+                    {#snippet action()}
+                        <Button onclick={onCreate}>
+                            <Icon icon={FileAddIcon} />
+                            {m.files_new()}
+                        </Button>
+                    {/snippet}
+                </EmptyState>
+            {:else if workspace.tree}
+                <FileTree.Root
+                    actions={treeActions}
+                    isExpanded={(node) => workspace.isExpanded(node)}
+                    {naming}
+                    node={workspace.tree}
+                    onNamingCancel={() => (naming = null)}
+                    {onNamingSubmit}
+                    onToggle={(node) => workspace.toggle(node)}
+                />
+            {/if}
+
+            <!-- Portals to <body>, so where it sits in the markup is immaterial;
              keeping it at the end of the branch that owns the list it deletes
              from is just the easiest place to find it. -->
-        <ConfirmDialog
-            bind:open={deleteOpen}
-            confirmLabel={m.files_delete()}
-            description={deleteDescription}
-            destructive
-            onConfirm={confirmDelete}
-            title={m.files_delete_title({ title: deleteTarget?.title ?? '' })}
-        />
+            <ConfirmDialog
+                bind:open={deleteOpen}
+                confirmLabel={m.files_delete()}
+                description={deleteDescription}
+                destructive
+                onConfirm={confirmDelete}
+                title={m.files_delete_title({
+                    title: deleteTarget?.title ?? ''
+                })}
+            />
 
-        <!-- Only ever an empty folder, so nothing of the user's is in it — but
+            <!-- Only ever an empty folder, so nothing of the user's is in it — but
              it is still a directory leaving their disk with no trash behind it,
              and CLAUDE.md asks before any of those. -->
-        <ConfirmDialog
-            bind:open={folderDeleteOpen}
-            confirmLabel={m.files_delete()}
-            description={m.files_folder_delete_description()}
-            destructive
-            onConfirm={confirmDeleteFolder}
-            title={m.files_folder_delete_title({
-                name: folderDeleteTarget?.name ?? ''
-            })}
-        />
+            <ConfirmDialog
+                bind:open={folderDeleteOpen}
+                confirmLabel={m.files_delete()}
+                description={m.files_folder_delete_description()}
+                destructive
+                onConfirm={confirmDeleteFolder}
+                title={m.files_folder_delete_title({
+                    name: folderDeleteTarget?.name ?? ''
+                })}
+            />
+        </div>
     </div>
 {/if}
 

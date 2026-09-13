@@ -153,27 +153,6 @@ Within each, items are grouped under a theme so related work can be picked up to
 
 ### Bugs
 
-#### Welcome screen and page layout
-
-- [ ] Widen the welcome screen's folder cards to match the editor preview below them —
-      each card should be half the preview's width less the gap. The grid is capped by
-      the `max-w-2xl` wrapper at `Welcome.svelte:90` while `WelcomePreview.svelte:110`
-      is `w-full` of the route's `md:max-w-5xl` column, so the cards sit visibly narrower
-      than the picture they introduce. Drop the cap and let the existing
-      `sm:grid-cols-2 gap-5` grid span the column; the gap then supplies the "less the
-      gap". Two comments describe the old cap and change with it — `Welcome.svelte:122`
-      and `+page.svelte:363`. The preview is `hidden` below `lg`, so there the cards
-      simply fill the column: stacked on phones, side by side from `sm`
-- [ ] Put the scrollbar on the far right of the viewport, not beside a centred column.
-      The Files list's scroll container is also its measure —
-      `mx-auto max-w-3xl … overflow-y-auto` on one element at `+page.svelte:389` — so
-      the scrollbar is drawn at the column's right edge, mid-screen. Split the two: a
-      full-width outer element owns `overflow-y-auto` (keeping the `min-h-0` behaviour
-      its comment relies on to hold the footer in place), and a centred `max-w-3xl`
-      inner column holds the list. The welcome branch at `+page.svelte:368` has the same
-      shape with `md:max-w-5xl` and gets the same fix — it starts to matter once the
-      hero and wider cards make that screen taller
-
 #### Images and tables in the editor
 
 - [ ] Make inserted images actually display — insertion is already a proper TipTap image
@@ -234,19 +213,6 @@ Within each, items are grouped under a theme so related work can be picked up to
 
 #### Welcome and first run
 
-- [ ] Give the welcome screen a proper hero in place of the `Empty` block. The title
-      and description ("Welcome to DyslexicWriter / Choose a folder on your computer…")
-      are an `Empty.Root` at `Welcome.svelte:72-88`, sized like an empty state rather
-      than the front page of the app. Build a `WelcomeHero.svelte` beside `Welcome.svelte`
-      — our own markup and theme tokens, since shadcn-svelte has no hero and the vendored
-      `ui/` stays untouched — markedly taller, pushing the cards and preview down the
-      page. Covers both states: `welcome_title` / `welcome_description` and
-      `welcome_back_title` / `welcome_back_description`. Story in `src/stories/Welcome/`
-    - Two decisions to take at planning time: whether the folder icon above the title
-      stays, and how much taller. Check it at 1536x864 as well as 1080-tall — a big hero
-      pushes the preview below the fold there
-    - Pairs with the cards and scrollbar items under **Bugs** — the three are one pass
-      over the same screen
 - [ ] Show the read-aloud highlight in the welcome screen's editor preview —
       `WelcomePreview.svelte` draws the transport controls but never the band, so the one
       screen a stranger sees before handing over a folder doesn't show the feature the app

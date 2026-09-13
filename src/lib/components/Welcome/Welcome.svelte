@@ -5,13 +5,12 @@
         FolderOpenIcon
     } from '@hugeicons/core-free-icons';
 
-    import Icon from '$lib/components/Icon/Icon.svelte';
     import * as AlertDialog from '$lib/components/ui/alert-dialog';
-    import * as Empty from '$lib/components/ui/empty';
 
     import * as m from '$lib/paraglide/messages';
 
     import WelcomeCard from './WelcomeCard.svelte';
+    import WelcomeHero from './WelcomeHero.svelte';
     import WelcomePreview from './WelcomePreview.svelte';
 
     // The screen shown before there is a working folder. Two shapes, one layout:
@@ -20,9 +19,7 @@
     //  - a folder we already know about but may not read yet: reopen it, or
     //    choose a different one if it has moved
     //
-    // Deliberately store-free so Storybook can drive it. The Empty parts are
-    // composed here rather than through EmptyState because its content block is
-    // `max-w-sm` — too narrow for two cards side by side.
+    // Deliberately store-free so Storybook can drive it.
     let {
         folderName,
         error,
@@ -66,28 +63,21 @@
      fill a tall screen and nothing is squeezed on a short one — the preview at
      the foot brings its own height, and where there isn't room for it the
      screen scrolls like any other. -->
-<div class="flex size-full min-h-0 flex-col space-y-12 py-12">
-    <!-- `flex-none`: Empty.Root is itself `flex-1`, and left to grow it would
-         take the height the preview below it is meant to have. -->
-    <Empty.Root class="flex-none">
-        <Empty.Header>
-            <Empty.Media variant="icon">
-                <Icon icon={FolderOpenIcon} />
-            </Empty.Media>
-            <!-- Empty.Title is text-sm by default, which the card headings below
-            would then out-rank. -->
-            <Empty.Title class="text-xl font-semibold">
-                {folderName ? m.welcome_back_title() : m.welcome_title()}
-            </Empty.Title>
-            <Empty.Description>
-                {folderName
-                    ? m.welcome_back_description()
-                    : m.welcome_description()}
-            </Empty.Description>
-        </Empty.Header>
-    </Empty.Root>
+<!-- No top padding: the hero brings its own, and a second helping above it
+     would only push the cards further down a short screen. -->
+<div class="flex size-full min-h-0 flex-col space-y-12 pb-12">
+    <WelcomeHero
+        description={folderName
+            ? m.welcome_back_description()
+            : m.welcome_description()}
+        title={folderName ? m.welcome_back_title() : m.welcome_title()}
+    />
 
-    <div class="mx-auto max-w-2xl space-y-5 text-center">
+    <!-- The full width of the column, the same measure as the preview below, so
+         each card is half the picture it introduces less the gap. `pb-12` on
+         top of the stack's own spacing, so the choice and the picture of what
+         it is for read as two things rather than one block. -->
+    <div class="w-full space-y-5 pb-12 text-center">
         <div class="grid w-full gap-5 sm:grid-cols-2">
             {#if folderName}
                 <WelcomeCard
@@ -120,9 +110,8 @@
     </div>
 
     <!-- A picture of the editor, so the folder is handed over knowing what it is
-         for. Sits outside Empty.Content rather than in it: the cards keep their
-         `max-w-2xl` and the window gets the wider measure the route now allows.
-         Shown in both states — a return visit waiting on permission is still a
+         for. It and the cards share the column's full width, so their edges
+         line up. Shown in both states — a return visit waiting on permission is still a
          screen with nothing on it saying what this app does. -->
     <WelcomePreview />
 </div>

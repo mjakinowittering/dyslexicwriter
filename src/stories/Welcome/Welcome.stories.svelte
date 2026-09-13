@@ -82,8 +82,8 @@
 
         // A return visit isn't a first run, and shouldn't read like one.
         await expect(
-            canvas.getByText(m.welcome_back_title())
-        ).toBeInTheDocument();
+            canvas.getByRole('heading', { level: 1 })
+        ).toHaveTextContent(m.welcome_back_title());
     }}
 >
     {#snippet template(args)}
