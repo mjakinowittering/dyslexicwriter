@@ -252,10 +252,12 @@
            centred on this rather than filling it, so a dot and a box read as one
            marker column rather than two. */
         --list-box: 1.05em;
-        /* Where an item's first line actually starts. `li p` carries a block
-           margin (from the editor's prose classes in PageEditor.svelte), so the
-           writing sits this far below the item's own top and every marker has to
-           drop with it or float above the line it belongs to. */
+        /* Where a checklist item's first line actually starts. `li p` carries a
+           block margin (from the editor's prose classes in PageEditor.svelte). In
+           a bullet or number item it collapses out through the `<li>`, so those
+           markers need no offset; a task item is a flex container, which keeps
+           the margin inside, so the writing sits this far below the item's top
+           and the checkbox has to drop with it. */
         --list-line-offset: 0.375rem;
     }
 
@@ -295,7 +297,12 @@
 
        `top` is left to the static position — where the marker would have sat, on
        its own item's line — so one rule serves every item in the list, and only
-       the horizontal edge is claimed from the list itself.
+       the horizontal edge is claimed from the list itself. That static position is
+       already the top of the writing's first line: the `<p>`'s block margin
+       collapses out through the item, which has no border or padding to hold it
+       in, so the item's own top is the paragraph's. The marker takes no offset of
+       its own — `--list-line-offset` here would count that margin twice and sit
+       every bullet and number a line-margin below the words beside it.
 
        `counter(list-item)` is the browser's own list counter rather than one
        declared here, so `start` on an ordered list, and the numbering of a list
@@ -304,7 +311,6 @@
     .prose ul:not([data-type='taskList']) > li::before {
         position: absolute;
         left: 0;
-        margin-top: var(--list-line-offset);
     }
 
     .prose ol > li::before {
