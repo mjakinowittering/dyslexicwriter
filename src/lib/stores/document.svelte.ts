@@ -96,6 +96,12 @@ class DocumentStore {
     // long ago the copy on disk was made current.
     savedAt = $state<number | null>(null);
     error = $state('');
+    // Why the last `open()` came back with nothing, or '' when it did not fail.
+    // Kept apart from `error` because the two ask different things of the writer:
+    // a failed save or rename is about a document still on screen and still worth
+    // typing into, whereas a failed open leaves an empty editor with no file behind
+    // it — anything typed there would be saved as a new document nobody asked for.
+    openError = $state('');
 
     #timer: ReturnType<typeof setTimeout> | null = null;
     // Set once per run of unsaved edits and never pushed back — see
@@ -186,7 +192,7 @@ class DocumentStore {
         } catch (cause) {
             if (epoch !== this.#epoch) return;
 
-            this.error =
+            this.openError =
                 cause instanceof DocumentError
                     ? cause.message
                     : m.editor_open_error();
@@ -454,6 +460,7 @@ class DocumentStore {
         this.saveState = 'idle';
         this.savedAt = null;
         this.error = '';
+        this.openError = '';
     }
 
     // Flush and clear, for when the editor unmounts.

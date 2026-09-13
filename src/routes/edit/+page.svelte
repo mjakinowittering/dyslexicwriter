@@ -12,10 +12,12 @@
     import Rail from '$lib/components/Editor/Toolbar/ToolbarRail.svelte';
     import Settings from '$lib/components/Editor/Toolbar/ToolbarSettings.svelte';
     import * as SettingsPanel from '$lib/components/Settings';
+    import * as AlertDialog from '$lib/components/ui/alert-dialog';
     import * as InputGroup from '$lib/components/ui/input-group';
 
     import { isFileSystemAccessSupported } from '$lib/fs';
     import {
+        documentPath,
         extensionFromFileName,
         MARKDOWN_EXTENSION,
         TITLE_MAX_LENGTH
@@ -25,6 +27,7 @@
     import { doc } from '$lib/stores/document.svelte';
     import { workspace } from '$lib/stores/workspace.svelte';
     import { speech } from '$lib/tts/speech-controller.svelte';
+    import { editorRoute } from '$lib/utils/editor-route';
 
     let editor = $state<TipTapEditor>();
     // The editor component itself, for `reconcile()`. The exit paths below have to
@@ -57,6 +60,17 @@
     // Deliberately a plain `let` rather than `$state`: the effect below both reads
     // and writes it, and a signal would re-trigger the effect on its own write.
     let openedPath: string | null | undefined = undefined;
+
+    // Bumped by every `openFromUrl`, so a slow open can tell it has been overtaken.
+    // Not `openedPath`: the URL sync below rewrites that to the canonical path the
+    // moment an open lands, and an old bare-folder link would then look overtaken
+    // by itself and never get its title.
+    let openSeq = 0;
+
+    // An open is part-way through: flushing the outgoing document, or reading the
+    // incoming one. A signal rather than a plain `let`, so the URL sync re-runs
+    // when it clears and catches the location the open settled on.
+    let opening = $state(false);
 
     onMount(async () => {
         if (!isFileSystemAccessSupported()) {
@@ -97,7 +111,59 @@
         void openFromUrl(next, first);
     });
 
+    // The URL follows the document, not only the other way round. A rename moves
+    // the file and a first save creates one, and neither navigates — so without
+    // this the address bar keeps naming a file that has just been deleted, or no
+    // file at all, and a reload opens that instead of the writing.
+    //
+    // `goto` rather than shallow `replaceState`: the shallow form leaves `page.url`
+    // and the history entry's own record of it on the OLD path, and SvelteKit
+    // restores from that record on Back/Forward — reopening the deleted file by
+    // another route. Replacing the entry keeps Back going to the Files screen.
+    //
+    // `openedPath` is set first, so the effect above sees its own URL and does not
+    // take the navigation for a document switch — which would flush, re-read and
+    // reset the editor under the writer's caret.
+    //
+    // It stands down until this page has opened something — the store is shared
+    // and can still hold the last document's location at mount — and while an
+    // open is in flight: the switch's flush of an unsaved outgoing document gives
+    // it a location, and following that would send the URL back to the document
+    // being left.
+    $effect(() => {
+        const location = doc.location;
+        if (opening || openedPath === undefined) return;
+        // Unsaved: there is no file for the URL to name yet.
+        if (location === null) return;
+
+        const next = documentPath(location);
+        if (next === openedPath) return;
+
+        openedPath = next;
+        void goto(resolve(editorRoute(next)), {
+            replaceState: true,
+            keepFocus: true,
+            noScroll: true
+        });
+    });
+
     async function openFromUrl(next: string | null, first: boolean) {
+        const seq = ++openSeq;
+        opening = true;
+
+        try {
+            await openDocument(next, first, seq);
+        } finally {
+            // Only ours to clear: a later open may have claimed it meanwhile.
+            if (seq === openSeq) opening = false;
+        }
+    }
+
+    async function openDocument(
+        next: string | null,
+        first: boolean,
+        seq: number
+    ) {
         // A switch is not an unmount, so `onDestroy` will not run: the read has to
         // be stopped here or it carries on talking over the next document with the
         // highlight pointing into a document that is no longer on screen.
@@ -123,7 +189,7 @@
 
         // A second change overtook this one while it was reading; the title belongs
         // to whichever document is open now, not to the one we were fetching.
-        if (openedPath !== next) return;
+        if (seq !== openSeq) return;
 
         title = doc.title;
     }
@@ -373,3 +439,34 @@
         <SettingsPanel.Panel bind:open={settingsOpen} />
     {/if}
 </div>
+
+<!-- A document that could not be opened — a bookmark to a file since renamed or
+     deleted outside the app. Modal on purpose: the editor behind it is empty
+     with no file to write to, and anything typed there would be saved as a new
+     document. The file list is the only way on, so every way out of the dialog
+     goes there — the button, and Escape through the binding's setter.
+
+     `onclick` on the Action displaces bits-ui's own close handler, so the
+     setter does not also fire and send the writer back twice. -->
+<AlertDialog.Root
+    bind:open={
+        () => doc.openError !== '',
+        (open) => {
+            if (!open) void onBack();
+        }
+    }
+>
+    <AlertDialog.Content>
+        <AlertDialog.Header>
+            <AlertDialog.Title>{doc.openError}</AlertDialog.Title>
+            <AlertDialog.Description>
+                {m.editor_open_description()}
+            </AlertDialog.Description>
+        </AlertDialog.Header>
+        <AlertDialog.Footer>
+            <AlertDialog.Action onclick={onBack}>
+                {m.editor_back()}
+            </AlertDialog.Action>
+        </AlertDialog.Footer>
+    </AlertDialog.Content>
+</AlertDialog.Root>
