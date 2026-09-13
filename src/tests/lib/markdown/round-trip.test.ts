@@ -28,6 +28,12 @@ describe('markdown round-trip', () => {
         ['strikethrough', 'Some ~~struck~~ text.'],
         ['inline code', 'Call `toMarkdown()` here.'],
         ['link', 'See [the docs](https://example.com) for more.'],
+        // The link dialog only makes http, https and mailto links, but that rule
+        // lives in the dialog. Links already in a writer's files must keep
+        // their mark, or the next autosave writes them back as plain text.
+        ['relative link', 'See [my notes](notes.md) first.'],
+        ['anchor link', 'Back to [the top](#title).'],
+        ['email link', 'Write to [Ada](mailto:ada@example.com).'],
         ['bullet list', '-   One\n-   Two\n-   Three'],
         ['ordered list', '1.  One\n2.  Two\n3.  Three'],
         ['nested bullet list', '-   One\n    -   Nested'],
@@ -50,6 +56,19 @@ describe('markdown round-trip', () => {
         ]
     ])('preserves %s', (_label, md) => {
         expect(roundTrip(md)).toBe(md);
+    });
+
+    // The permissive parse above still has a floor. A script address in a file
+    // must never become a clickable link in the editor — the text survives, the
+    // link does not.
+    it('never makes a link of a javascript: address', () => {
+        const json = JSON.stringify(
+            fromMarkdown('Do not [click](javascript:alert(1)) this.')
+        );
+
+        expect(json).toContain('click');
+        expect(json).not.toContain('"type":"link"');
+        expect(json).not.toContain('javascript:');
     });
 
     it('preserves a document combining every supported node', () => {

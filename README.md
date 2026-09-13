@@ -247,44 +247,6 @@ Within each, items are grouped under a theme so related work can be picked up to
       that means shipping a binary and writing it beside the markdown, and the point
       here is the type
 
-#### Links in the editor
-
-- [ ] Add a link dialog to the editor — a toolbar button to insert a link, and clicking
-      an existing link to edit it. No plugin is missing: StarterKit's Link mark is already
-      on (`markdown/extensions.ts:28-33`, `openOnClick: false`) and the round-trip
-      already covers it (`round-trip.test.ts:30`), so a pasted link saves and reloads
-      today — what's missing is any UI. Add `FormatInsertLink.svelte` beside
-      `FormatInsertImage.svelte` and register it in `Format/definitions.ts`; add the
-      shadcn **Dialog** (`npx shadcn-svelte@latest add dialog --yes`, not yet installed)
-      with Label and URI fields (Input and Label are installed), OK and Cancel, plus
-      Remove when editing
-    - Capture the selection when the dialog opens — it takes focus — and apply at that
-      position on OK. A non-empty selection seeds the label and becomes the link text;
-      clicking a link selects its whole mark range and seeds both fields
-    - Accept `http:`, `https:` and `mailto:` only, via the Link extension's
-      `isAllowedUri`/`protocols` as well as the form; prefix a bare `www.` with
-      `https://`; refuse `javascript:` and friends — these links land in files on disk
-    - This moves the capped toolbar: add "link" to the permitted list in CLAUDE.md's
-      General Rules and to the `content-editor` skill in the same commit
-- [ ] Show a hover card on links — the shadcn **Hover Card**
-      (`npx shadcn-svelte@latest add hover-card --yes`, not yet installed) revealing the
-      label, the full URI and its domain, with **Open** (new tab,
-      `rel="noopener noreferrer"`) and **Edit** (the dialog above). Open is the only way
-      to follow a link once clicking edits it, so this lands with or after the dialog.
-      Anchor it to the hovered `<a>` in the ProseMirror view and let it follow edits
-    - No Open Graph preview. Reading another site's OG tags from the browser is blocked
-      by CORS, and the ways round it — our own proxy, or a third-party unfurl service —
-      are a server this project doesn't have, or every hovered URL sent to someone else.
-      Reconsider only as a deliberate proposal
-    - Not a bubble menu in the CLAUDE.md sense (no formatting controls), but say so in
-      the `content-editor` skill so the next reader doesn't have to rule on it again
-- [ ] Suffix every link in the editor with an external-link icon, since following it
-      leaves the app. Presentation only: a CSS `::after` on the link class set in
-      `extensions.ts:31`, or a widget decoration — never a node, mark or text, so it stays
-      out of `getJSON()`, the markdown, and read-aloud's text map
-      (`tts/text-map.ts`). Same Hugeicons set as the rest of the app, coloured from
-      `layout.css` tokens
-
 #### Editor display settings
 
 - [ ] Add a "Show invisible characters" setting — a **Switch** in `SettingsPanel.svelte`
