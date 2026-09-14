@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { WELCOME_MARKDOWN, WELCOME_OPENING } from '$lib/config/welcome';
 import { formatMarkdown } from '$lib/markdown/format';
 import { fromMarkdown } from '$lib/markdown/from-markdown';
 import { joinFrontmatter, splitFrontmatter } from '$lib/markdown/frontmatter';
@@ -261,6 +262,27 @@ describe('formatting preserves the document', () => {
         );
 
         expect(twice).toBe(once);
+    });
+});
+
+// The note a new DyslexicWriter folder is seeded with. It is written to disk as
+// checked in, so the first time it goes through the editor is when the writer
+// opens it — and whatever they do next, it has to come back as the same document.
+describe('the welcome seed', () => {
+    it('survives a formatted save unchanged', async () => {
+        const saved = await formatMarkdown(
+            toMarkdown(fromMarkdown(WELCOME_MARKDOWN)),
+            { printWidth: 80, proseWrap: 'always' }
+        );
+
+        expect(fromMarkdown(saved)).toEqual(fromMarkdown(WELCOME_MARKDOWN));
+    });
+
+    // The welcome preview renders this as plain text, so markup here would show
+    // up as literal asterisks on the first screen a stranger sees.
+    it('opens with plain prose the preview can show as text', () => {
+        expect(WELCOME_OPENING).toMatch(/\w/);
+        expect(WELCOME_OPENING).not.toMatch(/[*_`#>|[\]]/);
     });
 });
 

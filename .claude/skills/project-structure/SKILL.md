@@ -53,7 +53,9 @@ src/
 │   ├── config/
 │   │   ├── defaults.json             // first-run value of EVERY preference in config.json
 │   │   ├── links.ts                  // footer URLs, derived from package.json
-│   │   └── motion.ts                 // shared durations/easing — the ONLY source of timings
+│   │   ├── motion.ts                 // shared durations/easing — the ONLY source of timings
+│   │   ├── welcome.md                // the welcome note seeded into a new DyslexicWriter folder
+│   │   └── welcome.ts                // its title + opening — read by the seed and the preview
 │   │
 │   ├── fs/                           // THE data layer — see the filesystem-storage skill
 │   │   ├── config.ts                 //   read/write config.json

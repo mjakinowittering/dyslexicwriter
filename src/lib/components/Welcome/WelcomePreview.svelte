@@ -28,6 +28,7 @@
 
     import Icon from '$lib/components/Icon/Icon.svelte';
 
+    import { WELCOME_OPENING, WELCOME_TITLE } from '$lib/config/welcome';
     import * as m from '$lib/paraglide/messages';
     import { readingTimeLabel } from '$lib/utils/reading-time';
 
@@ -57,7 +58,10 @@
     // The page inside runs on under the status bar, which is what a page looks
     // like when it carries on below the fold.
 
-    // The same document the design record shows in the editor, so the two agree.
+    // The page itself is the welcome note's title and opening — the note a new
+    // DyslexicWriter folder is seeded with, so the window shows the document the
+    // writer then finds. The readouts below stay a mock: the note is short, and a
+    // status bar reading a few dozen words makes the window look nearly empty.
     const WORD_COUNT = 1284;
     const readingTime = readingTimeLabel(WORD_COUNT);
 
@@ -148,7 +152,7 @@
                         <span
                             class="flex min-w-0 flex-1 items-center truncate py-0 pr-1 pl-2 text-xs font-medium"
                         >
-                            {m.welcome_preview_title()}
+                            {WELCOME_TITLE}
                         </span>
                         <span
                             class="text-muted-foreground flex items-center pr-2 text-xs font-medium"
@@ -196,13 +200,13 @@
                 class="border-border bg-sheet shadow-sheet reading-font mx-auto w-full max-w-xl rounded-xl border p-16"
             >
                 <h3 class="mb-5 text-2xl leading-tight font-semibold">
-                    {m.welcome_preview_title()}
+                    {WELCOME_TITLE}
                 </h3>
                 <!-- `leading-relaxed` — the nearest step on the scale to Tailwind
                      Typography's `prose-lg`, which is what the real document surface
                      renders at. -->
                 <p class="text-sm leading-relaxed">
-                    {m.welcome_preview_prose()}
+                    {WELCOME_OPENING}
                 </p>
             </div>
         </div>

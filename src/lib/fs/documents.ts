@@ -879,14 +879,66 @@ export async function folderIsReachable(
 // Documents and creating this inside whatever the user actually picks.
 export const SUGGESTED_FOLDER_NAME = 'DyslexicWriter';
 
+export interface Subfolder {
+    handle: FileSystemDirectoryHandle;
+    // True only when this call made the folder. What lets the welcome screen
+    // seed a folder it has just created without ever seeding one the writer
+    // already had.
+    created: boolean;
+}
+
 // Get a subfolder of the chosen directory, making it only if it isn't there.
 // Reusing an existing folder is the point: a second run must land back in the
 // user's writing rather than beside it in a `DyslexicWriter 2`.
+//
+// Probed first rather than asked for with `create: true` straight away, because
+// that answers identically whether it made the folder or found one — and the
+// caller has to know which before it writes anything into it.
 export async function ensureSubfolder(
     parent: FileSystemDirectoryHandle,
     name: string
-): Promise<FileSystemDirectoryHandle> {
-    return parent.getDirectoryHandle(name, { create: true });
+): Promise<Subfolder> {
+    try {
+        return {
+            handle: await parent.getDirectoryHandle(name),
+            created: false
+        };
+    } catch (cause) {
+        // A FILE of that name is not "missing" — rethrown, so the caller says
+        // it couldn't make the folder rather than writing beside a file.
+        if (!isNotFoundError(cause)) throw cause;
+    }
+
+    return {
+        handle: await parent.getDirectoryHandle(name, { create: true }),
+        created: true
+    };
+}
+
+// Write the welcome note into a folder the app has just made, as
+// `<Title>/<Title>.md` — a folder-document, like every document the app creates,
+// which `onlyDocument` then shows as a single row.
+//
+// The title and markdown are passed in rather than imported, for the reason
+// `writeDocument` takes its formatter: `fs/` is a data layer, and the copy is
+// the app's. The markdown is written exactly as it is checked in — it has never
+// been through the editor, so there is nothing to derive and nothing to format.
+//
+// The folder is expected to be empty, but the name is still refused before the
+// write rather than overwritten: this is somebody's disk.
+export async function seedWelcomeDocument(
+    dir: FileSystemDirectoryHandle,
+    title: string,
+    markdown: string
+): Promise<void> {
+    const target = sanitiseTitle(title);
+    const fileName = fileNameFor(target);
+
+    await refuseTakenName(dir, target, fileName);
+
+    // Folder first, file inside it second — the order every first save uses.
+    const folder = await dir.getDirectoryHandle(target, { create: true });
+    await writeFile(folder, fileName, markdown);
 }
 
 // Write a dropped or pasted image into the document's own directory and return

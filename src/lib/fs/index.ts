@@ -18,6 +18,8 @@ export {
     readDocument,
     renameDocument,
     scanFolder,
+    seedWelcomeDocument,
+    type Subfolder,
     SUGGESTED_FOLDER_NAME,
     suggestUntitledName,
     writeDocument,

@@ -1,6 +1,7 @@
 import { setMode } from 'mode-watcher';
 import { SvelteSet } from 'svelte/reactivity';
 
+import { WELCOME_MARKDOWN, WELCOME_TITLE } from '$lib/config/welcome';
 import {
     clearDirectoryHandle,
     ensurePermission,
@@ -11,6 +12,7 @@ import {
     refreshConfig,
     saveDirectoryHandle,
     scanFolder,
+    seedWelcomeDocument,
     updateConfig,
     type FolderNode
 } from '$lib/fs';
@@ -221,14 +223,40 @@ class WorkspaceStore implements PreferenceStore {
 
             let handle = picked;
             if (subfolder) {
+                let created = false;
                 try {
-                    handle = await ensureSubfolder(picked, subfolder);
+                    ({ handle, created } = await ensureSubfolder(
+                        picked,
+                        subfolder
+                    ));
                 } catch {
                     // A read-only volume, or a file already sitting there under
                     // that name. Either way the folder they picked is fine — it
                     // is only the one inside it we couldn't make.
                     this.error = m.welcome_folder_create_error();
                     return;
+                }
+
+                // A folder we have only just made is empty, so the first thing a
+                // new writer opens is a short note rather than a blank screen.
+                // Only ever a folder this call created: a DyslexicWriter they
+                // already had is theirs, and the note must not land on top of
+                // it every time they come back through this card.
+                //
+                // Before `#adopt`, so the scan adoption runs finds it. Best
+                // effort, like `refreshConfig`'s catch-up write — a folder that
+                // won't take the note still opens, and nothing about it is put
+                // in front of the writer.
+                if (created) {
+                    try {
+                        await seedWelcomeDocument(
+                            handle,
+                            WELCOME_TITLE,
+                            WELCOME_MARKDOWN
+                        );
+                    } catch {
+                        // The folder is still theirs to write in.
+                    }
                 }
             }
 

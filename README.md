@@ -209,43 +209,6 @@ Within each, items are grouped under a theme so related work can be picked up to
       this is markup and CSS only: band one sentence in the sample prose with a word lit
       inside it. Follows the highlight colours above — do it after, not alongside, so
       there is one source of truth for the values
-- [ ] Replace the welcome preview's sample copy with the DyslexicWriter product vision.
-      `welcome_preview_title` and `welcome_preview_prose` (`messages/en.json`) are
-      currently a lighthouse-keeper vignette — pleasant, but it spends the one piece of
-      prose a new user reads on fiction. The vision would say what the app is for while
-      demonstrating the reading experience. Copy to be written together; keep it short
-      enough that the preview's sheet still shows the title plus a few lines. Re-render
-      the mocks with it
-- [ ] Seed a newly created `DyslexicWriter` folder with a welcome document — a short
-      personal note from Matthew that doubles as a demonstration of the typography, so
-      the first thing a new writer opens is writing rather than an empty sheet. Nothing
-      exists yet: the "Start a new folder" card calls
-      `chooseFolder({ subfolder: SUGGESTED_FOLDER_NAME })`
-      (`stores/workspace.svelte.ts`), `ensureSubfolder` (`fs/documents.ts:885`) makes
-      `DyslexicWriter` inside whatever the user picked, and the folder is adopted empty.
-      Write it as a folder-document — `Welcome/Welcome.md`, the shape `createDocument`
-      already produces, since every document the app creates owns its folder and
-      `onlyDocument` collapses it back to a single row on the Files screen — after
-      `ensureSubfolder` and **before** `#adopt`, so the scan that adoption triggers
-      finds it. Best-effort like `refreshConfig`'s catch-up write: a folder that won't
-      take it still opens, and nothing about this is put in front of the writer
-    - Only a folder the app just **created**. `ensureSubfolder` reuses an existing
-      `DyslexicWriter` on purpose (`fs/documents.ts:882`) and reports nothing about
-      which it did, so it has to probe with `getDirectoryHandle(name)` first and seed
-      only on `NotFoundError` — otherwise a returning writer is handed the note again
-      every launch, or it lands on top of the copy they edited. Never for a folder
-      reached through "Choose a folder": that one is already theirs
-    - Decide where the copy lives. This is document content rather than UI chrome, so a
-      checked-in markdown seed beside `src/lib/config/defaults.json`, imported with
-      `?raw`, reads better than a multi-paragraph blob in `messages/en.json` — but it is
-      still a string the app ships, so the Paraglide rule wants ruling on explicitly
-      rather than assumed past. Copy to be written together, the way the preview prose
-      above is
-    - Scope: one document, text only. Exercise the capped node set the toolbar actually
-      offers — headings, bold/italic, the three lists, blockquote, rule, a table — so it
-      shows what the editor does and still survives the markdown round-trip. No image:
-      that means shipping a binary and writing it beside the markdown, and the point
-      here is the type
 
 #### Links in the editor
 

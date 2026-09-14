@@ -254,6 +254,12 @@ in-code constants when malformed.
   belong to the document that uses them, and only a folder of its own can hold them.
   Flat markdown files are what the scan _finds_ in a writer's tree, never what the app
   adds to it.
+- **A `DyslexicWriter` folder the app has just made is seeded with a welcome note** —
+  `Welcome/Welcome.md`, written as checked in from `src/lib/config/welcome.md` before
+  the folder is adopted, so the first thing a new writer opens is writing. Only a
+  folder that call created: `ensureSubfolder` probes first and reports `created`, and
+  a folder it reused, or one reached through "Choose your own", is never written
+  into. Best-effort, and refused rather than overwritten if the name is taken.
 - **Rename is folder first, then the file inside it**, so a failure halfway through can
   never leave a folder and file whose names disagree. A file-document renames only its
   file — its folder and any images beside it belong to the user, not to that document.
@@ -386,6 +392,11 @@ Messages live in `messages/en.json`. English is the only locale (`locales: ["en"
 adding message keys, recompile before type-checking:
 `npx paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide`.
 
+The one exception is **document content the app writes to disk**. The welcome note
+seeded into a new folder lives as `src/lib/config/welcome.md` — the markdown it
+becomes — not as a message key: it is a document the writer owns, not UI chrome. The
+welcome preview quotes its title and opening from there rather than keeping a copy.
+
 Keep copy short, calm and non-technical. The user is a writer, not an operator: say
 "Couldn't save — check the folder is still available", not "EIO: write failed".
 
@@ -516,7 +527,9 @@ project has no environment configuration.
 - No `console.log` in committed code, except `console.error` for genuine,
   otherwise-invisible failures
 - All UI copy goes through Paraglide (`m.*`) — never hardcode a string in a component,
-  including error text. English is the only locale; recompile after adding keys
+  including error text. English is the only locale; recompile after adding keys.
+  Document content the app writes to disk (`src/lib/config/welcome.md`) is not UI
+  copy and stays markdown
 - shadcn-svelte for all UI components — do not hand-roll form inputs or buttons; add
   them via `npx shadcn-svelte@latest add <name> --yes` (writes into `src/lib/components/ui/`)
 - All animation uses **native Svelte** (`svelte/transition` / `svelte/animate` /

@@ -272,6 +272,31 @@ The Files screen also checks a name against the tree while it is being typed, so
 writer sees the collision before Create is reachable. That check is a courtesy over a
 scan snapshot — the filesystem guards above are the authority.
 
+## The welcome note
+
+"Start a new folder" calls `chooseFolder({ subfolder: SUGGESTED_FOLDER_NAME })`, and a
+folder that call has just **made** is seeded with `Welcome/Welcome.md` before it is
+adopted, so the scan adoption runs finds it and the Files screen shows one row.
+
+- `ensureSubfolder` returns `{ handle, created }`. It **probes** with
+  `getDirectoryHandle(name)` first and creates only on `NotFoundError`, because
+  `create: true` answers identically whether it made the folder or found one. A file
+  of that name rethrows, and the store says it couldn't make the folder.
+- Seeding happens only when `created` is true. A reused `DyslexicWriter` is the
+  writer's — seeding it would hand them the note every visit, or land on the copy
+  they edited — and a folder reached through "Choose your own" is never touched.
+- `seedWelcomeDocument(dir, title, markdown)` takes the copy as parameters, the way
+  `writeDocument` takes its formatter, so `fs/` imports no app copy. It refuses a
+  taken name like `createDocument` does, then writes folder first, file second —
+  the checked-in bytes as they are, with no derive or format step.
+- The store treats it as best-effort, like `refreshConfig`'s catch-up write: a folder
+  that won't take the note still opens, and no error is shown.
+
+The copy is `src/lib/config/welcome.md`, imported `?raw` through
+`src/lib/config/welcome.ts` — document content, not a Paraglide key. The welcome
+preview reads `WELCOME_TITLE` and `WELCOME_OPENING` from the same module, which is
+why the note has to open with a paragraph free of markdown.
+
 ## Images
 
 Written into **their own document's directory** and referenced by relative path

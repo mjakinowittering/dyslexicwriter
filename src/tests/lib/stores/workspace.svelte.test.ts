@@ -1,6 +1,7 @@
 import { setMode } from 'mode-watcher';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { WELCOME_MARKDOWN, WELCOME_TITLE } from '$lib/config/welcome';
 import {
     clearDirectoryHandle,
     ensurePermission,
@@ -8,6 +9,7 @@ import {
     refreshConfig,
     saveDirectoryHandle,
     scanFolder,
+    seedWelcomeDocument,
     updateConfig,
     type FolderNode
 } from '$lib/fs';
@@ -40,6 +42,8 @@ vi.mock('$lib/fs', async (importOriginal) => {
         // race them; what is under test here is what `#adopt` does with the
         // config it got, not what the scan found.
         scanFolder: vi.fn(actual.scanFolder),
+        // Watched, and made to reject, by the welcome-note cases in chooseFolder.
+        seedWelcomeDocument: vi.fn(actual.seedWelcomeDocument),
         updateConfig: vi.fn(actual.updateConfig)
     };
 });
@@ -585,6 +589,57 @@ describe('chooseFolder', () => {
             error: workspace.error,
             root: workspace.root
         }).toEqual({ error: m.welcome_folder_create_error(), root: null });
+    });
+
+    // The welcome note. A folder this call made starts with it; a folder the
+    // writer already had never gets it, however they came to pick it again.
+    it('seeds a subfolder it has just made with the welcome note', async () => {
+        await workspace.chooseFolder({ subfolder: 'DyslexicWriter' });
+
+        const made = await picked.getDirectoryHandle('DyslexicWriter');
+        const note = await (
+            await (
+                await made.getDirectoryHandle(WELCOME_TITLE)
+            ).getFileHandle(`${WELCOME_TITLE}.md`)
+        ).getFile();
+
+        expect(await note.text()).toBe(WELCOME_MARKDOWN);
+    });
+
+    // Otherwise a returning writer is handed the note again on every visit to
+    // this card — or it lands on top of the copy they have edited.
+    it('never seeds a DyslexicWriter folder that was already there', async () => {
+        await picked.getDirectoryHandle('DyslexicWriter', { create: true });
+        vi.mocked(seedWelcomeDocument).mockClear();
+
+        await workspace.chooseFolder({ subfolder: 'DyslexicWriter' });
+
+        expect(workspace.status).toBe('ready');
+        expect(seedWelcomeDocument).not.toHaveBeenCalled();
+    });
+
+    it('never seeds a folder the writer chose as it is', async () => {
+        vi.mocked(seedWelcomeDocument).mockClear();
+
+        await workspace.chooseFolder();
+
+        expect(seedWelcomeDocument).not.toHaveBeenCalled();
+    });
+
+    // Best effort: a folder that won't take the note is still a folder to write
+    // in, and the writer is not told about a note they never knew was coming.
+    it('still opens the folder when the note will not write', async () => {
+        vi.mocked(seedWelcomeDocument).mockRejectedValueOnce(
+            new Error('read-only')
+        );
+
+        await workspace.chooseFolder({ subfolder: 'DyslexicWriter' });
+
+        expect({
+            status: workspace.status,
+            root: workspace.root?.name,
+            error: workspace.error
+        }).toEqual({ status: 'ready', root: 'DyslexicWriter', error: '' });
     });
 });
 

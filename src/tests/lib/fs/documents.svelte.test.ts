@@ -2,6 +2,7 @@ import * as opfs from '../../support/opfs';
 import { flattenDocuments } from '../../support/opfs';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { WELCOME_MARKDOWN, WELCOME_TITLE } from '$lib/config/welcome';
 import {
     createDocument,
     createFolder,
@@ -14,6 +15,7 @@ import {
     readDocument,
     renameDocument,
     scanFolder,
+    seedWelcomeDocument,
     SUGGESTED_FOLDER_NAME,
     suggestUntitledName,
     writeDocument,
@@ -874,26 +876,90 @@ describe('suggestUntitledName', () => {
 // The welcome screen's "start a new folder" card. The picker cannot be pointed
 // at a path, so the folder is made inside whatever the user picks.
 describe('ensureSubfolder', () => {
-    it('creates the folder when it is not there', async () => {
+    it('creates the folder when it is not there, and says it did', async () => {
         expect(await folderExists(root, SUGGESTED_FOLDER_NAME)).toBe(false);
 
-        const handle = await ensureSubfolder(root, SUGGESTED_FOLDER_NAME);
+        const { handle, created } = await ensureSubfolder(
+            root,
+            SUGGESTED_FOLDER_NAME
+        );
 
-        expect(handle.name).toBe(SUGGESTED_FOLDER_NAME);
+        expect({ name: handle.name, created }).toEqual({
+            name: SUGGESTED_FOLDER_NAME,
+            created: true
+        });
         expect(await folderExists(root, SUGGESTED_FOLDER_NAME)).toBe(true);
     });
 
-    // A second run has to land back in the user's writing, not beside it.
+    // A second run has to land back in the user's writing, not beside it — and
+    // has to say so, or the welcome note is written into it again.
     it('reuses an existing folder without touching what is in it', async () => {
         await writeRaw(SUGGESTED_FOLDER_NAME, 'Chapter.md', '# Chapter');
 
-        await ensureSubfolder(root, SUGGESTED_FOLDER_NAME);
+        const { created } = await ensureSubfolder(root, SUGGESTED_FOLDER_NAME);
 
+        expect(created).toBe(false);
         expect(await fileExists(SUGGESTED_FOLDER_NAME, 'Chapter.md')).toBe(
             true
         );
         expect(await readFile(SUGGESTED_FOLDER_NAME, 'Chapter.md')).toBe(
             '# Chapter'
+        );
+    });
+
+    it('rejects when a file already holds that name', async () => {
+        await writeRaw('', SUGGESTED_FOLDER_NAME, 'not a folder');
+
+        await expect(
+            ensureSubfolder(root, SUGGESTED_FOLDER_NAME)
+        ).rejects.toThrow();
+    });
+});
+
+// The note a newly made DyslexicWriter folder starts with.
+describe('seedWelcomeDocument', () => {
+    it('writes the note as a folder-document, byte for byte', async () => {
+        await seedWelcomeDocument(root, WELCOME_TITLE, WELCOME_MARKDOWN);
+
+        expect(await readFile(WELCOME_TITLE, `${WELCOME_TITLE}.md`)).toBe(
+            WELCOME_MARKDOWN
+        );
+    });
+
+    // `onlyDocument` lifts `Welcome/Welcome.md` into the root, so a new writer
+    // sees one document rather than a folder to open.
+    it('shows on the Files screen as a single document', async () => {
+        await seedWelcomeDocument(root, WELCOME_TITLE, WELCOME_MARKDOWN);
+
+        const tree = await scanFolder(root);
+
+        expect({
+            folders: tree.folders.length,
+            documents: tree.documents.map(({ title, folder, ownsFolder }) => ({
+                title,
+                folder,
+                ownsFolder
+            }))
+        }).toEqual({
+            folders: 0,
+            documents: [
+                {
+                    title: WELCOME_TITLE,
+                    folder: WELCOME_TITLE,
+                    ownsFolder: true
+                }
+            ]
+        });
+    });
+
+    it('refuses rather than writing over a document of that name', async () => {
+        await writeRaw(WELCOME_TITLE, `${WELCOME_TITLE}.md`, 'Mine');
+
+        await expect(
+            seedWelcomeDocument(root, WELCOME_TITLE, WELCOME_MARKDOWN)
+        ).rejects.toThrow(DocumentError);
+        expect(await readFile(WELCOME_TITLE, `${WELCOME_TITLE}.md`)).toBe(
+            'Mine'
         );
     });
 });
@@ -903,13 +969,13 @@ describe('ensureSubfolder', () => {
 // "reopen" card has to ask the folder itself before committing to it.
 describe('folderIsReachable', () => {
     it('is true for a folder that is still there', async () => {
-        const handle = await ensureSubfolder(root, 'Writing');
+        const { handle } = await ensureSubfolder(root, 'Writing');
 
         expect(await folderIsReachable(handle)).toBe(true);
     });
 
     it('is false once the folder has gone', async () => {
-        const handle = await ensureSubfolder(root, 'Writing');
+        const { handle } = await ensureSubfolder(root, 'Writing');
         await root.removeEntry('Writing', { recursive: true });
 
         expect(await folderIsReachable(handle)).toBe(false);
