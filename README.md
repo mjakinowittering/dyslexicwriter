@@ -247,22 +247,6 @@ Within each, items are grouped under a theme so related work can be picked up to
       that means shipping a binary and writing it beside the markdown, and the point
       here is the type
 
-#### Editor display settings
-
-- [ ] Add a "Show invisible characters" setting — a **Switch** in `SettingsPanel.svelte`
-      (already imported at line 10) that draws markers for spaces `·`, hard breaks `↵`
-      and paragraph ends `¶`, and nothing else: exactly what TipTap's
-      `InvisibleCharacters` and `prosemirror-invisibles` support, no tabs or
-      non-breaking spaces. TipTap's own extension is Pro (paid, private registry), so
-      write a small ProseMirror decoration plugin in the shape of
-      `tts/tiptap-tts-highlight.ts` — decorations only, never in `getJSON()` or the
-      markdown — toggled live without rebuilding the editor
-    - A new preference, so both halves in one commit: a key in `preferencesSchema`
-      (`models/config.model.ts:46`, key-by-key fallback) and its first-run `false` in
-      `config/defaults.json`, wired through the workspace store like `font`. Paraglide
-      keys for the label and hint; recompile. Marker colour from a muted `layout.css`
-      token so both themes read
-
 #### Deleting and recovering documents
 
 - [ ] Delete to a `.trash/` folder instead of permanently, and add Delete to the editor.

@@ -31,6 +31,8 @@ interface Seeded {
     editor: Editor;
     // Every `onUpdate` the component has raised since it mounted.
     updates: () => number;
+    // Flip the invisible-characters preference on the mounted editor.
+    setShowInvisibles: (show: boolean) => Promise<void>;
 }
 
 // Mount empty, then hand the document over the way the page does once it has
@@ -40,7 +42,7 @@ async function seeded(content: JSONContent): Promise<Seeded> {
     let seed: ((content: JSONContent) => void) | undefined;
     let updates = 0;
 
-    await render(PageEditorHarness, {
+    const screen = await render(PageEditorHarness, {
         onTransaction: (instance: Editor) => {
             editor = instance;
         },
@@ -60,8 +62,16 @@ async function seeded(content: JSONContent): Promise<Seeded> {
         if (!editor?.getText()) throw new Error('document never seeded');
     });
 
-    return { editor: editor as Editor, updates: () => updates };
+    return {
+        editor: editor as Editor,
+        updates: () => updates,
+        setShowInvisibles: async (show) => {
+            await screen.rerender({ showInvisibles: show });
+        }
+    };
 }
+
+const markers = (selector: string) => document.querySelectorAll(selector);
 
 // Long enough for the heartbeat to have run, with room for a slow browser.
 const pastTheHeartbeat = () =>
@@ -127,5 +137,65 @@ describe('PageEditor', () => {
         // the moment it opened and write the whole folder back on load —
         // trailing paragraph, reflowed markdown and all.
         expect(updates()).toBe(0);
+    });
+
+    // A view preference. The markers are decorations, so switching them on and
+    // off must leave the document — the thing that goes to disk — exactly as it
+    // was, and must never read as an edit.
+    describe('invisible characters', () => {
+        it('draws the markers when switched on and removes them when off', async () => {
+            const { setShowInvisibles } = await seeded(
+                paragraph('The lantern room')
+            );
+
+            expect(markers('.invisible-space')).toHaveLength(0);
+
+            await setShowInvisibles(true);
+            await vi.waitFor(() => {
+                expect(markers('.invisible-space')).toHaveLength(2);
+                expect(markers('.invisible-paragraph')).toHaveLength(1);
+            });
+
+            await setShowInvisibles(false);
+            await vi.waitFor(() => {
+                expect(markers('.invisible-space')).toHaveLength(0);
+                expect(markers('.invisible-paragraph')).toHaveLength(0);
+            });
+        });
+
+        it('follows an edit made while they are showing', async () => {
+            const { editor, setShowInvisibles } = await seeded(
+                paragraph('The lantern room')
+            );
+            await setShowInvisibles(true);
+
+            editor.commands.insertContentAt(1, 'A draft of ');
+
+            await vi.waitFor(() => {
+                expect(markers('.invisible-space')).toHaveLength(5);
+            });
+        });
+
+        it('leaves the document untouched and never reports an edit', async () => {
+            const { editor, updates, setShowInvisibles } = await seeded(
+                paragraph('The lantern room')
+            );
+            const before = editor.getJSON();
+
+            await setShowInvisibles(true);
+            await vi.waitFor(() => {
+                expect(markers('.invisible-space').length).toBeGreaterThan(0);
+            });
+
+            expect(editor.getJSON()).toEqual(before);
+            expect(editor.getText()).not.toMatch(/[·¶↵]/);
+            expect(editor.can().undo()).toBe(false);
+
+            await setShowInvisibles(false);
+            await pastTheHeartbeat();
+
+            expect(editor.getJSON()).toEqual(before);
+            expect(updates()).toBe(0);
+        });
     });
 });

@@ -24,6 +24,10 @@
 
     import { LinkKeymap } from '$lib/components/Editor/Link/link-keymap';
     import type { LinkTarget } from '$lib/components/Editor/Link/link-target';
+    import {
+        InvisibleCharactersExtension,
+        setInvisibleCharacters
+    } from '$lib/components/Editor/Page/invisible-characters';
 
     import { documentExtensions } from '$lib/markdown';
     import type { Font } from '$lib/models/config.model';
@@ -41,6 +45,7 @@
         editable = true,
         content = null,
         font = 'sans',
+        showInvisibles = false,
         placeholder = m.content_editor_placeholder(),
         onTransaction,
         onUpdate,
@@ -63,6 +68,9 @@
         // the app chrome around it stays in the interface font. Driven by the
         // page, not read from the workspace store here.
         font?: Font;
+        // Markers for spaces, hard breaks and paragraph ends (config.json).
+        // Toggled live on the running editor — see invisible-characters.ts.
+        showInvisibles?: boolean;
         placeholder?: string;
         onTransaction?: (editor: Editor) => void;
         // Fired on edit/blur as a "dirty" signal only — the page reads editor.getJSON()
@@ -209,8 +217,8 @@
             element,
             // The node/mark set comes from the shared definition used by BOTH
             // markdown converters — see $lib/markdown/extensions.ts. Placeholder,
-            // CharacterCount and the TTS highlight add no content nodes, so they
-            // stay local to the editor.
+            // CharacterCount, the TTS highlight and the invisible-character
+            // markers add no content nodes, so they stay local to the editor.
             extensions: [
                 ...documentExtensions({ trailingNode: editable }),
                 Placeholder.configure({
@@ -225,6 +233,8 @@
                 // Read-aloud highlight — decorations only, no content nodes, so it
                 // never touches the JSON the markdown is derived from.
                 TtsHighlightExtension,
+                // Invisible-character markers — decorations only, likewise.
+                InvisibleCharactersExtension,
                 // ⌘K for the link dialog — a keymap, no content.
                 LinkKeymap.configure({ onOpen: () => onLinkShortcut?.() })
             ],
@@ -297,6 +307,15 @@
             markSeeded();
             loaded = true;
         });
+    });
+
+    // Follow the preference on the running editor. Runs once the editor exists
+    // and again whenever the setting moves; `setInvisibleCharacters` is a no-op
+    // when nothing would change, so the first run costs nothing while it is off.
+    $effect(() => {
+        const show = showInvisibles;
+        if (!editor || editor.isDestroyed) return;
+        setInvisibleCharacters(editor.view, show);
     });
 
     onDestroy(() => {
@@ -393,6 +412,40 @@
         vertical-align: -0.05em;
         background-color: currentColor;
         mask: var(--link-external-icon) center / contain no-repeat;
+    }
+
+    /* Invisible-character markers (invisible-characters.ts). Decoration classes, so
+       :global again. The glyphs are generated content: never text, so they cannot
+       be selected, copied, spoken or saved. Muted ink from the theme token, so both
+       themes read and the writing stays the loudest thing on the page.
+
+       The space's dot sits on top of the space rather than beside it — absolutely
+       positioned over its own span — so switching markers on never reflows a
+       line. The arrow and the pilcrow are widgets at a line's end, where a glyph's
+       width moves nothing that follows it. */
+    :global(.invisible-space) {
+        position: relative;
+    }
+    :global(.invisible-space::before) {
+        content: '·';
+        position: absolute;
+        inset-inline: 0;
+        text-align: center;
+        color: var(--muted-foreground);
+        pointer-events: none;
+        user-select: none;
+    }
+    :global(.invisible-break::after) {
+        content: '↵';
+    }
+    :global(.invisible-paragraph::after) {
+        content: '¶';
+    }
+    :global(.invisible-break),
+    :global(.invisible-paragraph) {
+        color: var(--muted-foreground);
+        pointer-events: none;
+        user-select: none;
     }
 
     /* Ink over anything the band covers. Typography's element rules (strong, a, code,

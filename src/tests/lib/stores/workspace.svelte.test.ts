@@ -273,6 +273,14 @@ describe('#persist', () => {
         expect(updateConfig).toHaveBeenCalledWith(root, { font: 'sans' });
     });
 
+    it('hands updateConfig the invisible-characters switch alone', async () => {
+        await workspace.setShowInvisibles(true);
+
+        expect(updateConfig).toHaveBeenCalledWith(root, {
+            showInvisibles: true
+        });
+    });
+
     it('says the settings could not be read when that is why the write failed', async () => {
         workspace.settingsUnreadable = true;
         vi.mocked(updateConfig).mockRejectedValueOnce(

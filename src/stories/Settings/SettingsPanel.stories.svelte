@@ -33,6 +33,7 @@
     const dark = makePreferences({ theme: 'dark', font: 'dyslexic' });
     const closable = makePreferences();
     const unreadable = makePreferences({ settingsUnreadable: true });
+    const invisibles = makePreferences();
 
     let open = $state(true);
 </script>
@@ -81,6 +82,27 @@
     {#snippet template()}
         <div class="bg-background flex h-96 w-full justify-end">
             <SettingsPanel open={true} store={dark} />
+        </div>
+    {/snippet}
+</Story>
+
+<Story
+    name="Invisible Characters"
+    play={async ({ canvas }) => {
+        const toggle = canvas.getByRole('switch', {
+            name: m.settings_invisibles_show()
+        });
+        await expect(toggle).not.toBeChecked();
+
+        // Off by default; the switch writes through the store and follows it.
+        await userEvent.click(toggle);
+        await expect(invisibles.setShowInvisibles).toHaveBeenCalledWith(true);
+        await expect(toggle).toBeChecked();
+    }}
+>
+    {#snippet template()}
+        <div class="bg-background flex h-96 w-full justify-end">
+            <SettingsPanel open={true} store={invisibles} />
         </div>
     {/snippet}
 </Story>

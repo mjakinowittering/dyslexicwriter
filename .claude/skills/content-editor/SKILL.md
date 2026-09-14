@@ -129,8 +129,18 @@ round-trip does not get added to the editor.
 ## Editor component
 
 `Editor/Page/PageEditor.svelte` owns the TipTap instance. It composes
-`documentExtensions()` with three editor-only extensions that add **no content
-nodes**: `Placeholder`, `CharacterCount`, and `TtsHighlightExtension`.
+`documentExtensions()` with editor-only extensions that add **no content
+nodes**: `Placeholder`, `CharacterCount`, `TtsHighlightExtension`,
+`InvisibleCharactersExtension` and the link keymap.
+
+- **Invisible characters** (`Page/invisible-characters.ts`) — the
+  `showInvisibles` preference. A dot on every space, `↵` before a hard break, `¶`
+  at every textblock end; no tabs or non-breaking spaces. Decorations only, the
+  glyphs drawn as CSS generated content in `PageEditor.svelte`, so they are never
+  in `getJSON()`, the markdown, a copy or read-aloud's text map. The `showInvisibles`
+  prop toggles them live through `setInvisibleCharacters` (a meta transaction
+  that leaves the doc node untouched, so it never reads as an edit); decorations
+  are rebuilt only on a doc change.
 
 - `wordCount` is bindable and comes from `CharacterCount`; the status bar and
   reading-time estimate both read it.

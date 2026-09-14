@@ -44,6 +44,12 @@
         // the preference travels with the user's folder.
         await store.setTheme(dark ? 'dark' : 'light');
     }
+
+    async function onShowInvisiblesChange(show: boolean) {
+        // The editor follows the store, so the markers appear as the switch
+        // moves — no rebuild, and nothing written to the document.
+        await store.setShowInvisibles(show);
+    }
 </script>
 
 <!-- Full viewport height, fixed width, on the right. It takes a column in the
@@ -145,6 +151,31 @@
                         onCheckedChange={onThemeChange}
                     />
                 </div>
+            </section>
+
+            <section class="flex flex-col gap-3">
+                <h3
+                    class="text-muted-foreground text-xs font-semibold tracking-wide uppercase"
+                >
+                    {m.settings_invisibles()}
+                </h3>
+                <div class="flex items-center justify-between gap-4">
+                    <Label class="font-normal" for="show-invisibles">
+                        {m.settings_invisibles_show()}
+                    </Label>
+                    <Switch
+                        aria-describedby="show-invisibles-description"
+                        checked={store.showInvisibles}
+                        id="show-invisibles"
+                        onCheckedChange={onShowInvisiblesChange}
+                    />
+                </div>
+                <p
+                    class="text-muted-foreground text-sm"
+                    id="show-invisibles-description"
+                >
+                    {m.settings_invisibles_description()}
+                </p>
             </section>
         </div>
     </div>

@@ -14,6 +14,7 @@
             content: { control: false },
             editable: { control: 'boolean' },
             font: { control: 'select', options: ['sans', 'dyslexic'] },
+            showInvisibles: { control: 'boolean' },
             placeholder: { control: 'text' },
             onTransaction: { control: false },
             onUpdate: { control: false },
@@ -104,6 +105,33 @@
                     taskItem('A checkbox tints with the rest.', false),
                     taskItem('And a ticked one still reads as done.', true)
                 ]
+            }
+        ]
+    };
+
+    // Every kind of marker once: spaces, a hard break mid-paragraph, an empty
+    // paragraph, and the textblock inside a list item.
+    const invisiblesSample = {
+        type: 'doc',
+        content: [
+            {
+                type: 'heading',
+                attrs: { level: 2 },
+                content: [{ type: 'text', text: 'The lantern room' }]
+            },
+            {
+                type: 'paragraph',
+                content: [
+                    { type: 'text', text: 'A line that breaks' },
+                    { type: 'hardBreak' },
+                    { type: 'text', text: 'and carries on.' }
+                ]
+            },
+            { type: 'paragraph' },
+            paragraph('After an empty paragraph.'),
+            {
+                type: 'bulletList',
+                content: [listItem('One point')]
             }
         ]
     };
@@ -253,6 +281,44 @@
 <Story
     name="Dyslexic Font"
     args={{ editable: true, content: sample, font: 'dyslexic' }}
+>
+    {#snippet template(args)}
+        <div class="bg-background min-h-96 w-full p-6">
+            <PageEditor {...args} />
+        </div>
+    {/snippet}
+</Story>
+
+<Story
+    name="Invisible Characters"
+    args={{
+        editable: true,
+        content: invisiblesSample,
+        showInvisibles: true
+    }}
+    parameters={{
+        docs: {
+            description: {
+                story: 'The `showInvisibles` preference: a dot on every space, a return arrow before a hard break, and a pilcrow at the end of every paragraph — an empty one included. Decorations drawn as generated content, so none of it is in the document JSON or the markdown.'
+            }
+        }
+    }}
+    play={async ({ canvasElement }) => {
+        await waitFor(() =>
+            expect(
+                canvasElement.querySelectorAll('.invisible-space').length
+            ).toBeGreaterThan(0)
+        );
+        await expect(
+            canvasElement.querySelectorAll('.invisible-break')
+        ).toHaveLength(1);
+        // Heading, two paragraphs, the empty one, a list item's paragraph — and
+        // the empty paragraph TrailingNode appends after the list so the writer
+        // can type past it. It is really there, so it gets its pilcrow too.
+        await expect(
+            canvasElement.querySelectorAll('.invisible-paragraph')
+        ).toHaveLength(6);
+    }}
 >
     {#snippet template(args)}
         <div class="bg-background min-h-96 w-full p-6">
