@@ -157,10 +157,10 @@ levels down, and all of it is theirs to open.
 That gives **two kinds of document**, and every filesystem operation branches on
 which it is:
 
-| Kind                | Is                                                             | Rename                                    | Delete                 | Images    |
-| ------------------- | -------------------------------------------------------------- | ----------------------------------------- | ---------------------- | --------- |
-| **folder-document** | `X/X.md`, alone in its folder — every document the app creates | moves the whole folder, inside its parent | removes it recursively | inside it |
-| **file-document**   | a markdown file sitting among others, at any depth             | renames the file alone                    | removes only the file  | beside it |
+| Kind                | Is                                                             | Rename                                    | Delete                                | Images    |
+| ------------------- | -------------------------------------------------------------- | ----------------------------------------- | ------------------------------------- | --------- |
+| **folder-document** | `X/X.md`, alone in its folder — every document the app creates | moves the whole folder, inside its parent | moves the whole folder into `.trash/` | inside it |
+| **file-document**   | a markdown file sitting among others, at any depth             | renames the file alone                    | moves only the file into `.trash/`    | beside it |
 
 `ownsFolder` is what separates them, and it is **recomputed by every scan**, never
 trusted from the config cache. A folder only qualifies when it holds exactly that one
@@ -174,8 +174,9 @@ destroys anything, because the flag they were handed is a snapshot — the Files
 from the last scan, the editor's from when the document was opened — and a subdirectory
 added since would otherwise be removed recursively without ever being copied. Where the
 claim no longer holds, rename falls through to the file-document path and renames the
-markdown file alone; delete refuses outright, because there is no trash behind it and
-the writer confirmed against copy that no longer describes the folder.
+markdown file alone; delete refuses outright, because its copy into the trash takes
+files only before the original is removed recursively, and the writer confirmed
+against copy that no longer describes the folder.
 
 The scan walks **three directory levels** below the working folder. A directory the
 cap stops at comes back unloaded and the Files screen shows it closed; expanding it
@@ -412,8 +413,12 @@ a document is open, so the failure modes that matter are all about losing writin
 - **Permission can be revoked at any time.** Every filesystem call must handle a
   rejected or stale handle by surfacing a re-pick prompt, never by silently failing or
   discarding the in-memory document.
-- **Destructive operations confirm first.** Delete removes a real folder from the user's
-  disk and there is no trash — confirm before it happens, and say what will be removed.
+- **Delete moves to `.trash/`, and still confirms first.** The File System Access API
+  cannot reach the OS recycle bin — `removeEntry` is final — so a deleted document is
+  moved into a `.trash/` folder at the root of the working folder, which the scan
+  skips because it is a dot-directory. It leaves the writer's list either way, so
+  confirm before it happens and say what will be moved. Emptying the trash is the
+  writer's job in their file manager; an empty folder is still removed outright.
 - **Validate everything read from disk.** `config.json` is user-editable and may be
   hand-edited, corrupt, or from a future version. Parse it through a Valibot schema and
   fall back to defaults; never trust its shape.
@@ -506,8 +511,13 @@ project has no environment configuration.
   rather than letting a non-Chromium browser fail deeper in
 - Autosave debounces, but **always flush** on blur, `pagehide`, `visibilitychange` and
   destroy — a dropped last edit is the worst bug this app can have
-- Confirm before any destructive filesystem operation; there is no undo for a deleted
-  folder
+- Confirm before any destructive filesystem operation — a delete included, even though
+  it only moves the document into `.trash/`
+- **Delete is a move into `.trash/`**, never a `removeEntry` of the document itself,
+  from the Files screen and the editor alike. It keeps rename's ordering — copy into
+  the trash first, remove the original last — and a timestamped name, so trashing
+  one title twice never overwrites the earlier copy. Only an empty folder is removed
+  outright, because there is nothing in it to recover
 - Validate anything read from disk with a schema from `src/lib/models/` — `config.json`
   is user-editable and must never be trusted by shape
 - Sanitise titles before they become path segments (separators, dots, reserved names,

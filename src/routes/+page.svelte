@@ -26,11 +26,11 @@
     import {
         createDocument,
         createFolder,
-        deleteDocument,
         deleteFolder,
         DocumentError,
         isFileSystemAccessSupported,
         SUGGESTED_FOLDER_NAME,
+        trashDocument,
         type FolderNode
     } from '$lib/fs';
     import {
@@ -145,7 +145,8 @@
         if (failure) workspace.error = failure;
     }
 
-    // Removing something from the user's disk, with no trash to recover it from.
+    // Moving a document into `.trash/` — recoverable, but still off the writer's
+    // list, so it asks first.
     function onDelete(entry: DocumentIndexEntry) {
         deleteTarget = entry;
         deleteOpen = true;
@@ -158,7 +159,7 @@
 
         await mutate(async () => {
             try {
-                await deleteDocument(root, entry);
+                await trashDocument(root, entry);
             } catch (cause) {
                 // Thrown from a dialog callback nobody awaits, so without this it
                 // lands in an unhandled rejection and the writer is told nothing.

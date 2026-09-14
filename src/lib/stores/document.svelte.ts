@@ -5,6 +5,7 @@ import {
     readDocument,
     renameDocument,
     suggestUntitledName,
+    trashDocument,
     writeDocument,
     writeImage,
     type DocumentLocation
@@ -131,6 +132,11 @@ class DocumentStore {
     // location the first is half-way through moving, and the writer is told the
     // rename failed while it was busy succeeding.
     #renaming: string | null = null;
+    // A delete is moving this document into the trash. Every write stands down
+    // while it does: the file is about to leave, and an autosave, a retry or the
+    // `close()` the editor's unmount fires would otherwise write it straight back
+    // to where the writer just deleted it from.
+    #trashing = false;
     // The open file's YAML frontmatter, held only so the next write can put it
     // back exactly as it was. Deliberately not $state: nothing in the UI reads it,
     // and a state proxy has no business being handed to a YAML serialiser.
@@ -262,6 +268,10 @@ class DocumentStore {
     // ordinary save tidies it: content is never at stake, only formatting.
     async flush({ format = true }: { format?: boolean } = {}): Promise<void> {
         this.#clearTimers();
+
+        // See #trashing. `trash()` flushes before it sets this, so nothing the
+        // writer saw is dropped by standing down here.
+        if (this.#trashing) return;
 
         // Not dirty does not mean nothing is in flight: the debounce or the
         // max-wait ceiling may already have claimed this edit and be part-way
@@ -409,6 +419,51 @@ class DocumentStore {
             // claimed it while this one was in flight.
             if (this.#renaming === target) this.#renaming = null;
         }
+    }
+
+    // Delete the open document into the trash, for the editor's Delete button.
+    // Returns whether it went, so the page knows whether to leave; a refusal is
+    // swallowed into `error` like every other failure here.
+    async trash(): Promise<boolean> {
+        const root = workspace.root;
+        // Unsaved: nothing on disk to move, and the button is disabled for it.
+        if (!root || this.location === null) return false;
+
+        const epoch = this.#epoch;
+
+        // Anything typed since the last save lands first, so the copy in the trash
+        // is the document as the writer last saw it rather than a sentence short.
+        await this.flush();
+        if (epoch !== this.#epoch) return false;
+        // The save failed. Its error is already showing, and moving a file that is
+        // missing the writer's last edit is not what they confirmed.
+        if (this.#dirty || this.location === null) return false;
+
+        const location = this.location;
+        this.#trashing = true;
+
+        try {
+            await trashDocument(root, location);
+        } catch (cause) {
+            this.#trashing = false;
+            if (epoch !== this.#epoch) return false;
+
+            // Still open and still on disk: editing carries on as it was, and
+            // anything typed while the move was being tried gets saved.
+            this.error =
+                cause instanceof DocumentError
+                    ? cause.message
+                    : m.files_delete_error({ title: this.title });
+            if (this.#dirty) this.#schedule();
+            return false;
+        }
+
+        this.#trashing = false;
+        // Clear the store before anything else can run, so the `close()` the
+        // editor's unmount fires finds a clean document with nothing to write.
+        if (epoch === this.#epoch) this.#reset();
+        await workspace.refresh();
+        return true;
     }
 
     // Write a dropped image into this document's own directory and return the

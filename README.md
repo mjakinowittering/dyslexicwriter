@@ -303,29 +303,5 @@ Within each, items are grouped under a theme so related work can be picked up to
 
 #### Deleting and recovering documents
 
-- [ ] Delete to a `.trash/` folder instead of permanently, and add Delete to the editor.
-      Browsers can't reach the OS recycle bin — the File System Access API only offers
-      `removeEntry`, which is final — so the trash lives in the working folder, where the
-      scan already skips dot-directories. Today `deleteDocument` (`fs/documents.ts:750`)
-      removes outright and is only reachable from the Files screen
-      (`+page.svelte:148-173`)
-    - Move with rename's ordering: copy into `<working folder>/.trash/` first, remove
-      the original last, so a failure leaves a duplicate, never a loss. A folder-document
-      takes its whole folder and images; a file-document only its `.md`. Keep the
-      `stillOwnsFolder` re-check and its refusal. Suffix the trashed name with a
-      timestamp — `My Chapter (2026-09-13 14.02)` — so trashing a title twice never
-      overwrites the earlier copy
-    - One path for both screens: the Files screen's Delete moves to trash too. Rewrite
-      `files_delete_description` / `files_delete_file_description`
-      (`messages/en.json:80-82`), which promise "cannot be undone", to say where it goes.
-      `deleteFolder` for an _empty_ folder stays a plain remove — nothing to recover
-    - Editor: a Delete button with the trash icon (`Delete02Icon`, as the Files tree
-      uses) in the header near `Toolbar.Title` (`edit/+page.svelte:236`), not in the
-      capped formatting toolbar. Confirm, then cancel the pending autosave **before**
-      moving — a flush on destroy would otherwise write the file straight back — then
-      `speech.stop()` and `goto('/')`
-    - Update CLAUDE.md ("there is no trash", the Delete rows in the document-kinds
-      table) and the `filesystem-storage` skill in the same commit. Emptying the trash
-      stays the writer's job in their file manager — out of scope
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)
