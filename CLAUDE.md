@@ -190,6 +190,7 @@ slow enough to read as broken. Dot-directories and `node_modules` are skipped.
     version: number,
     theme: 'light' | 'dark',
     font: 'sans' | 'dyslexic',
+    showInvisibles: boolean,
     tts: { voiceUri: string | null, rate: number },
     prettier: { printWidth: number, proseWrap: 'always' | 'never' | 'preserve' }
 }
@@ -219,7 +220,7 @@ already correct in memory, so a failure to tidy the file is not put in front of 
 writer.
 
 The first-run value of every preference lives in `src/lib/config/defaults.json` —
-`theme`, `font`, `tts` and `prettier` only. `version` is structural rather than
+`theme`, `font`, `showInvisibles`, `tts` and `prettier` only. `version` is structural rather than
 configurable, so the code owns it. `defaults.json` is a checked-in seed, never
 written to at runtime; it is validated through the same schemas and falls back to
 in-code constants when malformed.
@@ -505,8 +506,9 @@ project has no environment configuration.
   bubble/slash menus. The link card shown when a link is clicked is not a bubble menu —
   it holds no formatting, only where the link goes, Edit and Open. Default to "no"; when
   in doubt remove UI rather than add it
-- Read-aloud highlighting is **ProseMirror decorations only**, never marks or nodes — it
-  must never appear in `editor.getJSON()` and never reach the markdown
+- Read-aloud highlighting and the invisible-character markers are **ProseMirror
+  decorations only**, never marks or nodes — they must never appear in
+  `editor.getJSON()` and never reach the markdown
 - SSR-guard every browser API (`showDirectoryPicker`, `speechSynthesis`, `AudioContext`,
   `window`, `indexedDB`) — the app is a static SPA but modules are still analysed
 - Feature-detect the File System Access API at startup and show the unsupported screen

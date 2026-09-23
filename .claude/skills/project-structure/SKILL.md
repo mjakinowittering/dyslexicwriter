@@ -24,7 +24,8 @@ src/
 │   │   │   │                         // prefixed with its group's name
 │   │   │   ├── Page/
 │   │   │   │   ├── Page.svelte       //   the document sheet; `narrow` tweens the measure
-│   │   │   │   └── PageEditor.svelte //   TipTap instance, image drop, reconcile()
+│   │   │   │   ├── PageEditor.svelte //   TipTap instance, image drop, reconcile()
+│   │   │   │   └── invisible-characters.ts // space/break/¶ markers, decorations only
 │   │   │   ├── Format/               //   the capped formatting controls (see content-editor)
 │   │   │   │   ├── definitions.ts            // THE table: icon/label/shortcut/value/command
 │   │   │   │   ├── FormatToggleControl.svelte// renders one row of it

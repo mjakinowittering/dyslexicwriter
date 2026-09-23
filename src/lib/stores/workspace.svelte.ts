@@ -39,18 +39,20 @@ export type WorkspaceStatus =
     | 'folder-missing' // a stored folder we are allowed to read and cannot find
     | 'ready';
 
-// The slice of the workspace the settings panel touches: the two preferences it
-// shows, and the two writers behind them. Narrow on purpose — a story or a test can
+// The slice of the workspace the settings panel touches: the preferences it
+// shows, and the writers behind them. Narrow on purpose — a story or a test can
 // satisfy this without a directory handle, and every setter here would otherwise
 // try to write config.json to a folder that isn't there.
 export interface PreferenceStore {
     readonly theme: Theme;
     readonly font: Font;
+    readonly showInvisibles: boolean;
     // The panel says so rather than letting a refused write look like a saved
     // one — see `settingsUnreadable` on the store.
     readonly settingsUnreadable: boolean;
     setTheme(theme: Theme): Promise<void>;
     setFont(font: Font): Promise<void>;
+    setShowInvisibles(show: boolean): Promise<void>;
 }
 
 class WorkspaceStore implements PreferenceStore {
@@ -127,6 +129,10 @@ class WorkspaceStore implements PreferenceStore {
 
     get font(): Font {
         return this.config.font;
+    }
+
+    get showInvisibles(): boolean {
+        return this.config.showInvisibles;
     }
 
     // Try to pick up where the user left off. A stored handle usually still has
@@ -506,6 +512,13 @@ class WorkspaceStore implements PreferenceStore {
     async setFont(font: Font): Promise<void> {
         this.config = { ...this.config, font };
         await this.#persist({ font });
+    }
+
+    // No DOM work either: the editor reads `showInvisibles` and toggles its
+    // decorations live, without being rebuilt.
+    async setShowInvisibles(showInvisibles: boolean): Promise<void> {
+        this.config = { ...this.config, showInvisibles };
+        await this.#persist({ showInvisibles });
     }
 
     async setTtsPreferences(tts: Config['tts']): Promise<void> {

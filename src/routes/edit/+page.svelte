@@ -465,6 +465,7 @@
                 class="flex flex-1 flex-col"
                 content={doc.contentJson}
                 font={workspace.font}
+                showInvisibles={workspace.showInvisibles}
                 onBlur={() => doc.flush()}
                 onDropImage={(file) => doc.addImage(file)}
                 onLinkClick={(target) => (linkTarget = target)}

@@ -1,6 +1,7 @@
 {
     "theme": "dark",
     "font": "dyslexic",
+    "showInvisibles": false,
     "tts": {
         "voiceUri": null,
         "rate": 1

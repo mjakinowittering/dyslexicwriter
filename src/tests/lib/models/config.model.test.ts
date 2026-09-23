@@ -40,9 +40,15 @@ describe('defaults.json', () => {
         expect(Object.keys(shippedDefaults).sort()).toEqual([
             'font',
             'prettier',
+            'showInvisibles',
             'theme',
             'tts'
         ]);
+    });
+
+    // A view preference a new writer has not asked for: the page starts clean.
+    it('ships invisible characters switched off', () => {
+        expect(defaultConfig().showInvisibles).toBe(false);
     });
 });
 
@@ -66,6 +72,7 @@ describe('parseConfig', () => {
         version: CONFIG_VERSION,
         theme: 'dark',
         font: 'sans',
+        showInvisibles: true,
         tts: { voiceUri: 'urn:moz-tts:sapi:Zira', rate: 1.4 },
         prettier: { printWidth: 72, proseWrap: 'always' }
     };
@@ -101,6 +108,17 @@ describe('parseConfig', () => {
 
         expect(parsed.theme).toBe(defaultConfig().theme);
         expect(parsed.font).toBe('sans');
+        expect(parsed.tts).toEqual(saved.tts);
+    });
+
+    // A hand-edited "yes" is not a boolean. It costs the writer the markers and
+    // nothing else.
+    it('keeps the sibling preferences when showInvisibles is not a boolean', () => {
+        const parsed = parseConfig({ ...saved, showInvisibles: 'yes' });
+
+        expect(parsed.showInvisibles).toBe(false);
+        expect(parsed.font).toBe('sans');
+        expect(parsed.theme).toBe('dark');
         expect(parsed.tts).toEqual(saved.tts);
     });
 

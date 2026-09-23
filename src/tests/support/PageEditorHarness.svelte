@@ -11,7 +11,8 @@
     let {
         onTransaction,
         onUpdate,
-        register
+        register,
+        showInvisibles = false
     }: {
         onTransaction?: (editor: Editor) => void;
         // The "there is writing the disk has not seen" signal. On the real page
@@ -20,6 +21,9 @@
         onUpdate?: () => void;
         // Called once during init with a function that seeds the document.
         register: (seed: (content: JSONContent) => void) => void;
+        // Passed straight through, so a test can flip it with `rerender` and
+        // watch the running editor follow.
+        showInvisibles?: boolean;
     } = $props();
 
     let content = $state<JSONContent | null>(null);
@@ -33,4 +37,4 @@
     untrack(() => register(seed));
 </script>
 
-<PageEditor {content} {onTransaction} {onUpdate} />
+<PageEditor {content} {onTransaction} {onUpdate} {showInvisibles} />
