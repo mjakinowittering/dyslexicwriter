@@ -715,6 +715,88 @@ describe('rename', () => {
 // A document folder has to stay self-contained and portable as a unit, so the
 // image goes beside the markdown that references it and comes back as a relative
 // path — never base64, never a shared top-level images folder.
+describe('trash', () => {
+    // Every file in the trash, by name — the timestamp makes the exact name a
+    // matter of when the test happened to run.
+    async function trashed(): Promise<string[]> {
+        const trash = await opfs.directory(root, '.trash');
+        const names: string[] = [];
+        for await (const name of trash.keys()) names.push(name);
+        return names;
+    }
+
+    it('does nothing to a document that has never been saved', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('Never saved'));
+
+        expect(await doc.trash()).toBe(false);
+
+        // Still the writer's, still waiting for its first save.
+        expect(doc.location).toBeNull();
+        expect(doc.isDirty).toBe(true);
+    });
+
+    // The copy in the trash is the one a writer recovers, so it has to be the
+    // document as they last saw it — not the last autosave, a sentence short.
+    it('moves the document with its last edit, and clears the store', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('First'));
+        await doc.flush();
+        doc.applyEdit(content('Written just before the delete'));
+
+        expect(await doc.trash()).toBe(true);
+
+        expect(doc.location).toBeNull();
+        expect(doc.isDirty).toBe(false);
+        await expect(
+            opfs.fileExists(root, 'Untitled', 'Untitled.md')
+        ).resolves.toBe(false);
+
+        const names = await trashed();
+        expect(names).toHaveLength(1);
+        expect(await readFile(`.trash/${names[0]}`, 'Untitled.md')).toBe(
+            'Written just before the delete'
+        );
+    });
+
+    // The editor unmounts straight after, and its `close()` flushes. A store
+    // still holding the document would write it back where it was deleted from.
+    it('writes nothing back once the document has gone', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('Body'));
+        await doc.flush();
+
+        await doc.trash();
+        ignoreFixtureWrites();
+        await doc.close();
+        await vi.runAllTimersAsync();
+
+        expect(documentWrites()).toHaveLength(0);
+        await expect(
+            opfs.fileExists(root, 'Untitled', 'Untitled.md')
+        ).resolves.toBe(false);
+    });
+
+    it('leaves a refused document open, on disk, and saying why', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('Body'));
+        await doc.flush();
+        // A subdirectory the delete would otherwise take with it, unread.
+        await opfs.writeRaw(root, 'Untitled/Drafts', 'earlier.md', 'earlier');
+
+        expect(await doc.trash()).toBe(false);
+
+        expect(doc.error).not.toBe('');
+        expect(doc.location).not.toBeNull();
+        expect(await readFile('Untitled', 'Untitled.md')).toBe('Body');
+
+        // And the writer can carry on: writes are not left standing down.
+        doc.applyEdit(content('Still writing'));
+        await doc.flush();
+        expect(await readFile('Untitled', 'Untitled.md')).toBe('Still writing');
+    });
+});
+
 describe('addImage', () => {
     const png = (): File =>
         new File([new Uint8Array([137, 80, 78, 71])], 'diagram.png', {

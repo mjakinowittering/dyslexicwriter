@@ -7,6 +7,25 @@ export const TITLE_MAX_LENGTH = 120;
 export const UNTITLED = 'Untitled';
 export const MARKDOWN_EXTENSION = '.md';
 
+// Where Delete puts a document instead of removing it. Inside the working folder,
+// because the File System Access API cannot reach the OS recycle bin — and a
+// dot-directory, so the scan skips it and it never appears as a row.
+export const TRASH_FOLDER_NAME = '.trash';
+
+// The name a document takes in the trash: `My Chapter (2026-09-13 14.02)`.
+//
+// The timestamp is what lets the same title be trashed twice without the second
+// landing on the first. Local time, because the writer is the one reading it in
+// their file manager; `.` rather than `:` between hours and minutes, because
+// Windows refuses a colon in a name.
+export function trashedName(title: string, when: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const date = `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}`;
+    const time = `${pad(when.getHours())}.${pad(when.getMinutes())}`;
+
+    return `${title} (${date} ${time})`;
+}
+
 // Characters that are illegal in a path segment on Windows, macOS or Linux, plus
 // the ASCII control range. `/` and `\` are the dangerous ones — they would let a
 // title traverse out of the working folder.

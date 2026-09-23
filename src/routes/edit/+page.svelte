@@ -5,6 +5,7 @@
     import { page } from '$app/state';
     import { onDestroy, onMount } from 'svelte';
 
+    import ConfirmDialog from '$lib/components/ConfirmDialog/ConfirmDialog.svelte';
     import * as Format from '$lib/components/Editor/Format';
     import * as Page from '$lib/components/Editor/Page';
     import * as Statusbar from '$lib/components/Editor/Statusbar';
@@ -37,6 +38,7 @@
     // rewriting the text) raises no event to tell it otherwise.
     let pageEditor: ReturnType<typeof Page.Editor> | undefined;
     let settingsOpen = $state(false);
+    let deleteOpen = $state(false);
     let title = $state('');
     let titleField = $state<HTMLInputElement | null>(null);
 
@@ -234,6 +236,25 @@
         void doc.close();
     });
 
+    // The same honesty the Files screen's delete has: a document that owns its
+    // folder takes the folder and its images into the trash, a markdown file
+    // sitting among the user's own files takes only itself.
+    const deleteDescription = $derived(
+        doc.location?.ownsFolder
+            ? m.files_delete_description()
+            : m.files_delete_file_description()
+    );
+
+    // Confirmed. Silence the read first — it would carry on over a document that
+    // is about to leave — and tell the store about any edit it has not heard of,
+    // so `trash()`'s flush puts it into the copy that lands in the trash. On a
+    // refusal the document stays open and `doc.error` already says why.
+    async function confirmDelete() {
+        speech.stop();
+        pageEditor?.reconcile();
+        if (await doc.trash()) await goto(resolve('/'));
+    }
+
     async function onBack() {
         pageEditor?.reconcile();
         await doc.flush();
@@ -319,7 +340,12 @@
                             {/if}
                         </InputGroup.Root>
                     </Toolbar.Title>
-                    <div class="ml-auto">
+                    <div class="ml-auto flex items-center gap-1">
+                        <!-- Unsaved means nothing on disk to move into the trash. -->
+                        <Toolbar.Delete
+                            disabled={disabled || doc.location === null}
+                            onDelete={() => (deleteOpen = true)}
+                        />
                         <Settings bind:open={settingsOpen} />
                     </div>
                 </div>
@@ -470,3 +496,15 @@
         </AlertDialog.Footer>
     </AlertDialog.Content>
 </AlertDialog.Root>
+
+<!-- The editor's Delete. Recoverable from `.trash/`, but the document still
+     leaves the writer's list and the screen, so it asks first — with the same
+     copy the Files screen uses for the same act. -->
+<ConfirmDialog
+    bind:open={deleteOpen}
+    confirmLabel={m.files_delete()}
+    description={deleteDescription}
+    destructive
+    onConfirm={confirmDelete}
+    title={m.files_delete_title({ title: doc.title })}
+/>

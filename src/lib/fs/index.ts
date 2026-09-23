@@ -6,7 +6,6 @@ export { readConfig, refreshConfig, updateConfig } from './config';
 export {
     createDocument,
     createFolder,
-    deleteDocument,
     deleteFolder,
     DocumentError,
     type DocumentLocation,
@@ -20,6 +19,7 @@ export {
     scanFolder,
     SUGGESTED_FOLDER_NAME,
     suggestUntitledName,
+    trashDocument,
     writeDocument,
     type WriteDocumentOptions,
     writeImage

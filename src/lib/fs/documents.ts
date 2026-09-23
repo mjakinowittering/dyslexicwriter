@@ -10,6 +10,7 @@ import {
 } from '$lib/markdown';
 import { CONFIG_FILE_NAME } from '$lib/models/config.model';
 import {
+    extensionFromFileName,
     fileNameFor,
     joinPath,
     lastSegment,
@@ -19,6 +20,8 @@ import {
     pathSegments,
     sanitiseTitle,
     titleFromFileName,
+    TRASH_FOLDER_NAME,
+    trashedName,
     type DocumentIndexEntry
 } from '$lib/models/document.model';
 import * as m from '$lib/paraglide/messages';
@@ -623,6 +626,58 @@ async function copyFile(
     await writeFile(destination, name, await data.arrayBuffer());
 }
 
+// Copy every file in a folder-document's folder into another directory, the
+// markdown file `from` landing as `to` — the rename's new name, or its own name
+// again for the trash. Files only: both callers have just asked
+// `stillOwnsFolder`, which refuses a folder holding any subdirectory.
+async function copyFolderFiles(
+    source: FileSystemDirectoryHandle,
+    destination: FileSystemDirectoryHandle,
+    from: string,
+    to: string
+): Promise<void> {
+    for await (const entry of source.values()) {
+        if (entry.kind !== 'file') continue;
+
+        await copyFile(
+            entry,
+            destination,
+            entry.name === from ? to : entry.name
+        );
+    }
+}
+
+// The trash at the root of the working folder, made the first time anything is
+// deleted into it.
+async function trashDirectory(
+    root: FileSystemDirectoryHandle
+): Promise<FileSystemDirectoryHandle> {
+    return root.getDirectoryHandle(TRASH_FOLDER_NAME, { create: true });
+}
+
+// A name in the trash nothing is using yet, as a file or a directory. The
+// timestamp only resolves to the minute, so trashing the same title twice in one
+// suffixes the second — `My Chapter (2026-09-13 14.02) 2` — rather than letting
+// it land on the first, the one thing a trash must never do.
+async function unusedTrashName(
+    trash: FileSystemDirectoryHandle,
+    base: string,
+    extension: string
+): Promise<string> {
+    const taken = async (name: string) =>
+        (await entryExists(trash, name, 'file')) ||
+        (await entryExists(trash, name, 'directory'));
+
+    let candidate = `${base}${extension}`;
+    let n = 2;
+    while (await taken(candidate)) {
+        candidate = `${base} ${n}${extension}`;
+        n += 1;
+    }
+
+    return candidate;
+}
+
 // Rename a document. Whichever kind it is, the ORDERING is the same: establish
 // everything under the new name first, and remove the old name last. A failure at
 // any point leaves the original intact — the worst case is a duplicate, never a
@@ -687,12 +742,7 @@ async function renameFolderDocument(
     });
 
     // 2. Its contents, with the markdown file taking the new name as it goes.
-    for await (const entry of source.values()) {
-        if (entry.kind !== 'file') continue;
-
-        const name = entry.name === location.file ? fileName : entry.name;
-        await copyFile(entry, destination, name);
-    }
+    await copyFolderFiles(source, destination, location.file, fileName);
 
     // 3. Only now is it safe to drop the original.
     await parentDir.removeEntry(sourceName, { recursive: true });
@@ -737,21 +787,31 @@ async function renameFileDocument(
     };
 }
 
-// Remove a document. A folder-document takes its folder with it; a file-document
-// takes only itself, leaving its neighbours and the folder alone. The Files screen
-// confirms with copy that says which of the two is about to happen.
+// Delete a document by moving it into `.trash/` at the root of the working
+// folder. The browser offers no recycle bin — `removeEntry` is final — so this
+// is the only way a mis-click can be taken back. A folder-document goes with its
+// folder and images; a file-document takes only itself, leaving its neighbours
+// and the folder alone. Both screens confirm with copy that says which it is.
 //
-// The folder case is checked against the directory first. Rename can carry on
-// under a corrected flag when the snapshot has gone stale; this cannot. There is
-// no trash behind `removeEntry({ recursive: true })`, and the writer confirmed
-// against copy — "removes the folder and everything in it" — that no longer
-// describes what is in there. Refusing costs them a refresh; the alternative
-// costs them whatever was added.
-export async function deleteDocument(
+// Rename's ordering, for rename's reason: the copy in the trash is made first
+// and the original removed last, so a failure part-way leaves the document
+// where it was and at worst a partial copy in the trash — never a loss.
+//
+// The folder case is still checked against the directory first. The copy takes
+// FILES only and the original is then removed recursively, so a subdirectory
+// added since the scan would be destroyed without ever reaching the trash. Rename
+// can carry on under a corrected flag; this cannot, because the writer confirmed
+// against copy — "moves the folder and everything in it" — that no longer
+// describes what is in there. Refusing costs them a refresh.
+//
+// `now` is a parameter so the suite can trash the same title twice in one minute.
+export async function trashDocument(
     root: FileSystemDirectoryHandle,
-    location: DocumentLocation
+    location: DocumentLocation,
+    now: Date = new Date()
 ): Promise<void> {
     const title = titleFromFileName(location.file);
+    const base = trashedName(title, now);
 
     try {
         if (location.ownsFolder) {
@@ -759,21 +819,47 @@ export async function deleteDocument(
                 root,
                 parentPath(location.folder)
             );
-            const dir = await parentDir.getDirectoryHandle(
-                lastSegment(location.folder)
-            );
+            const sourceName = lastSegment(location.folder);
+            const source = await parentDir.getDirectoryHandle(sourceName);
 
-            if (!(await stillOwnsFolder(dir, location))) {
+            if (!(await stillOwnsFolder(source, location))) {
                 throw new DocumentError(
                     m.files_delete_changed_error({ title })
                 );
             }
 
-            await parentDir.removeEntry(lastSegment(location.folder), {
-                recursive: true
+            // 1. Somewhere in the trash nothing else is using. The markdown
+            //    file keeps its own name: the folder carries the timestamp, so
+            //    moving it back out and renaming it is the whole restore.
+            const trash = await trashDirectory(root);
+            const name = await unusedTrashName(trash, base, '');
+            const destination = await trash.getDirectoryHandle(name, {
+                create: true
             });
+
+            // 2. Everything in the folder, images included.
+            await copyFolderFiles(
+                source,
+                destination,
+                location.file,
+                location.file
+            );
+
+            // 3. Only now is it safe to drop the original.
+            await parentDir.removeEntry(sourceName, { recursive: true });
         } else {
             const dir = await resolveDirectory(root, location.folder);
+            const source = await dir.getFileHandle(location.file);
+
+            const trash = await trashDirectory(root);
+            const name = await unusedTrashName(
+                trash,
+                base,
+                extensionFromFileName(location.file)
+            );
+
+            // New copy first, original last — same guarantee as the folder case.
+            await copyFile(source, trash, name);
             await dir.removeEntry(location.file);
         }
     } catch (cause) {
@@ -825,7 +911,7 @@ export async function createFolder(
 //
 // The safety here is the browser's, not the UI's: `removeEntry` WITHOUT
 // `recursive` is refused outright when the directory is not empty. That is the
-// opposite of `deleteDocument` above, which passes `recursive: true` on purpose
+// opposite of `trashDocument` above, which passes `recursive: true` on purpose
 // because a folder-document's folder is the document. Nothing here may ever take
 // a neighbour with it, so the flag must stay off however the caller is gated.
 export async function deleteFolder(

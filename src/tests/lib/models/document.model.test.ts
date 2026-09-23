@@ -11,8 +11,30 @@ import {
     pathSegments,
     sanitiseTitle,
     titleFromFileName,
+    trashedName,
     UNTITLED
 } from '$lib/models/document.model';
+
+describe('trashedName', () => {
+    it('suffixes the title with the local date and time', () => {
+        expect(trashedName('My Chapter', new Date(2026, 8, 13, 14, 2))).toBe(
+            'My Chapter (2026-09-13 14.02)'
+        );
+    });
+
+    it('zero-pads every field', () => {
+        expect(trashedName('Notes', new Date(2026, 0, 5, 9, 7))).toBe(
+            'Notes (2026-01-05 09.07)'
+        );
+    });
+
+    // Windows refuses a colon in a file or folder name.
+    it('never contains a colon', () => {
+        expect(
+            trashedName('Notes', new Date(2026, 11, 31, 23, 59))
+        ).not.toContain(':');
+    });
+});
 
 describe('sanitiseTitle', () => {
     it('leaves an ordinary title untouched', () => {

@@ -15,14 +15,14 @@ more than elegance here.
 
 ## File map
 
-| File                         | Responsibility                                                                                                         |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `fs/support.ts`              | `isFileSystemAccessSupported()` — feature detection for the unsupported screen                                         |
-| `fs/handle-store.ts`         | The **only** IndexedDB use: one `FileSystemDirectoryHandle`, plus `ensurePermission`                                   |
-| `fs/config.ts`               | `readConfig` / `writeConfig` / `updateConfig` over `config.json`                                                       |
-| `fs/documents.ts`            | `scanFolder`, `readDocument`, `writeDocument`, `renameDocument`, `deleteDocument`, `writeImage`, `suggestUntitledName` |
-| `stores/workspace.svelte.ts` | The chosen folder, the parsed config, the document tree, and the `WorkspaceStatus` machine                             |
-| `stores/document.svelte.ts`  | The open document: autosave debounce, flush, rename, image insert                                                      |
+| File                         | Responsibility                                                                                                        |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `fs/support.ts`              | `isFileSystemAccessSupported()` — feature detection for the unsupported screen                                        |
+| `fs/handle-store.ts`         | The **only** IndexedDB use: one `FileSystemDirectoryHandle`, plus `ensurePermission`                                  |
+| `fs/config.ts`               | `readConfig` / `writeConfig` / `updateConfig` over `config.json`                                                      |
+| `fs/documents.ts`            | `scanFolder`, `readDocument`, `writeDocument`, `renameDocument`, `trashDocument`, `writeImage`, `suggestUntitledName` |
+| `stores/workspace.svelte.ts` | The chosen folder, the parsed config, the document tree, and the `WorkspaceStatus` machine                            |
+| `stores/document.svelte.ts`  | The open document: autosave debounce, flush, rename, image insert                                                     |
 
 ## Two kinds of document
 
@@ -178,11 +178,32 @@ point leaves the original intact. The worst case is a duplicate, never a lost
 document. Renaming fires on the title field's `change`/blur — **never** per
 keystroke.
 
-### Confirm before deleting
+### Delete moves into `.trash/`, and still confirms
 
-`deleteDocument` removes something real from the user's disk and there is no
-trash. Always confirm, and be honest about which it is: a folder-document takes
-its folder and images with it, a file-document takes only itself. That is two
+The browser cannot reach the OS recycle bin — `removeEntry` is final — so
+`trashDocument` moves a document into `.trash/` at the root of the working
+folder instead. The scan skips it as a dot-directory, so it never shows as a row.
+
+It is a move with rename's ordering: the copy lands in the trash first and the
+original is removed last. A folder-document goes as a folder named
+`My Chapter (2026-09-13 14.02)`, its markdown file keeping its own name, so
+moving it back out and renaming it is the whole restore; a file-document goes as
+`.trash/One (2026-09-13 14.02).md`. The timestamp resolves to the minute, and
+`unusedTrashName` suffixes ` 2`, ` 3`… beyond it, so the same title trashed twice
+never lands on the earlier copy. The trash is flat — a nested document's path is
+not kept.
+
+The `stillOwnsFolder` refusal survives the move: the copy takes files only and the
+original is then removed recursively, so a subdirectory added since the scan would
+never reach the trash. The refusal happens before `.trash/` is even created.
+
+Both screens go through it. The Files screen calls `trashDocument` directly; the
+editor calls `doc.trash()`, which flushes first so the trashed copy has the last
+edit, then stands every write down (`#trashing`) while the move runs — otherwise
+an autosave or the unmount's `close()` writes the file straight back.
+
+Always confirm, and be honest about which it is: a folder-document takes its
+folder and images with it, a file-document takes only itself. That is two
 different confirmation strings, not one.
 
 ## Permissions can vanish at any time
@@ -256,8 +277,9 @@ a collision afterwards:
 - `deleteFolder(root, path)` — `removeEntry` **without** `recursive`, which the
   browser refuses on a directory that is not empty. That refusal is the safety, not
   the UI gating that only offers the action on an empty folder; the flag must stay
-  off however the caller is gated. `deleteDocument` passes `recursive: true` on
-  purpose, because a folder-document's folder _is_ the document.
+  off however the caller is gated. `trashDocument` passes `recursive: true` on
+  purpose, because a folder-document's folder _is_ the document — and only once
+  its copy is safely in the trash.
 - `createDocument(root, folder, title)` — named before it is made and written
   straight away, as a **folder-document**: `<folder>/<Title>/<Title>.md`, always
   `.md`. Every document the app creates gets a folder of its own, because images

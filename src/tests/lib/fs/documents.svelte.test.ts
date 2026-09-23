@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
     createDocument,
     createFolder,
-    deleteDocument,
     deleteFolder,
     DocumentError,
     ensureSubfolder,
@@ -16,6 +15,7 @@ import {
     scanFolder,
     SUGGESTED_FOLDER_NAME,
     suggestUntitledName,
+    trashDocument,
     writeDocument,
     writeImage,
     type DocumentLocation,
@@ -651,44 +651,80 @@ describe('writeImage', () => {
     });
 });
 
-describe('deleteDocument', () => {
-    it('removes the folder and everything in it', async () => {
-        await writeDocument(root, folderDoc('Doomed'), fromMarkdown('x'));
+describe('trashDocument', () => {
+    // A fixed clock, so the trashed name is known — and so a second trash in the
+    // same minute can be arranged rather than hoped for.
+    const now = new Date(2026, 8, 13, 14, 2);
+    const trashed = '.trash/Doomed (2026-09-13 14.02)';
+
+    it('moves the folder and everything in it into the trash', async () => {
+        await writeDocument(root, folderDoc('Doomed'), fromMarkdown('body'));
         await writeImage(
             root,
             'Doomed',
             new File(['b'], 'img.png', { type: 'image/png' })
         );
 
-        await deleteDocument(root, folderDoc('Doomed'));
+        await trashDocument(root, folderDoc('Doomed'), now);
 
         expect(await folderExists(root, 'Doomed')).toBe(false);
+        // The markdown file keeps its own name; the folder carries the time.
+        expect(await readFile(trashed, 'Doomed.md')).toContain('body');
+        expect(await readFile(trashed, 'img.png')).toBe('b');
     });
 
-    it('removes only the file when the document does not own its folder', async () => {
+    it('moves only the file when the document does not own its folder', async () => {
         await writeRaw('Notes', 'One.md', 'one');
         await writeRaw('Notes', 'Two.md', 'two');
 
-        await deleteDocument(root, fileDoc('Notes', 'One.md'));
+        await trashDocument(root, fileDoc('Notes', 'One.md'), now);
 
         expect(await fileExists('Notes', 'One.md')).toBe(false);
         expect(await readFile('Notes', 'Two.md')).toBe('two');
+        expect(await readFile('.trash', 'One (2026-09-13 14.02).md')).toBe(
+            'one'
+        );
     });
 
-    // Where rename can carry on under a corrected flag, delete cannot: there is
-    // no trash behind `removeEntry({ recursive: true })`, and the writer confirmed
+    it('keeps both copies when one title is trashed twice in a minute', async () => {
+        await writeDocument(root, folderDoc('Doomed'), fromMarkdown('first'));
+        await trashDocument(root, folderDoc('Doomed'), now);
+        await writeDocument(root, folderDoc('Doomed'), fromMarkdown('second'));
+        await trashDocument(root, folderDoc('Doomed'), now);
+
+        expect(await readFile(trashed, 'Doomed.md')).toContain('first');
+        expect(await readFile(`${trashed} 2`, 'Doomed.md')).toContain('second');
+    });
+
+    it('never shows the trash in the scanned tree', async () => {
+        await writeDocument(root, folderDoc('Kept'), fromMarkdown('kept'));
+        await writeDocument(root, folderDoc('Doomed'), fromMarkdown('x'));
+
+        await trashDocument(root, folderDoc('Doomed'), now);
+
+        const tree = await scanFolder(root);
+        expect(await paths()).toEqual(['Kept/Kept.md']);
+        expect(folderNamed(tree, '.trash')).toBeUndefined();
+        // Not "nothing we can open" either: the trash is the app's, not theirs.
+        expect(tree.hasOtherEntries).toBe(false);
+    });
+
+    // The copy takes files only and the original is then removed recursively, so a
+    // subdirectory added since the scan would never reach the trash. Rename can
+    // carry on under a corrected flag; delete cannot, because the writer confirmed
     // against copy naming a folder that no longer describes what is in there.
     it('refuses when the folder has gained a subdirectory since the scan', async () => {
         await writeDocument(root, folderDoc('Doomed'), fromMarkdown('body'));
         await writeRaw('Doomed/Drafts', 'earlier.md', 'earlier');
 
         await expect(
-            deleteDocument(root, folderDoc('Doomed'))
+            trashDocument(root, folderDoc('Doomed'), now)
         ).rejects.toBeInstanceOf(DocumentError);
 
-        // Nothing at all was removed.
-        expect(await readFile('Doomed', 'Doomed.md')).toBe('body');
+        // Nothing at all was moved, and no trash was made for it.
+        expect(await readFile('Doomed', 'Doomed.md')).toContain('body');
         expect(await readFile('Doomed/Drafts', 'earlier.md')).toBe('earlier');
+        expect(await folderExists(root, '.trash')).toBe(false);
     });
 
     // Stricter than the scan on purpose: `listDirectory` skips dot-entries, which
@@ -699,10 +735,11 @@ describe('deleteDocument', () => {
         await writeRaw('Doomed/.versions', 'old.md', 'old');
 
         await expect(
-            deleteDocument(root, folderDoc('Doomed'))
+            trashDocument(root, folderDoc('Doomed'), now)
         ).rejects.toBeInstanceOf(DocumentError);
 
         expect(await readFile('Doomed/.versions', 'old.md')).toBe('old');
+        expect(await folderExists(root, '.trash')).toBe(false);
     });
 
     it('refuses when a second document has appeared in the folder', async () => {
@@ -710,24 +747,11 @@ describe('deleteDocument', () => {
         await writeRaw('Doomed', 'Notes.md', 'notes');
 
         await expect(
-            deleteDocument(root, folderDoc('Doomed'))
+            trashDocument(root, folderDoc('Doomed'), now)
         ).rejects.toBeInstanceOf(DocumentError);
 
         expect(await readFile('Doomed', 'Notes.md')).toBe('notes');
-    });
-
-    // The re-check must not be so strict it refuses a genuine folder-document.
-    it('still deletes a folder holding only the document and its images', async () => {
-        await writeDocument(root, folderDoc('Doomed'), fromMarkdown('x'));
-        await writeImage(
-            root,
-            'Doomed',
-            new File(['b'], 'img.png', { type: 'image/png' })
-        );
-
-        await deleteDocument(root, folderDoc('Doomed'));
-
-        expect(await folderExists(root, 'Doomed')).toBe(false);
+        expect(await folderExists(root, '.trash')).toBe(false);
     });
 });
 
