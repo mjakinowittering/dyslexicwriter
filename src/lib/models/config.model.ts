@@ -33,7 +33,10 @@ export const CONFIG_FILE_NAME = 'config.json';
 export const CONFIG_VERSION = 1;
 
 export const themeValues = ['light', 'dark'] as const;
-export const fontValues = ['sans', 'dyslexic'] as const;
+// In the order the settings panel offers them, because it builds its radio group
+// from this list. OpenDyslexic leads: it is the shipped default and the reason
+// the app exists. Order means nothing to the picklist itself.
+export const fontValues = ['dyslexic', 'sans'] as const;
 
 const themeSchema = v.picklist(themeValues);
 const fontSchema = v.picklist(fontValues);

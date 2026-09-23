@@ -1,6 +1,6 @@
 import type { ChainedCommands, Editor } from '@tiptap/core';
 
-import { allFormatToggles } from './definitions';
+import { allFormatToggles, HEADING_LEVELS } from './definitions';
 import Root from './Format.svelte';
 import Group from './FormatGroup.svelte';
 import Insert from './FormatInsert.svelte';
@@ -80,6 +80,7 @@ export {
     getWordBoundary,
     Group,
     Heading,
+    HEADING_LEVELS,
     HorizontalRule,
     Insert,
     InsertImage,

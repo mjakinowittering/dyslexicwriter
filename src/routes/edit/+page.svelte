@@ -400,11 +400,14 @@
                                 {editor}
                             />
                         </Format.Group>
+                        <!-- Rendered from HEADING_LEVELS rather than four hand-written
+                             rows: `definitions.ts` already owns which levels the
+                             editor offers, and a fifth written there would
+                             otherwise need remembering here too. -->
                         <Format.Group bind:formatting={doc.formatting}>
-                            <Format.Heading {disabled} {editor} level={1} />
-                            <Format.Heading {disabled} {editor} level={2} />
-                            <Format.Heading {disabled} {editor} level={3} />
-                            <Format.Heading {disabled} {editor} level={4} />
+                            {#each Format.HEADING_LEVELS as level (level)}
+                                <Format.Heading {disabled} {editor} {level} />
+                            {/each}
                         </Format.Group>
                         <Format.Group bind:formatting={doc.formatting}>
                             <Format.Bold {disabled} {editor} />

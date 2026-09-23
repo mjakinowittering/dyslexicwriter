@@ -10,10 +10,11 @@
     import { Switch } from '$lib/components/ui/switch';
 
     import { motionDuration, motionEasing } from '$lib/config/motion';
-    import type { Font } from '$lib/models/config.model';
+    import { fontValues, type Font } from '$lib/models/config.model';
     import * as m from '$lib/paraglide/messages';
     import { workspace } from '$lib/stores/workspace.svelte';
     import type { PreferenceStore } from '$lib/stores/workspace.svelte';
+    import { cn } from '$lib/utils';
 
     // The settings panel. Every control here writes straight through to
     // config.json in the user's folder — there is no separate "save".
@@ -25,6 +26,15 @@
         open = $bindable(false),
         store = workspace
     }: { open?: boolean; store?: PreferenceStore } = $props();
+
+    // What each font in `fontValues` is called, and the class that previews it.
+    // A Record keyed by `Font` rather than a second list: add a font to the
+    // picklist and this stops compiling until it has a label here, which is the
+    // whole reason the values have one home.
+    const FONT_OPTIONS: Record<Font, { label: () => string; class: string }> = {
+        dyslexic: { label: m.settings_font_dyslexic, class: 'reading-font' },
+        sans: { label: m.settings_font_sans, class: '' }
+    };
 
     const isDark = $derived(store.theme === 'dark');
 
@@ -113,23 +123,22 @@
                     onValueChange={onFontChange}
                     value={store.font}
                 >
-                    <div class="flex items-center gap-2">
-                        <RadioGroup.Item id="font-dyslexic" value="dyslexic" />
-                        <!-- The label previews the choice: it is the one bit of chrome
+                    <!-- The label previews the choice: it is the one bit of chrome
                          that renders in the reading font. -->
-                        <Label
-                            class="reading-font font-normal"
-                            for="font-dyslexic"
-                        >
-                            {m.settings_font_dyslexic()}
-                        </Label>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <RadioGroup.Item id="font-sans" value="sans" />
-                        <Label class="font-normal" for="font-sans">
-                            {m.settings_font_sans()}
-                        </Label>
-                    </div>
+                    {#each fontValues as value (value)}
+                        <div class="flex items-center gap-2">
+                            <RadioGroup.Item id="font-{value}" {value} />
+                            <Label
+                                class={cn(
+                                    'font-normal',
+                                    FONT_OPTIONS[value].class
+                                )}
+                                for="font-{value}"
+                            >
+                                {FONT_OPTIONS[value].label()}
+                            </Label>
+                        </div>
+                    {/each}
                 </RadioGroup.Root>
             </section>
 
