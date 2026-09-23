@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatMarkdown } from '$lib/markdown';
+import { formatMarkdown } from '$lib/markdown/format';
 import type { PrettierPreferences } from '$lib/models/prettier.model';
 
 const WRAP: PrettierPreferences = { printWidth: 80, proseWrap: 'always' };

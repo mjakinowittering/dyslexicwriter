@@ -10,11 +10,8 @@ import {
     writeImage,
     type DocumentLocation
 } from '$lib/fs';
-import {
-    emptyDocument,
-    markdownFormatter,
-    type Frontmatter
-} from '$lib/markdown';
+import { emptyDocument, type Frontmatter } from '$lib/markdown';
+import { markdownFormatter } from '$lib/markdown/format-client';
 import {
     fileNameFor,
     sanitiseTitle,
