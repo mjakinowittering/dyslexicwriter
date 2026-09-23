@@ -18,6 +18,18 @@ to static files and runs entirely in one browser tab against one local folder. A
 proposal that reintroduces a server, an account, multi-device sync or collaborative
 editing is out of scope and should be raised before it is built, not after.
 
+## Principles
+
+They apply to code and to guidance (this file, the skills, the README) alike.
+
+- **Keep it simple** — the plainest thing that works; no cleverness to save a line.
+- **You aren't gonna need it** — build for today's requirement, not a guessed one; no
+  speculative options, abstractions or documentation of what the code already shows.
+- **Don't repeat yourself** — one home per rule, fact or helper; elsewhere, point to
+  it. A rule applying everywhere lives here; a domain rule lives in its skill.
+- **Kaizen** — leave it a little better: fix what's stale or wrong in whatever you
+  touch, in small steps, rather than saving it for a rewrite.
+
 ---
 
 ## Skills Index — where the depth lives
@@ -41,6 +53,8 @@ is the _how_.
 | `animations`         | any motion — Svelte transitions/motion/easing, shared `motion.ts` timings, the two-phase reveal pattern                                                                                               |
 | `testing`            | writing Vitest tests; before committing changes to the markdown round-trip, the fs layer, or models                                                                                                   |
 | `branch-and-commit`  | starting an approved plan (the branch is its first step), naming a branch, staging, writing a commit message, pushing a branch, or opening a PR — which always targets `develop`                      |
+| `todo-review`        | the `## Todo` section of `README.md` — showing the list, planning an item, adding one, pruning stale ones                                                                                             |
+| `ascii-wireframes`   | drawing any change a writer will see, before it is built, and sequence diagrams for a flow crossing the editor, the stores and the filesystem                                                         |
 
 > When a domain skill contradicts a stale line here, the skill is the more detailed
 > source — but hard invariants (the General Rules) always hold regardless of which skill
@@ -57,9 +71,10 @@ is the _how_.
 - **Durable folder handle** — the `FileSystemDirectoryHandle` persisted through
   IndexedDB (it is not serializable to a string) and re-permissioned silently on return
   visits, so the user picks their folder once, not every launch
-- **`config.json` as the only settings store** — theme, font and read-aloud voice/speed,
-  all in one file in the user's folder so preferences travel with the writing. Settings
-  only: the list of documents is scanned from the folder, never cached here
+- **`config.json` as the only settings store** — theme, font, invisible characters,
+  read-aloud voice/speed and the markdown formatting options, all in one file in the
+  user's folder so preferences travel with the writing. Settings only: the list of
+  documents is scanned from the folder, never cached here
 - **A lossless-enough markdown round-trip** — TipTap `JSONContent` is the editing model;
   markdown is what lands on disk and what is parsed back on open
 - **Distraction-free editing** — a deliberately capped toolbar: headings, bold/italic,
@@ -109,14 +124,22 @@ model exists in two representations — in memory while editing, and on disk as 
 ### In memory
 
 ```ts
-interface Doc {
-    title: string; // also the folder name and the file's basename
-    contentJson: JSONContent; // TipTap — the editing source of truth
+// The open document, held by the document store (src/lib/stores/document.svelte.ts)
+{
+    title: string; // the markdown file's basename
+    contentJson: JSONContent | null; // TipTap — the editing source of truth
     wordCount: number; // derived live from TipTap's CharacterCount
-    dirHandle: FileSystemDirectoryHandle | null; // null until first save
-    fileHandle: FileSystemFileHandle | null; // null until first save
+    location: DocumentLocation | null; // null until first save — see below
+    saveState: SaveState; // idle | pending | saving | saved | error
+    savedAt: number | null; // epoch ms of the last successful write
 }
 ```
+
+A document is held as a **path**, never as handles. `DocumentLocation` is
+`{ folder, file, ownsFolder }`, and every filesystem call resolves it against the
+working folder's handle at the moment it runs — a handle cached across an await is
+one a rename or an outside edit can invalidate. `null` is the test for "not saved
+yet", never falsiness: `''` is a real folder, the working folder itself.
 
 The Files screen's list is the other in-memory representation — a `FolderNode` tree of
 `DocumentIndexEntry` rows, scanned from the folder into the workspace store and held
@@ -435,11 +458,17 @@ a document is open, so the failure modes that matter are all about losing writin
 
 ## Environment Variables
 
-None. The app is entirely local and requires no configuration to run.
+None that the app reads. It is entirely local and needs no configuration to run.
 
-If a build-time flag is ever genuinely needed it goes through `$env/static/public` and
-must be documented in `.env.example` — but the default and correct answer is that this
-project has no environment configuration.
+The one environment variable in the repo is **`BASE_PATH`**, read by
+`svelte.config.js` to set `kit.paths.base` and supplied by the deploy workflow from
+`actions/configure-pages`. That is build tooling, not app configuration: it never
+reaches `$env`, and unset — dev, `vite preview`, Storybook — it falls back to serving
+from the root.
+
+If a flag the app itself reads is ever genuinely needed it goes through
+`$env/static/public` and must be documented in `.env.example` — but the default and
+correct answer is that this project has no environment configuration.
 
 ---
 
@@ -453,8 +482,9 @@ project has no environment configuration.
   content in IndexedDB, `localStorage` or `sessionStorage` "for convenience"
 - The `FileSystemDirectoryHandle` lives **only** in IndexedDB, and it is the **only**
   thing in IndexedDB — never `localStorage` (a handle cannot be string-serialized)
-- **Every persisted preference lives in `config.json`** — theme, font, TTS voice/speed,
-  and anything added later. No exceptions, no other settings store
+- **Every persisted preference lives in `config.json`** — theme, font,
+  `showInvisibles`, TTS voice/speed, the Prettier options, and anything added later.
+  No exceptions, no other settings store
 - Every preference in `config.json` has a sibling in `src/lib/config/defaults.json`
   giving its first-run value, and a new setting adds **both in the same commit** — the
   pairing `toMarkdown`/`fromMarkdown` already follows. `defaults.json` holds preferences
@@ -538,10 +568,15 @@ project has no environment configuration.
   `cubic-bezier` for state-driven motion, never a third-party animation lib; shared
   durations/easing come from `$lib/config/motion.ts`
 - Theme colours are **Tailwind CSS variables in `src/routes/layout.css`** — never
-  hardcode a colour in a component. Both themes are shadcn-svelte's neutral greys, every
-  token chroma `0`: light is near-white but never `#fff`; dark is near-black with
-  near-white ink
-- Fonts are **self-hosted** under `static/fonts/` — never load a webfont from a CDN
+  hardcode a colour in a component. Both themes are shadcn-svelte's neutral greys:
+  light is near-white but never `#fff`; dark is near-black with near-white ink. Every
+  token is chroma `0` **except `--destructive`**, which stays red on purpose — a grey
+  delete confirmation says nothing. Adding a second chromatic token needs the same
+  argument, in `layout.css`, beside it
+- Fonts are **self-hosted** — never load a webfont from a CDN. Both come from their
+  `@fontsource` packages and are `@import`ed in `layout.css`, so Vite bundles the files
+  out of `node_modules` and their licence notices travel with the build. There is no
+  `static/fonts/`
 - Storybook stories live in `src/stories/` and mirror the `src/lib/components/` tree —
   never co-locate stories inside `src/lib/components/`
 - Vitest suites live in `src/tests/` and mirror the `src/lib/` tree, importing their
@@ -551,8 +586,10 @@ project has no environment configuration.
 - **Custom-submit forms** (an `onsubmit` handler rather than a native submit) must call
   `event.preventDefault()` — otherwise the browser does a full-page reload and the async
   handler never completes
-- `speech.stop()` on editor unmount and on document switch — otherwise audio bleeds
-  across documents and the highlight targets a destroyed view
+- `speech.stop()` on editor unmount, on document switch **and on `pagehide`** —
+  otherwise audio bleeds across documents and the highlight targets a destroyed view.
+  `pagehide` is the one `onDestroy` cannot cover: it does not run on a tab close or
+  reload, and Chrome's speech queue outlives the page that started it
 - There is **no server**: no `.remote.ts` files, no `+page.server.ts`, no `hooks.server.ts`,
   no `$lib/server/`. `ssr = false` app-wide; the build is static
 - Do not reintroduce accounts, sync, collaboration, or LLM features — all were
