@@ -25,12 +25,14 @@ src/
 │   │   │   ├── Page/
 │   │   │   │   ├── Page.svelte       //   the document sheet; `narrow` tweens the measure
 │   │   │   │   ├── PageEditor.svelte //   TipTap instance, image drop, reconcile()
+│   │   │   │   ├── PageBackToTop.svelte // floats mid-read; stops the read and glides home
 │   │   │   │   └── invisible-characters.ts // space/break/¶ markers, decorations only
 │   │   │   ├── Format/               //   the capped formatting controls (see content-editor)
 │   │   │   │   ├── definitions.ts            // THE table: icon/label/shortcut/value/command
 │   │   │   │   ├── FormatToggleControl.svelte// renders one row of it
 │   │   │   │   ├── FormatToggle*.svelte      // thin wrappers: bold, italic, lists, quote, headings
-│   │   │   │   └── FormatInsert*.svelte      // table, image, link, hr, undo, redo
+│   │   │   │   ├── FormatInsert*.svelte      // table, image, link, horizontal rule
+│   │   │   │   └── Format{Undo,Redo}.svelte  // stateless, so not in definitions.ts
 │   │   │   ├── Link/                 //   links: dialog, click card, ⌘K (see content-editor)
 │   │   │   │   ├── LinkDialog.svelte       // add / edit / remove — one dialog, three ways in
 │   │   │   │   ├── LinkCard.svelte         // shown on click: where it goes, Edit, Open
@@ -38,9 +40,13 @@ src/
 │   │   │   │   └── link-target.ts          // the clicked <a> the card anchors to
 │   │   │   ├── Statusbar/            //   word count · reading time · save state
 │   │   │   │   ├── StatusbarWordCount.svelte   // live word count
-│   │   │   │   └── StatusbarTimeToRead.svelte  // reading-time estimate from that count
+│   │   │   │   ├── StatusbarTimeToRead.svelte  // reading-time estimate from that count
+│   │   │   │   ├── StatusbarSaveState.svelte   // "Saved 3 minutes ago", or the error
+│   │   │   │   └── StatusbarUnsaved.svelte     // the dot/spinner chip while dirty
 │   │   │   └── Toolbar/
 │   │   │       ├── ToolbarRail.svelte      // the tall left rail (bare chevron)
+│   │   │       ├── ToolbarTitle.svelte     // the title field's slot; the title IS the filename
+│   │   │       ├── ToolbarDelete.svelte    // the editor's Delete, into .trash/
 │   │   │       ├── ToolbarSettings.svelte  // the gear
 │   │   │       ├── ToolbarTts.svelte       // the transport group + its one Tooltip.Provider
 │   │   │       ├── ToolbarTransportButton.svelte // one transport control
@@ -52,8 +58,8 @@ src/
 │   │   │   └── FileTree{,Document,RowMenu}.svelte
 │   │   ├── Icon/                     // every icon draws through here (hugeicons data)
 │   │   ├── Settings/
-│   │   │   └── SettingsPanel.svelte  // full-height right column: font + theme
-│   │   ├── Welcome/                  // first-run + reopen cards, editor preview
+│   │   │   └── SettingsPanel.svelte  // full-height right column: font, theme, invisibles
+│   │   ├── Welcome/                  // hero, first-run + reopen cards, editor preview
 │   │   └── ui/                       // shadcn-svelte, added via CLI; do not hand-edit
 │   │
 │   ├── config/
@@ -62,21 +68,27 @@ src/
 │   │   └── motion.ts                 // shared durations/easing — the ONLY source of timings
 │   │
 │   ├── fs/                           // THE data layer — see the filesystem-storage skill
+│   │   ├── index.ts                  //   the narrow public surface; deep-import for the rest
 │   │   ├── config.ts                 //   read/write config.json
-│   │   ├── documents.ts              //   scan, read, write, rename, delete, images
+│   │   ├── documents.ts              //   scan, read, write, rename, trash, folders, images
 │   │   ├── handle-store.ts           //   the one IndexedDB row: the directory handle
 │   │   ├── io.ts                     //   writeFile + isNotFoundError, shared by the two above
 │   │   └── support.ts                //   File System Access API feature detection
 │   │
 │   ├── markdown/                     // the round-trip — see the content-editor skill
+│   │   ├── index.ts                  //   the barrel the editor and fs/ import through
 │   │   ├── extensions.ts             //   THE shared node/mark set (editor + both converters)
 │   │   ├── frontmatter.ts            //   split/join a `---` YAML fence, carried untouched
 │   │   ├── to-markdown.ts            //   JSON → markdown (what lands on disk)
-│   │   └── from-markdown.ts          //   markdown → JSON, plus emptyDocument()
+│   │   ├── from-markdown.ts          //   markdown → JSON, plus emptyDocument()
+│   │   ├── format.ts                 //   Prettier over the derived markdown — the pure call
+│   │   ├── format.worker.ts          //   that call, off the main thread
+│   │   └── format-client.ts          //   the port, and the never-reject contract
 │   │
 │   ├── models/                       // Valibot schemas — see models-validation
 │   │   ├── config.model.ts           //   config.json shape + defaults + safe parse
-│   │   ├── document.model.ts         //   title sanitisation, Untitled numbering
+│   │   ├── document.model.ts         //   title sanitisation, paths, .trash naming — no schema
+│   │   ├── prettier.model.ts         //   print width + wrap mode bounds
 │   │   └── tts.model.ts              //   voice/rate bounds
 │   │
 │   ├── stores/
@@ -94,6 +106,9 @@ src/
 │   ├── utils/
 │   │   ├── reading-time.ts           // 238 wpm → parts, + the Paraglide label
 │   │   ├── relative-time.ts          // "2 hours ago" for the Files screen
+│   │   ├── editor-route.ts           // `/edit?doc=…`, or bare `/edit` for an unsaved one
+│   │   ├── link.ts                   // normaliseLinkHref — http/https/mailto only
+│   │   ├── icon-data-uri.ts          // Hugeicons data → a CSS url(), for the link glyph
 │   │   ├── scroll-animator.svelte.ts // one rAF loop shared by the scrollers
 │   │   └── shortcut.ts               // `Mod+B` → ⌘B or Ctrl+B, for tooltips
 │   └── utils.ts                      // `cn()` class merge — shadcn's, do not hand-edit
@@ -102,7 +117,7 @@ src/
 ├── stories/                          // Storybook, mirroring lib/components/
 └── tests/                            // Vitest, mirroring lib/
     ├── lib/                          //   src/tests/lib/fs/documents.svelte.test.ts, …
-    └── support/                      //   shared harnesses (opfs.ts)
+    └── support/                      //   opfs.ts, PageEditorHarness.svelte
 ```
 
 There is **no** `lib/server/`, no `hooks.server.ts`, no `.remote.ts`, no
