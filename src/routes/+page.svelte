@@ -43,7 +43,7 @@
     import { editorRoute } from '$lib/utils/editor-route';
 
     // The Files screen. Deliberately plain: a utility list, not a marketing
-    // surface. Its final layout is still open, so nothing here is precious.
+    // surface.
     //
     // Both irreversible actions here ask first, through ConfirmDialog. The
     // handler the list calls only opens the dialog; the work itself waits for the
@@ -425,7 +425,7 @@
                                 </Button>
                             {/snippet}
                         </DropdownMenu.Trigger>
-                        <!-- w-auto because nova pins menu content to its anchor's
+                        <!-- w-auto because vega pins menu content to its anchor's
                          width, and this anchor is a bare chevron button. -->
                         <DropdownMenu.Content align="end" class="w-auto">
                             <!-- The automatic rescans cover most of it; this is for
