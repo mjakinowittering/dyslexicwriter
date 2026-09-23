@@ -29,7 +29,12 @@ src/
 │   │   │   │   ├── definitions.ts            // THE table: icon/label/shortcut/value/command
 │   │   │   │   ├── FormatToggleControl.svelte// renders one row of it
 │   │   │   │   ├── FormatToggle*.svelte      // thin wrappers: bold, italic, lists, quote, headings
-│   │   │   │   └── FormatInsert*.svelte      // table, image, hr, undo, redo
+│   │   │   │   └── FormatInsert*.svelte      // table, image, link, hr, undo, redo
+│   │   │   ├── Link/                 //   links: dialog, click card, ⌘K (see content-editor)
+│   │   │   │   ├── LinkDialog.svelte       // add / edit / remove — one dialog, three ways in
+│   │   │   │   ├── LinkCard.svelte         // shown on click: where it goes, Edit, Open
+│   │   │   │   ├── link-keymap.ts          // ⌘K, editor-only — never in documentExtensions()
+│   │   │   │   └── link-target.ts          // the clicked <a> the card anchors to
 │   │   │   ├── Statusbar/            //   word count · reading time · save state
 │   │   │   │   ├── StatusbarWordCount.svelte   // live word count
 │   │   │   │   └── StatusbarTimeToRead.svelte  // reading-time estimate from that count

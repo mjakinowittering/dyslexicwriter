@@ -63,7 +63,7 @@ is the _how_.
 - **A lossless-enough markdown round-trip** — TipTap `JSONContent` is the editing model;
   markdown is what lands on disk and what is parsed back on open
 - **Distraction-free editing** — a deliberately capped toolbar: headings, bold/italic,
-  lists, checklists, blockquote, horizontal rule, tables, images. Nothing more.
+  lists, checklists, blockquote, horizontal rule, tables, images, links. Nothing more.
 - **Read aloud** — Web Speech API playback of the selection or whole document, with
   exact sentence highlighting, so the writer can catch by ear what the eye misses
 - **Accessibility as the product** — OpenDyslexic as a first-class font choice, a
@@ -500,9 +500,11 @@ project has no environment configuration.
   hard wrapping is covered by round-trip tests that pin the hazard of a `1.`, `-`, `#`,
   `>` or `+` landing at a line start
 - The toolbar is **capped by product decision**: undo/redo, headings, bold, italic,
-  bullet/ordered/task list, blockquote, horizontal rule, table, image. No font-family or
-  font-size pickers, no colour pickers, no alignment controls, no bubble/slash menus.
-  Default to "no"; when in doubt remove UI rather than add it
+  bullet/ordered/task list, blockquote, horizontal rule, table, image, link. No
+  font-family or font-size pickers, no colour pickers, no alignment controls, no
+  bubble/slash menus. The link card shown when a link is clicked is not a bubble menu —
+  it holds no formatting, only where the link goes, Edit and Open. Default to "no"; when
+  in doubt remove UI rather than add it
 - Read-aloud highlighting is **ProseMirror decorations only**, never marks or nodes — it
   must never appear in `editor.getJSON()` and never reach the markdown
 - SSR-guard every browser API (`showDirectoryPicker`, `speechSynthesis`, `AudioContext`,

@@ -7,6 +7,7 @@
 
     import ConfirmDialog from '$lib/components/ConfirmDialog/ConfirmDialog.svelte';
     import * as Format from '$lib/components/Editor/Format';
+    import * as Link from '$lib/components/Editor/Link';
     import * as Page from '$lib/components/Editor/Page';
     import * as Statusbar from '$lib/components/Editor/Statusbar';
     import * as Toolbar from '$lib/components/Editor/Toolbar';
@@ -48,6 +49,21 @@
     // false, which is exactly what a writer sees the moment a document opens.
     let canUndo = $state(false);
     let canRedo = $state(false);
+
+    // The link dialog and the link card. One dialog for three ways in — the
+    // toolbar button, ⌘K, and the card's Edit — so it lives here rather than in
+    // any of them.
+    //
+    // `$state.raw` for the target: it carries the rendered <a> the card anchors
+    // to, and a DOM node has no business behind a deep proxy.
+    let linkDialogOpen = $state(false);
+    let linkTarget = $state.raw<Link.LinkTarget | null>(null);
+
+    function openLinkDialog() {
+        if (!editor) return;
+        linkTarget = null;
+        linkDialogOpen = true;
+    }
 
     // The markdown file's path relative to the working folder — `notes.md`,
     // `Chapters/One.md`. A bare folder name from an older link still resolves.
@@ -175,6 +191,11 @@
         // keystroke and the bin.
         if (!first) {
             speech.stop();
+            // Both describe the outgoing document: the card's anchor is about
+            // to be redrawn away, and the dialog's range points into text that
+            // is no longer on screen.
+            linkTarget = null;
+            linkDialogOpen = false;
             // Ask the editor first: this flush is the last thing that runs against
             // the outgoing document, and it is a no-op on one the store believes
             // is clean. `doc.open()` resets rather than flushing, so an edit the
@@ -405,6 +426,10 @@
                                 {editor}
                                 onPick={(file) => doc.addImage(file)}
                             />
+                            <Format.InsertLink
+                                {disabled}
+                                onOpen={openLinkDialog}
+                            />
                         </Format.Group>
                     </Format.Root>
 
@@ -442,16 +467,30 @@
                 font={workspace.font}
                 onBlur={() => doc.flush()}
                 onDropImage={(file) => doc.addImage(file)}
+                onLinkClick={(target) => (linkTarget = target)}
+                onLinkShortcut={openLinkDialog}
                 onTransaction={(e) => {
                     doc.formatting = Format.getFormattingActive(e);
                     canUndo = e.can().undo();
                     canRedo = e.can().redo();
                 }}
                 onUpdate={() => {
+                    // Any change can redraw the paragraph holding the link the
+                    // card is anchored to, so the card closes with it.
+                    linkTarget = null;
                     if (editor) doc.applyEdit(editor.getJSON());
                 }}
             />
         </Page.Root>
+
+        <!-- Both portal to <body>, so where they sit is only about finding them:
+             beside the editor they act on. -->
+        <Link.Dialog bind:open={linkDialogOpen} {editor} />
+        <Link.Card
+            onClose={() => (linkTarget = null)}
+            onEdit={openLinkDialog}
+            target={linkTarget}
+        />
 
         <Statusbar.Root
             error={doc.error}

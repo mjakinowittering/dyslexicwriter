@@ -1,18 +1,29 @@
 <script lang="ts" module>
+    import { LinkSquare02Icon } from '@hugeicons/core-free-icons';
+
+    import { iconDataUri } from '$lib/utils/icon-data-uri';
+
     // How often the editor checks its own content against what it last reported.
     //
     // The check is an object-identity comparison, so this can be short without
     // costing anything: it is the interval between a change nobody told us about
     // and the store hearing of it, and nothing else.
     export const CONTENT_CHECK_MS = 2_000;
+
+    // The glyph drawn after every link, as a CSS `url()`. Built once, from the
+    // icon set's own data — see the `a[href]::after` rule below.
+    const LINK_EXTERNAL_ICON = `url("${iconDataUri(LinkSquare02Icon)}")`;
 </script>
 
 <script lang="ts">
     import type { JSONContent } from '@tiptap/core';
-    import { Editor } from '@tiptap/core';
+    import { Editor, getMarkRange } from '@tiptap/core';
     import { CharacterCount, Placeholder } from '@tiptap/extensions';
     import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
     import { onDestroy, onMount, untrack } from 'svelte';
+
+    import { LinkKeymap } from '$lib/components/Editor/Link/link-keymap';
+    import type { LinkTarget } from '$lib/components/Editor/Link/link-target';
 
     import { documentExtensions } from '$lib/markdown';
     import type { Font } from '$lib/models/config.model';
@@ -35,6 +46,8 @@
         onUpdate,
         onBlur,
         onDropImage,
+        onLinkClick,
+        onLinkShortcut,
         class: className
     }: {
         editor?: Editor;
@@ -56,6 +69,11 @@
         // at save time, so no payload is passed here.
         onUpdate?: () => void;
         onBlur?: () => void;
+        // A link was clicked. The caret still lands where it was clicked; this
+        // is what lets the page show the link card beside it.
+        onLinkClick?: (target: LinkTarget) => void;
+        // ⌘K / Ctrl+K — asks the page for the link dialog.
+        onLinkShortcut?: () => void;
         // Extra classes for the editor wrapper (e.g. padding around the document).
         class?: string;
     } = $props();
@@ -157,6 +175,35 @@
                     });
 
                     return true;
+                },
+                // A click on a link. Returns false in every case, so ProseMirror
+                // still places the caret: the card is shown beside the click,
+                // never instead of it. The link mark's range is checked rather
+                // than trusting the <a> alone, so only the writing's own links
+                // count — not markup a browser extension has put in the page.
+                handleClick: (view, pos, event) => {
+                    if (!onLinkClick || !(event.target instanceof Element)) {
+                        return false;
+                    }
+
+                    const anchor = event.target.closest('a');
+                    if (!anchor || !view.dom.contains(anchor)) return false;
+
+                    const linkType = view.state.schema.marks.link;
+                    if (!linkType) return false;
+
+                    const range = getMarkRange(
+                        view.state.doc.resolve(pos),
+                        linkType
+                    );
+                    if (!range) return false;
+
+                    onLinkClick({
+                        anchor,
+                        href: anchor.getAttribute('href') ?? '',
+                        text: view.state.doc.textBetween(range.from, range.to)
+                    });
+                    return false;
                 }
             },
             element,
@@ -177,7 +224,9 @@
                 }),
                 // Read-aloud highlight — decorations only, no content nodes, so it
                 // never touches the JSON the markdown is derived from.
-                TtsHighlightExtension
+                TtsHighlightExtension,
+                // ⌘K for the link dialog — a keymap, no content.
+                LinkKeymap.configure({ onOpen: () => onLinkShortcut?.() })
             ],
             // Read-aloud's highlight is a real transaction, dispatched for every
             // word the engine reports — dozens a second on a document of any size.
@@ -264,6 +313,7 @@
         font === 'dyslexic' && 'reading-font',
         className
     )}
+    style:--link-external-icon={LINK_EXTERNAL_ICON}
 ></div>
 
 <style>
@@ -323,6 +373,26 @@
     .editor-surface
         :global(ul[data-type='taskList'] > li > label input[type='checkbox']) {
         accent-color: var(--tts-word-tint);
+    }
+
+    /* Every link ends in an external-link glyph, because following one leaves
+       the app. Generated content only: nothing is added to the document, so it
+       is not in `getJSON()`, not in the markdown, and not in read-aloud's text
+       map, which walks the document rather than the page.
+
+       Drawn as a mask filled with `currentColor`, so it takes the link's own
+       ink in both themes — and the band's dark ink while it is being read —
+       without a colour of its own. `inline-block` keeps the link's underline
+       from running on under it. */
+    .editor-surface :global(a[href]::after) {
+        content: '';
+        display: inline-block;
+        width: 0.75em;
+        height: 0.75em;
+        margin-inline-start: 0.2em;
+        vertical-align: -0.05em;
+        background-color: currentColor;
+        mask: var(--link-external-icon) center / contain no-repeat;
     }
 
     /* Ink over anything the band covers. Typography's element rules (strong, a, code,
