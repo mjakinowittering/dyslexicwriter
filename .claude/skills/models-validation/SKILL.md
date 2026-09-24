@@ -83,8 +83,10 @@ Four steps, and the first two are **one commit** — the pairing is an invariant
 - Declare a reusable enum once as `… as const` and wrap it in `v.picklist(...)` —
   `themeValues`, `fontValues`. A control that offers that choice **as a list** builds
   itself from the constant rather than retyping the members, so the schema and the UI
-  cannot disagree about what a valid value is. A two-state control has no list to
-  build and is the exception: the theme is a `Switch`.
+  cannot disagree about what a valid value is: the settings panel's font radio
+  iterates `fontValues` through a `Record<Font, …>`, so a font added to the picklist
+  stops compiling until it has a label and a preview class. A two-state control has
+  no list to build and is the exception: the theme is a `Switch`.
 - Bounds that the UI also needs are exported constants, not literals repeated in
   both places: `TTS_RATE_MIN` / `TTS_RATE_MAX` / `TTS_DEFAULT_RATE` are shared by
   the schema and the voice-settings control, so the slider cannot emit a rate that
