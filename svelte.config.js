@@ -11,13 +11,16 @@ const config = {
     },
     kit: {
         // A pure static SPA: there is no server tier. Every route runs in the
-        // browser against the user's local filesystem, so the whole app is served
-        // from the SPA fallback rather than prerendered per-route.
+        // browser against the user's local filesystem.
         //
         // The fallback is `404.html`, not `index.html`, because GitHub Pages has
         // no SPA rewrite: it serves `404.html` for any path that isn't a real
         // file, which is how a reload of `/edit` reaches the app instead of a
         // 404 page.
+        //
+        // The routes ARE prerendered as well — see `prerender` in
+        // `src/routes/+layout.ts` for why the shell per route is what makes
+        // Pages answer the site's own URL with a 200 rather than a 404.
         adapter: adapter({ fallback: '404.html' }),
         // A project site serves from `https://<user>.github.io/<repo>/`, so every
         // asset URL has to carry that prefix. `BASE_PATH` is set by the deploy

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { markdownFormatter } from '$lib/markdown';
+import { markdownFormatter } from '$lib/markdown/format-client';
 import type { PrettierPreferences } from '$lib/models/prettier.model';
 
 // The main-thread client, against the real worker in a real browser.
