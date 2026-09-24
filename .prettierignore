@@ -7,7 +7,6 @@ bun.lockb
 
 # Miscellaneous
 /static/
-/drizzle/
 
 # Inlang writes these two on every `paraglide-js compile`, in its own
 # formatting. They are untracked (project.inlang/.gitignore keeps everything
@@ -17,6 +16,3 @@ bun.lockb
 # stays linted.
 /project.inlang/.meta.json
 /project.inlang/README.md
-
-# Claude Design
-/design/

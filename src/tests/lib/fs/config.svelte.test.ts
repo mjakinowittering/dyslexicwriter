@@ -326,6 +326,71 @@ describe('updateConfig', () => {
         expect(await readRaw()).toBe(before);
     });
 
+    // Two settings changed before the first write has landed.
+    //
+    // `updateConfig` is a read-modify-write across two awaits, so without
+    // serialisation the second call reads the file BEFORE the first has written
+    // it, and then writes a merge that has never heard of the first patch. The
+    // writer flips the theme, flips the invisibles switch a moment later, and the
+    // theme quietly goes back — on disk and in the panel.
+    //
+    // Both calls are started before either is awaited, which is exactly what two
+    // clicks on the settings panel do: nothing there awaits the previous write.
+    it('does not lose a setting when two writes overlap', async () => {
+        await writeConfig(root, defaultConfig());
+
+        const [first, second] = await Promise.all([
+            updateConfig(root, { theme: 'light' }),
+            updateConfig(root, { showInvisibles: true })
+        ]);
+
+        // Whichever ran second must have seen the other's write, so the file
+        // holds both. Neither patch may be missing from it.
+        const onDisk = JSON.parse(await readRaw());
+        expect(onDisk.theme).toBe('light');
+        expect(onDisk.showInvisibles).toBe(true);
+
+        // And the Config handed back to the later caller is the file, so the
+        // store it gets assigned to cannot disagree with disk either.
+        const later = second.showInvisibles ? second : first;
+        expect(later).toEqual(onDisk);
+    });
+
+    it('applies overlapping writes in the order they were made', async () => {
+        await writeConfig(root, defaultConfig());
+
+        await Promise.all([
+            updateConfig(root, { theme: 'light' }),
+            updateConfig(root, { theme: 'dark' })
+        ]);
+
+        // Same key twice: last one in wins, rather than whichever read finished
+        // first.
+        expect(JSON.parse(await readRaw()).theme).toBe('dark');
+    });
+
+    // The queue the two tests above rely on must not be a trap.
+    //
+    // A refused write rejects, and the chain the next call queues behind is that
+    // same promise — so without an explicit catch on the chain, one unreadable
+    // file would leave every later setting change waiting on it for the rest of
+    // the session. The writer would flip a switch and nothing would happen, with
+    // no error either, because the call never settles.
+    it('keeps taking writes after one of them fails', async () => {
+        await writeConfig(root, defaultConfig());
+
+        failNextRead();
+        await expect(updateConfig(root, { theme: 'light' })).rejects.toThrow(
+            DOMException
+        );
+
+        // The very next change has to land, unqueued behind the failure.
+        const config = await updateConfig(root, { font: 'sans' });
+
+        expect(config.font).toBe('sans');
+        expect(JSON.parse(await readRaw()).font).toBe('sans');
+    });
+
     it('reads the file rather than the caller when merging, so a hand edit is not clobbered', async () => {
         // The user edited config.json under the app: the patch must land on what
         // is on disk now, not on whatever the app last held.

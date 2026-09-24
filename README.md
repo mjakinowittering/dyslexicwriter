@@ -13,16 +13,22 @@ way to work on it, not a place it gets locked up.
   competing with the words.
 - **Read aloud** — the whole document or just what you've selected is spoken back to
   you, with the current sentence highlighted as it goes, so you can catch by ear the
-  mistakes your eye slides past. Transport controls for play/pause, stop, and skipping
-  a sentence back or forward. Voice and speed are yours to set.
+  mistakes your eye slides past. Where your voice supports it the current word lights
+  up too. Transport controls for play/pause, stop, and skipping a sentence back or
+  forward, and the page follows along. Voice and speed are yours to set.
 - **Plain markdown files** — every document is saved as a real `.md` file on your own
   disk, not in a proprietary format or a database. Open it in any other editor, put it
   in version control, back it up, email it, move to a different app entirely — your
   writing is yours and it goes wherever you do.
-- **A plain Files screen** — list your documents, create, open, rename, delete.
+- **A Files screen that matches your folder** — your documents as the tree they
+  actually are on disk, not a flat list. Create documents and folders, open, rename,
+  and delete into a `.trash/` folder you can fish things back out of.
 - **Word count and reading time** — always visible in the status bar, never in the way.
 - **Two typefaces** — a standard sans-serif, or OpenDyslexic.
 - **Two themes** — a neutral dark by default, or a neutral light (a hair off stark white).
+- **Show the invisibles** — optional dots for spaces and marks for line and paragraph
+  ends, for when a stray space is the thing throwing you. They are drawn on screen
+  only and never written to the file.
 
 ## How your documents are stored
 
@@ -34,18 +40,34 @@ my-writing/                  <- the folder you chose
 ├── My Chapter/
 │   ├── My Chapter.md        <- the document itself
 │   └── diagram.png          <- images live beside the document that uses them
-└── Another Draft/
-    └── Another Draft.md
+├── notes.md                 <- a loose file, found rather than created
+├── Book/
+│   └── Chapters/
+│       ├── One.md           <- however you already have things arranged
+│       └── Two.md
+└── .trash/                  <- deleted documents wait here
 ```
 
-Each document is a folder containing a markdown file of the same name, plus any images
-you've dropped in. Images are written as real files and referenced with relative paths
-(`![alt](diagram.png)`) — never embedded as base64 — so a document folder is
-self-contained and can be moved, zipped or shared as a unit.
+**A document the app creates gets a folder of its own**, holding a markdown file of the
+same name plus any images you drop in. Images are written as real files and referenced
+with relative paths (`![alt](diagram.png)`) — never embedded as base64 — so a document
+folder is self-contained and can be moved, zipped or shared as a unit. On the Files
+screen a folder holding nothing but the document named after it shows as one row, not
+two.
 
-`config.json` holds **every** preference (theme, font, read-aloud voice and speed) and
-nothing else. Because it lives in your folder rather than in browser storage, moving
-that folder to another machine or browser brings your settings along with your writing.
+**Any markdown it finds is a document too.** Point the app at a folder you already
+write in and loose `.md` files, and ones nested a few levels down, all open just the
+same. Those stay exactly where they are — renaming one renames the file alone, and it
+never gets moved into a folder you didn't ask for.
+
+Deleting is a **move into `.trash/`** at the top of your working folder, not a
+permanent removal — the browser can't reach your OS recycle bin, so the app makes its
+own. Trashed copies keep a timestamp in the name, and emptying the folder is up to you.
+
+`config.json` holds **every** preference (theme, font, invisible characters, read-aloud
+voice and speed, and how the markdown is formatted) and nothing else. Because it lives
+in your folder rather than in browser storage, moving that folder to another machine or
+browser brings your settings along with your writing.
 
 Your list of documents is not stored anywhere. The app reads it from the folder each
 time it needs it — when you open the app, when you come back to the Files screen, and
@@ -74,6 +96,7 @@ app in those browsers shows a short message saying so rather than half-working.
 | File storage    | File System Access API                       |
 | JSON → Markdown | turndown (+ GFM plugin for tables)           |
 | Markdown → JSON | marked → TipTap `generateJSON`               |
+| Markdown format | Prettier standalone, in a web worker         |
 | Folder handle   | Dexie (IndexedDB) — the handle, nothing else |
 | Read aloud      | Web Speech API (`speechSynthesis`)           |
 | Validation      | Valibot                                      |
@@ -149,9 +172,11 @@ licence notices travel with the build.
 
 Split into **Bugs** — something already built that doesn't behave as intended — and
 **Features** — work not yet built, plus the decisions and chores that go with it.
-Within each, related items sit next to each other.
+Within each, items are grouped under a theme so related work can be picked up together.
 
 ### Bugs
+
+#### Images and tables in the editor
 
 - [ ] Make inserted images actually display — insertion is already a proper TipTap image
       node (`setImage` in `FormatInsertImage.svelte`), but its `src` is a path relative to
@@ -159,6 +184,15 @@ Within each, related items sit next to each other.
       and fails to load, so only the alt text shows. Resolve each image's `src` to a
       `blob:` URL from its file handle at render time, revoke on unmount/document switch,
       and keep the relative path in the JSON so the markdown round-trip is unaffected
+- [ ] Handle a pasted image the way a dropped one is handled. `PageEditor.svelte` wires
+      `handleDrop` only, but its own prop doc for `onDropImage` and `writeImage`'s comment in
+      `documents.ts` both say "dropped or pasted" — and `allowBase64: false` on the
+      Image extension means a pasted image is discarded rather than degrading to a data
+      URI, so nothing appears and nothing says why. Add `handlePaste` alongside
+      `handleDrop`, taking the first `image/*` item off `event.clipboardData.files`,
+      claiming the event, and routing it through the same `onDropImage` → `doc.addImage`
+      path so the file lands in the document's own directory. The insertion position is
+      the caret rather than `posAtCoords`; everything else is the drop handler's shape
 - [ ] Style tables in the editor — an inserted table is effectively invisible. No plugin
       is missing (`@tiptap/extension-table` is installed and configured); TipTap ships
       headless, and there is currently no table CSS at all. Tailwind Typography's `prose`
@@ -167,6 +201,9 @@ Within each, related items sit next to each other.
       `min-width` in `layout.css`, plus the ProseMirror table internals — `.tableWrapper`
       (horizontal overflow) and `.selectedCell` (cell-selection tint). Column resizing is
       off by design, so `.column-resize-handle` is not needed
+
+#### Deployment
+
 - [ ] Ship a real `og:image`. `static/og-image.png` is a 0-byte placeholder, but
       `src/app.html` already points at it (both the Open Graph and Twitter tags) and declare it 1200x630, so
       every link preview of the deployed site resolves to an empty image. The rest
@@ -183,46 +220,11 @@ Within each, related items sit next to each other.
       it. Hear it. Keep it."; and `src/app.html`'s `og:image:alt` still carries the old
       "write, and hear it back", so it changes in the same commit or the alt text
       describes a different picture. Re-render the mock once the highlight colours land
-- [ ] Handle a pasted image the way a dropped one is handled. `PageEditor.svelte` wires
-      `handleDrop` only, but its own prop doc for `onDropImage` and `writeImage`'s comment in
-      `documents.ts` both say "dropped or pasted" — and `allowBase64: false` on the
-      Image extension means a pasted image is discarded rather than degrading to a data
-      URI, so nothing appears and nothing says why. Add `handlePaste` alongside
-      `handleDrop`, taking the first `image/*` item off `event.clipboardData.files`,
-      claiming the event, and routing it through the same `onDropImage` → `doc.addImage`
-      path so the file lands in the document's own directory. The insertion position is
-      the caret rather than `posAtCoords`; everything else is the drop handler's shape
-- [ ] Fix the double rename fired by the title field. `edit/+page.svelte`'s title field binds
-      both `onchange` and `onblur` to `renameFromTitle`, and for a text input `change`
-      fires immediately before `blur` — so both run. The guard in the document store's `rename()` is `target === this.title`, and `this.title` is only
-      updated _after_ `await renameDocument(...)` resolves, so the second call passes it
-      and starts a concurrent rename against the same location. The writer sees a
-      spurious "already exists", or the two race the `removeEntry` of the old file. One
-      trigger is enough — `change` already fires on blur — or the store tracks the rename
-      in flight and coalesces
-- [ ] Route the reading-time copy through Paraglide.
-      `src/lib/utils/calculateReadingTime.ts` builds `"3 minutes"`, `"45 seconds"` and
-      `"1 hour 20 minutes"` in code, and `StatusbarTimeToRead.svelte` injects the result
-      into `m.content_read_time({ time })` — English hardcoded in a util and smuggled
-      through a message key. Return the parts (`{ hours, minutes, seconds }`) and let
-      message keys own the words and the plurals, the way every other string in the app
-      already works. `WelcomePreview.svelte` is the other call site
 
 ### Features
 
-- [ ] Carry the read-aloud highlight onto list markers. Nothing is broken here — a
-      bullet or number currently takes Tailwind Typography's default `prose` marker
-      colour, and this is a customisation on top of it: while a spoken sentence sits
-      inside a list item, its marker changes colour too, and returns when playback moves
-      on. The marker takes the colour only, never the band. Doing it is structural rather
-      than styling: `tiptap-tts-highlight.ts` emits `Decoration.inline` over text inside
-      `<li><p>…</p></li>`, and `::marker` is generated content on the `<li>` that no
-      inline span can reach — so it needs a `Decoration.node` on the enclosing list item
-      when the sentence range covers it, styled as `::marker { color: … }` from that
-      class in `PageEditor.svelte`'s `<style>` block, which also keeps the reading-font
-      gradient band off it. Follows the highlight colours above, so do it after. Lists
-      come from `StarterKit` (`src/lib/markdown/extensions.ts`), so nothing is added to
-      the shared extension set and the round-trip is unaffected
+#### Welcome and first run
+
 - [ ] Show the read-aloud highlight in the welcome screen's editor preview —
       `WelcomePreview.svelte` draws the transport controls but never the band, so the one
       screen a stranger sees before handing over a folder doesn't show the feature the app
@@ -237,5 +239,38 @@ Within each, related items sit next to each other.
       demonstrating the reading experience. Copy to be written together; keep it short
       enough that the preview's sheet still shows the title plus a few lines. Re-render
       the mocks with it
+- [ ] Seed a newly created `DyslexicWriter` folder with a welcome document — a short
+      personal note from Matthew that doubles as a demonstration of the typography, so
+      the first thing a new writer opens is writing rather than an empty sheet. Nothing
+      exists yet: the "Start a new folder" card calls
+      `chooseFolder({ subfolder: SUGGESTED_FOLDER_NAME })`
+      (`stores/workspace.svelte.ts`), `ensureSubfolder` (`fs/documents.ts:885`) makes
+      `DyslexicWriter` inside whatever the user picked, and the folder is adopted empty.
+      Write it as a folder-document — `Welcome/Welcome.md`, the shape `createDocument`
+      already produces, since every document the app creates owns its folder and
+      `onlyDocument` collapses it back to a single row on the Files screen — after
+      `ensureSubfolder` and **before** `#adopt`, so the scan that adoption triggers
+      finds it. Best-effort like `refreshConfig`'s catch-up write: a folder that won't
+      take it still opens, and nothing about this is put in front of the writer
+    - Only a folder the app just **created**. `ensureSubfolder` reuses an existing
+      `DyslexicWriter` on purpose (`fs/documents.ts:882`) and reports nothing about
+      which it did, so it has to probe with `getDirectoryHandle(name)` first and seed
+      only on `NotFoundError` — otherwise a returning writer is handed the note again
+      every launch, or it lands on top of the copy they edited. Never for a folder
+      reached through "Choose a folder": that one is already theirs
+    - Decide where the copy lives. This is document content rather than UI chrome, so a
+      checked-in markdown seed beside `src/lib/config/defaults.json`, imported with
+      `?raw`, reads better than a multi-paragraph blob in `messages/en.json` — but it is
+      still a string the app ships, so the Paraglide rule wants ruling on explicitly
+      rather than assumed past. Copy to be written together, the way the preview prose
+      above is
+    - Scope: one document, text only. Exercise the capped node set the toolbar actually
+      offers — headings, bold/italic, the three lists, blockquote, rule, a table — so it
+      shows what the editor does and still survives the markdown round-trip. No image:
+      that means shipping a binary and writing it beside the markdown, and the point
+      here is the type
+
+#### Deleting and recovering documents
+
 - [ ] Consider a simple local version history for documents (deliberately not built in
       the initial fork — flagged as a future idea, not a commitment)

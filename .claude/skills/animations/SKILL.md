@@ -24,16 +24,26 @@ delays for a sequenced reveal, as below).
 
 ## Shared timings — never inline magic numbers
 
-Duration and easing come from **`src/lib/config/motion.ts`**:
+Every duration and easing comes from **`src/lib/config/motion.ts`**, which holds four
+exports and no more:
 
 ```ts
-export const motionDuration = 700; // ms — one phase; two sequential phases = 1.4s
-export const motionEasing = quintOut;
+export const motionDuration = 700; // one phase; two sequential phases = 1.4s
+export const motionEasing = quintOut; // the one curve
+export const disclosureDuration = 180; // a Files-screen folder opening
+export const followScrollDuration = 450; // read-aloud following the voice
 ```
 
-Import `motionDuration` / `motionEasing` everywhere so every surface moves on one curve and
-can't drift. Do not introduce a second easing or a bare `cubic-bezier` string alongside a
-Svelte easing — mixing a JS easing with a CSS curve is exactly the drift bug this replaced.
+The three durations differ because the movements do, and each says why in the file:
+a disclosure row is small, frequent and local, and at `motionDuration` it reads as the
+app thinking rather than responding; the read-aloud follow has to keep pace with
+speech, which at 700ms would still be gliding when the next sentence starts. Reach for
+the one that matches the movement, and add a fourth only with the same kind of
+argument written beside it.
+
+Import them everywhere so every surface moves on one curve and can't drift. Do not
+introduce a second easing or a bare `cubic-bezier` string alongside a Svelte easing —
+mixing a JS easing with a CSS curve is exactly the drift bug this replaced.
 
 ## The two-phase sequential reveal
 
@@ -74,52 +84,15 @@ nested elements, each with its own transition and per-direction `delay`:
 {/if}
 ```
 
-Reference implementations: `Navigation/Navigation.svelte` (the primary rail) and
-`AiChat/AiChatPanel.svelte` (the chat panel).
+The reference implementation is **`Settings/SettingsPanel.svelte`** — the editor's
+right-hand column, and the only two-phase reveal in the app. Note where the surface
+sits: the `<aside>` that slides carries the background and border, and the inner
+`<div>` that fades carries only the controls. Put the surface on the fading element
+instead and phase one opens an empty gap, so the panel arrives with its contents
+rather than before them.
 
-**A revealing panel is hoverable before it is visible.** The outer element takes layout and
-pointer events from `t=0`, but the inner content only starts fading in at `motionDuration`
-— so hovering during phase one pops a tooltip for something that isn't on screen yet. If the
-panel holds tooltips, hold them off for the full `2 × motionDuration` reveal in both
-directions. There is no such mechanism in the app today, so it would have to be built
-alongside the first panel that needs one.
-
-## Route crossfades
-
-To transition page content on navigation, wrap `{@render children()}` in `{#key …}`
-with `in:`/`out:` fades. Two gotchas:
-
-- **Key on the smallest thing that should transition.** Keying on `page.url.pathname`
-  transitions _every_ navigation; to scope it to one boundary (e.g. entering/leaving
-  `/content`) key on a boolean like `page.url.pathname === '/content'` — ordinary
-  route-to-route moves keep the same key and don't animate.
-- **Overlap the outgoing/incoming pages in one grid cell**, or they stack and jump the
-  layout. Put them in a `grid grid-cols-1 grid-rows-1` container and give the keyed
-  child `col-start-1 row-start-1`.
-
-A route crossfade covers more distance/feel than an in-place panel slide, so it wants a
-duration of its own — longer than `motionDuration` — rather than sharing a panel's
-timing. There is no such constant in `motion.ts` today: this app has two routes and no
-crossfade between them, so add one alongside `motionDuration` if a crossfade is ever
-built.
-
-**Fade the outgoing page out before fading the incoming in.** A simultaneous crossfade
-reads as a muddy dissolve, and sliding a rail that occupies layout space reflows the main
-area under a page that's already there. Delay the incoming fade by the rail's settle time
-(`delay: motionDuration`) so the old page fades out first and the new one lands into a
-settled layout. The outgoing `out:fade` runs immediately (no delay) and its tail overlaps
-the incoming fade, so there's no blank gap. Reference: `routes/(app)/+layout.svelte`.
-
-**Effects are paused inside the outgoing subtree.** As soon as an out-transition starts,
-Svelte pauses the effects of the block leaving the DOM — it stays mounted and visible, but
-it stops reacting. Anything you declare in there (`$effect`, `class:`, `style:`, a child
-library's own presence/unmount logic) is dead for the rest of the transition. This bites
-hardest with **portaled overlays** (tooltips, popovers, dropdowns): their content is a child
-of `<body>`, so it neither fades with the page nor gets unmounted by the paused subtree, and
-it sits at full opacity over the crossfade. The fix has to be driven from _outside_ the
-transitioning block: a flag set on `<body>` by a component that isn't leaving, plus an
-unlayered CSS rule that hides the portaled content while it is set — unlayered because
-Tailwind's `display` utilities live in `@layer utilities` and would otherwise win.
+`Page.svelte` gates its own width tween on the same `prefersReducedMotion` signal the
+panel reads, so the document sheet and the panel stay in step.
 
 ## Persistent values — Tween
 
@@ -176,5 +149,8 @@ wait worth showing is a save.
 
 - Honour reduced-motion for non-trivial movement — gate parameters on
   `prefersReducedMotion.current` (`svelte/motion`).
-- Duplicated `use:`-style motion behaviour belongs in `$lib/actions/`, not copy-pasted.
+- Duplicated motion behaviour belongs in one module both callers import, the way
+  `$lib/utils/scroll-animator.svelte.ts` serves the read-aloud follower and the
+  back-to-top glide. There is no `$lib/actions/` directory; create one only when a
+  second component genuinely needs the same `use:` action.
 - Run `svelte-autofixer` (Svelte MCP) on every animated component until it reports no issues.

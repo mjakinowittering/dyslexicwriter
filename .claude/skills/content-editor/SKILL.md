@@ -16,7 +16,7 @@ The editor is deliberately minimal, and that is a product constraint rather than
 gap. The writer sees their prose, a placeholder, and a quiet word count.
 
 The toolbar is **capped**: undo/redo, headings, bold, italic, bullet/ordered/task
-list, blockquote, horizontal rule, table, image. That is the whole list.
+list, blockquote, horizontal rule, table, image, link. That is the whole list.
 
 Undo and redo are on it because they surface a keymap the writer already has
 (`Mod+Z`, `Shift+Mod+Z`) rather than adding a capability — the same reasoning
@@ -32,8 +32,36 @@ Every stateful control on that row is a row in
 reports itself under, and the TipTap command. `getFormattingActive()` derives
 from the same table, so a control's pressed key and the question asked of the
 editor cannot disagree; the named components (`Format.Bold`, …) are thin wrappers
-that pick one row. Undo, redo and the two inserts are not in it — they have no
+that pick one row. Undo, redo and the three inserts are not in it — they have no
 on/off state to report.
+
+## Links
+
+The Link mark was always on (StarterKit, `openOnClick: false`) and always survived
+the round-trip; `Editor/Link/` is the UI for it.
+
+- **One dialog, three ways in** — the toolbar's `FormatInsertLink`, ⌘K
+  (`link-keymap.ts`, an editor-only extension in `PageEditor`'s own list, never in
+  `documentExtensions()`), and the link card's Edit. `open` lives on the edit page.
+  The range is captured as the dialog opens, because it takes focus.
+- **The card is shown on click only** — not on hover, and not when the caret moves
+  into a link, where it would pop up under a writer editing nearby. It is the shadcn
+  Popover anchored to the clicked `<a>` with `customAnchor`, and it leaves focus in
+  the writing. **It is not a bubble menu**: no formatting, only where the link goes,
+  Edit and Open. Don't rule on it again. Any document change closes it, because the
+  redraw can take its anchor away.
+- **Protocols are restricted in the dialog, not in the extension.**
+  `normaliseLinkHref` (`$lib/utils/link.ts`) accepts `http:`, `https:` and `mailto:`
+  only. The Link extension's `isAllowedUri` stays at TipTap's default on purpose: it
+  also runs when a file is parsed, so narrowing it would strip the mark from every
+  relative link, `#anchor` and `ftp:` link already in a writer's files — and the next
+  autosave would write them back as plain text. The default still refuses
+  `javascript:`, which `round-trip.test.ts` pins. Open is offered only for an address
+  the dialog would make.
+- **The external-link glyph is generated content** — an `a[href]::after` mask in
+  `PageEditor.svelte`, filled with `currentColor`, its image built from the Hugeicons
+  data by `iconDataUri`. Never a node, mark, widget or text: it must stay out of
+  `getJSON()`, the markdown and read-aloud's text map.
 
 The one deliberate exception is **read-aloud** — an accessibility feature for the
 person this app is for, not chrome. See `[[content-tts]]`.
@@ -101,8 +129,18 @@ round-trip does not get added to the editor.
 ## Editor component
 
 `Editor/Page/PageEditor.svelte` owns the TipTap instance. It composes
-`documentExtensions()` with three editor-only extensions that add **no content
-nodes**: `Placeholder`, `CharacterCount`, and `TtsHighlightExtension`.
+`documentExtensions()` with editor-only extensions that add **no content
+nodes**: `Placeholder`, `CharacterCount`, `TtsHighlightExtension`,
+`InvisibleCharactersExtension` and the link keymap.
+
+- **Invisible characters** (`Page/invisible-characters.ts`) — the
+  `showInvisibles` preference. A dot on every space, `↵` before a hard break, `¶`
+  at every textblock end; no tabs or non-breaking spaces. Decorations only, the
+  glyphs drawn as CSS generated content in `PageEditor.svelte`, so they are never
+  in `getJSON()`, the markdown, a copy or read-aloud's text map. The `showInvisibles`
+  prop toggles them live through `setInvisibleCharacters` (a meta transaction
+  that leaves the doc node untouched, so it never reads as an edit); decorations
+  are rebuilt only on a doc change.
 
 - `wordCount` is bindable and comes from `CharacterCount`; the status bar and
   reading-time estimate both read it.

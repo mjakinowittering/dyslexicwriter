@@ -30,13 +30,15 @@
 
 <Button
     class={cn(
-        'h-auto w-full flex-col items-start gap-2 p-5 text-left whitespace-normal hover:cursor-pointer',
+        'h-auto w-full flex-col items-start gap-3 p-8 text-left whitespace-normal hover:cursor-pointer',
         className
     )}
     {onclick}
     variant="outline"
 >
-    <Icon class="size-6" {icon} />
+    <!-- `mb-2` on top of the gap: the icon leads the card rather than sitting in
+         line with the heading under it. -->
+    <Icon class="mb-2 size-10" {icon} />
     <span class="text-base font-semibold">{title}</span>
     <span class="text-muted-foreground text-sm font-normal">
         {description}

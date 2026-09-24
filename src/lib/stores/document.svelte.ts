@@ -5,15 +5,13 @@ import {
     readDocument,
     renameDocument,
     suggestUntitledName,
+    trashDocument,
     writeDocument,
     writeImage,
     type DocumentLocation
 } from '$lib/fs';
-import {
-    emptyDocument,
-    markdownFormatter,
-    type Frontmatter
-} from '$lib/markdown';
+import { emptyDocument, type Frontmatter } from '$lib/markdown';
+import { markdownFormatter } from '$lib/markdown/format-client';
 import {
     fileNameFor,
     sanitiseTitle,
@@ -96,6 +94,12 @@ class DocumentStore {
     // long ago the copy on disk was made current.
     savedAt = $state<number | null>(null);
     error = $state('');
+    // Why the last `open()` came back with nothing, or '' when it did not fail.
+    // Kept apart from `error` because the two ask different things of the writer:
+    // a failed save or rename is about a document still on screen and still worth
+    // typing into, whereas a failed open leaves an empty editor with no file behind
+    // it — anything typed there would be saved as a new document nobody asked for.
+    openError = $state('');
 
     #timer: ReturnType<typeof setTimeout> | null = null;
     // Set once per run of unsaved edits and never pushed back — see
@@ -118,6 +122,18 @@ class DocumentStore {
     // await and gives up quietly if it has moved on: the work it was doing belongs
     // to a document nobody is looking at any more.
     #epoch = 0;
+    // The name a rename is currently working toward, or null when none is in
+    // flight. The title field fires `change` and then `blur` for one edit — and
+    // Return blurs the field, so both land on a single keystroke — which without
+    // this starts two renames of the same document at once: the second reads a
+    // location the first is half-way through moving, and the writer is told the
+    // rename failed while it was busy succeeding.
+    #renaming: string | null = null;
+    // A delete is moving this document into the trash. Every write stands down
+    // while it does: the file is about to leave, and an autosave, a retry or the
+    // `close()` the editor's unmount fires would otherwise write it straight back
+    // to where the writer just deleted it from.
+    #trashing = false;
     // The open file's YAML frontmatter, held only so the next write can put it
     // back exactly as it was. Deliberately not $state: nothing in the UI reads it,
     // and a state proxy has no business being handed to a YAML serialiser.
@@ -179,7 +195,7 @@ class DocumentStore {
         } catch (cause) {
             if (epoch !== this.#epoch) return;
 
-            this.error =
+            this.openError =
                 cause instanceof DocumentError
                     ? cause.message
                     : m.editor_open_error();
@@ -249,6 +265,10 @@ class DocumentStore {
     // ordinary save tidies it: content is never at stake, only formatting.
     async flush({ format = true }: { format?: boolean } = {}): Promise<void> {
         this.#clearTimers();
+
+        // See #trashing. `trash()` flushes before it sets this, so nothing the
+        // writer saw is dropped by standing down here.
+        if (this.#trashing) return;
 
         // Not dirty does not mean nothing is in flight: the debounce or the
         // max-wait ceiling may already have claimed this edit and be part-way
@@ -344,6 +364,8 @@ class DocumentStore {
         const target = sanitiseTitle(nextTitle);
 
         if (target.length === 0 || target === this.title) return;
+        // Already on its way to exactly this name — see #renaming.
+        if (target === this.#renaming) return;
 
         // Still in memory — renaming is just relabelling until the first save.
         if (this.location === null) {
@@ -352,15 +374,16 @@ class DocumentStore {
         }
 
         const epoch = this.#epoch;
-
-        // Pending edits must land under the OLD name before anything moves.
-        await this.flush();
-        if (epoch !== this.#epoch) return;
-
-        const location = this.location;
-        if (!root || location === null) return;
+        this.#renaming = target;
 
         try {
+            // Pending edits must land under the OLD name before anything moves.
+            await this.flush();
+            if (epoch !== this.#epoch) return;
+
+            const location = this.location;
+            if (!root || location === null) return;
+
             const entry = await renameDocument(root, location, target);
             // The document was closed or swapped while the rename was running.
             // The file on disk has its new name — that part stands — but this
@@ -373,6 +396,12 @@ class DocumentStore {
                 file: entry.file,
                 ownsFolder: entry.ownsFolder
             };
+            // A rename writes the document to a new file and removes the old
+            // one, so the copy on disk was made just now however long ago the
+            // last edit was. Leaving this alone left the status bar ageing a
+            // file that no longer exists — "Saved 3 days ago" about bytes
+            // written a second earlier.
+            this.savedAt = entry.lastModified;
             this.error = '';
             await workspace.refresh();
         } catch (cause) {
@@ -382,7 +411,56 @@ class DocumentStore {
                 cause instanceof DocumentError
                     ? cause.message
                     : m.editor_rename_error();
+        } finally {
+            // Only ours to clear: a later rename to a different name may have
+            // claimed it while this one was in flight.
+            if (this.#renaming === target) this.#renaming = null;
         }
+    }
+
+    // Delete the open document into the trash, for the editor's Delete button.
+    // Returns whether it went, so the page knows whether to leave; a refusal is
+    // swallowed into `error` like every other failure here.
+    async trash(): Promise<boolean> {
+        const root = workspace.root;
+        // Unsaved: nothing on disk to move, and the button is disabled for it.
+        if (!root || this.location === null) return false;
+
+        const epoch = this.#epoch;
+
+        // Anything typed since the last save lands first, so the copy in the trash
+        // is the document as the writer last saw it rather than a sentence short.
+        await this.flush();
+        if (epoch !== this.#epoch) return false;
+        // The save failed. Its error is already showing, and moving a file that is
+        // missing the writer's last edit is not what they confirmed.
+        if (this.#dirty || this.location === null) return false;
+
+        const location = this.location;
+        this.#trashing = true;
+
+        try {
+            await trashDocument(root, location);
+        } catch (cause) {
+            this.#trashing = false;
+            if (epoch !== this.#epoch) return false;
+
+            // Still open and still on disk: editing carries on as it was, and
+            // anything typed while the move was being tried gets saved.
+            this.error =
+                cause instanceof DocumentError
+                    ? cause.message
+                    : m.files_delete_error({ title: this.title });
+            if (this.#dirty) this.#schedule();
+            return false;
+        }
+
+        this.#trashing = false;
+        // Clear the store before anything else can run, so the `close()` the
+        // editor's unmount fires finds a clean document with nothing to write.
+        if (epoch === this.#epoch) this.#reset();
+        await workspace.refresh();
+        return true;
     }
 
     // Write a dropped image into this document's own directory and return the
@@ -419,6 +497,7 @@ class DocumentStore {
         this.#clearTimers();
         this.#dirty = false;
         this.#retries = 0;
+        this.#renaming = null;
         // Everything in flight against the document being cleared is now working
         // for nobody, and this is what tells it so.
         this.#epoch += 1;
@@ -433,6 +512,7 @@ class DocumentStore {
         this.saveState = 'idle';
         this.savedAt = null;
         this.error = '';
+        this.openError = '';
     }
 
     // Flush and clear, for when the editor unmounts.

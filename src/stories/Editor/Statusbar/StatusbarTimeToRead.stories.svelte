@@ -4,8 +4,7 @@
 
     import StatusbarTimeToRead from '$lib/components/Editor/Statusbar/StatusbarTimeToRead.svelte';
 
-    import * as m from '$lib/paraglide/messages';
-    import calculateReadingTime from '$lib/utils/calculateReadingTime';
+    import { readingTimeLabel } from '$lib/utils/reading-time';
 
     const { Story } = defineMeta({
         title: 'Editor/Statusbar/StatusbarTimeToRead',
@@ -32,11 +31,7 @@
     args={{ wordCount: 120 }}
     play={async ({ canvas }) => {
         await expect(
-            canvas.getByText(
-                m.content_read_time({
-                    time: calculateReadingTime(120).display
-                })
-            )
+            canvas.getByText(readingTimeLabel(120))
         ).toBeInTheDocument();
     }}
 >
@@ -65,9 +60,7 @@
     play={async ({ canvas }) => {
         // Nothing written yet, so there is no reading time to claim.
         await expect(
-            canvas.queryByText(
-                m.content_read_time({ time: calculateReadingTime(1).display })
-            )
+            canvas.queryByText(readingTimeLabel(1))
         ).not.toBeInTheDocument();
     }}
 >

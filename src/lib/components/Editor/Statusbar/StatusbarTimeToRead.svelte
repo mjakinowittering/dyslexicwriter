@@ -3,9 +3,8 @@
 
     import Icon from '$lib/components/Icon/Icon.svelte';
 
-    import * as m from '$lib/paraglide/messages';
     import { cn } from '$lib/utils';
-    import calculateReadingTime from '$lib/utils/calculateReadingTime';
+    import { readingTimeLabel } from '$lib/utils/reading-time';
 
     // The estimated-reading-time chip. Takes a `wordCount` rather than a body
     // because that is the common denominator across its call sites: the content
@@ -24,10 +23,6 @@
 {#if wordCount > 0}
     <div class={cn('flex items-center gap-2', className)}>
         <Icon class="size-4" icon={EyeIcon} />
-        <span class="text-sm">
-            {m.content_read_time({
-                time: calculateReadingTime(wordCount).display
-            })}
-        </span>
+        <span class="text-sm">{readingTimeLabel(wordCount)}</span>
     </div>
 {/if}

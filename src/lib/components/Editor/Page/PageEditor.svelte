@@ -1,18 +1,33 @@
 <script lang="ts" module>
+    import { LinkSquare02Icon } from '@hugeicons/core-free-icons';
+
+    import { iconDataUri } from '$lib/utils/icon-data-uri';
+
     // How often the editor checks its own content against what it last reported.
     //
     // The check is an object-identity comparison, so this can be short without
     // costing anything: it is the interval between a change nobody told us about
     // and the store hearing of it, and nothing else.
     export const CONTENT_CHECK_MS = 2_000;
+
+    // The glyph drawn after every link, as a CSS `url()`. Built once, from the
+    // icon set's own data — see the `a[href]::after` rule below.
+    const LINK_EXTERNAL_ICON = `url("${iconDataUri(LinkSquare02Icon)}")`;
 </script>
 
 <script lang="ts">
     import type { JSONContent } from '@tiptap/core';
-    import { Editor } from '@tiptap/core';
+    import { Editor, getMarkRange } from '@tiptap/core';
     import { CharacterCount, Placeholder } from '@tiptap/extensions';
     import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
     import { onDestroy, onMount, untrack } from 'svelte';
+
+    import { LinkKeymap } from '$lib/components/Editor/Link/link-keymap';
+    import type { LinkTarget } from '$lib/components/Editor/Link/link-target';
+    import {
+        InvisibleCharactersExtension,
+        setInvisibleCharacters
+    } from '$lib/components/Editor/Page/invisible-characters';
 
     import { documentExtensions } from '$lib/markdown';
     import type { Font } from '$lib/models/config.model';
@@ -30,11 +45,14 @@
         editable = true,
         content = null,
         font = 'sans',
+        showInvisibles = false,
         placeholder = m.content_editor_placeholder(),
         onTransaction,
         onUpdate,
         onBlur,
         onDropImage,
+        onLinkClick,
+        onLinkShortcut,
         class: className
     }: {
         editor?: Editor;
@@ -50,12 +68,20 @@
         // the app chrome around it stays in the interface font. Driven by the
         // page, not read from the workspace store here.
         font?: Font;
+        // Markers for spaces, hard breaks and paragraph ends (config.json).
+        // Toggled live on the running editor — see invisible-characters.ts.
+        showInvisibles?: boolean;
         placeholder?: string;
         onTransaction?: (editor: Editor) => void;
         // Fired on edit/blur as a "dirty" signal only — the page reads editor.getJSON()
         // at save time, so no payload is passed here.
         onUpdate?: () => void;
         onBlur?: () => void;
+        // A link was clicked. The caret still lands where it was clicked; this
+        // is what lets the page show the link card beside it.
+        onLinkClick?: (target: LinkTarget) => void;
+        // ⌘K / Ctrl+K — asks the page for the link dialog.
+        onLinkShortcut?: () => void;
         // Extra classes for the editor wrapper (e.g. padding around the document).
         class?: string;
     } = $props();
@@ -157,13 +183,42 @@
                     });
 
                     return true;
+                },
+                // A click on a link. Returns false in every case, so ProseMirror
+                // still places the caret: the card is shown beside the click,
+                // never instead of it. The link mark's range is checked rather
+                // than trusting the <a> alone, so only the writing's own links
+                // count — not markup a browser extension has put in the page.
+                handleClick: (view, pos, event) => {
+                    if (!onLinkClick || !(event.target instanceof Element)) {
+                        return false;
+                    }
+
+                    const anchor = event.target.closest('a');
+                    if (!anchor || !view.dom.contains(anchor)) return false;
+
+                    const linkType = view.state.schema.marks.link;
+                    if (!linkType) return false;
+
+                    const range = getMarkRange(
+                        view.state.doc.resolve(pos),
+                        linkType
+                    );
+                    if (!range) return false;
+
+                    onLinkClick({
+                        anchor,
+                        href: anchor.getAttribute('href') ?? '',
+                        text: view.state.doc.textBetween(range.from, range.to)
+                    });
+                    return false;
                 }
             },
             element,
             // The node/mark set comes from the shared definition used by BOTH
             // markdown converters — see $lib/markdown/extensions.ts. Placeholder,
-            // CharacterCount and the TTS highlight add no content nodes, so they
-            // stay local to the editor.
+            // CharacterCount, the TTS highlight and the invisible-character
+            // markers add no content nodes, so they stay local to the editor.
             extensions: [
                 ...documentExtensions({ trailingNode: editable }),
                 Placeholder.configure({
@@ -177,7 +232,11 @@
                 }),
                 // Read-aloud highlight — decorations only, no content nodes, so it
                 // never touches the JSON the markdown is derived from.
-                TtsHighlightExtension
+                TtsHighlightExtension,
+                // Invisible-character markers — decorations only, likewise.
+                InvisibleCharactersExtension,
+                // ⌘K for the link dialog — a keymap, no content.
+                LinkKeymap.configure({ onOpen: () => onLinkShortcut?.() })
             ],
             // Read-aloud's highlight is a real transaction, dispatched for every
             // word the engine reports — dozens a second on a document of any size.
@@ -250,6 +309,15 @@
         });
     });
 
+    // Follow the preference on the running editor. Runs once the editor exists
+    // and again whenever the setting moves; `setInvisibleCharacters` is a no-op
+    // when nothing would change, so the first run costs nothing while it is off.
+    $effect(() => {
+        const show = showInvisibles;
+        if (!editor || editor.isDestroyed) return;
+        setInvisibleCharacters(editor.view, show);
+    });
+
     onDestroy(() => {
         editor?.destroy();
     });
@@ -259,7 +327,12 @@
      fixed when the editor is constructed, and ProseMirror inherits from here anyway. -->
 <div
     bind:this={editorElement}
-    class={cn('cursor-text', font === 'dyslexic' && 'reading-font', className)}
+    class={cn(
+        'editor-surface cursor-text',
+        font === 'dyslexic' && 'reading-font',
+        className
+    )}
+    style:--link-external-icon={LINK_EXTERNAL_ICON}
 ></div>
 
 <style>
@@ -277,17 +350,102 @@
        and the ink is dark on both by definition. The sentence and the word are a
        tonal pair rather than two alphas of one colour: 0.92 against 1.0 is not a
        visible step. */
+
+    /* The two tints, declared once on the surface and inherited by everything
+       below — the band, the word inside it, and the list marker beside them.
+       `--tts-tint` stays per-class on top of these so the reading-font rule can
+       go on painting both with one gradient. */
+    .editor-surface {
+        --tts-sentence-tint: rgb(255 204 153 / 0.92);
+        --tts-word-tint: rgb(255 153 0);
+    }
+
     :global(.tts-sentence) {
-        --tts-tint: rgb(255 204 153 / 0.92);
+        --tts-tint: var(--tts-sentence-tint);
         background-color: var(--tts-tint);
         color: oklch(0.145 0 0);
         border-radius: 0.15rem;
     }
     :global(.tts-word) {
-        --tts-tint: rgb(255 153 0);
+        --tts-tint: var(--tts-word-tint);
         background-color: var(--tts-tint);
         color: oklch(0.145 0 0);
         border-radius: 0.15rem;
+    }
+
+    /* Every list marker, in both themes and whether or not anything is being
+       read — the colour only, never the band. The word tint rather than the
+       sentence's: this is ink on the page rather than a wash behind it, and at
+       0.92 alpha over the light theme's near-white the sentence tint would
+       barely register. Read-aloud still decorates the spoken item with
+       `.tts-marker`, which now has nothing further to paint.
+
+       These markers are drawn by layout.css in @layer base — a bullet and a
+       number as `::before` generated content, a checkbox as a real input. A
+       component `<style>` is unlayered and so outranks all of it, whatever the
+       specificity, which is the other reason this belongs here. `accent-color`
+       tints a ticked box; an unticked one keeps the browser's own border. */
+    .editor-surface :global(ol > li::before),
+    .editor-surface :global(ul > li::before) {
+        color: var(--tts-word-tint);
+    }
+    .editor-surface
+        :global(ul[data-type='taskList'] > li > label input[type='checkbox']) {
+        accent-color: var(--tts-word-tint);
+    }
+
+    /* Every link ends in an external-link glyph, because following one leaves
+       the app. Generated content only: nothing is added to the document, so it
+       is not in `getJSON()`, not in the markdown, and not in read-aloud's text
+       map, which walks the document rather than the page.
+
+       Drawn as a mask filled with `currentColor`, so it takes the link's own
+       ink in both themes — and the band's dark ink while it is being read —
+       without a colour of its own. `inline-block` keeps the link's underline
+       from running on under it. */
+    .editor-surface :global(a[href]::after) {
+        content: '';
+        display: inline-block;
+        width: 0.75em;
+        height: 0.75em;
+        margin-inline-start: 0.2em;
+        vertical-align: -0.05em;
+        background-color: currentColor;
+        mask: var(--link-external-icon) center / contain no-repeat;
+    }
+
+    /* Invisible-character markers (invisible-characters.ts). Decoration classes, so
+       :global again. The glyphs are generated content: never text, so they cannot
+       be selected, copied, spoken or saved. Muted ink from the theme token, so both
+       themes read and the writing stays the loudest thing on the page.
+
+       The space's dot sits on top of the space rather than beside it — absolutely
+       positioned over its own span — so switching markers on never reflows a
+       line. The arrow and the pilcrow are widgets at a line's end, where a glyph's
+       width moves nothing that follows it. */
+    :global(.invisible-space) {
+        position: relative;
+    }
+    :global(.invisible-space::before) {
+        content: '·';
+        position: absolute;
+        inset-inline: 0;
+        text-align: center;
+        color: var(--muted-foreground);
+        pointer-events: none;
+        user-select: none;
+    }
+    :global(.invisible-break::after) {
+        content: '↵';
+    }
+    :global(.invisible-paragraph::after) {
+        content: '¶';
+    }
+    :global(.invisible-break),
+    :global(.invisible-paragraph) {
+        color: var(--muted-foreground);
+        pointer-events: none;
+        user-select: none;
     }
 
     /* Ink over anything the band covers. Typography's element rules (strong, a, code,

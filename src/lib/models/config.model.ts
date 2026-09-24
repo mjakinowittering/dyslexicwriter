@@ -33,10 +33,14 @@ export const CONFIG_FILE_NAME = 'config.json';
 export const CONFIG_VERSION = 1;
 
 export const themeValues = ['light', 'dark'] as const;
-export const fontValues = ['sans', 'dyslexic'] as const;
+// In the order the settings panel offers them, because it builds its radio group
+// from this list. OpenDyslexic leads: it is the shipped default and the reason
+// the app exists. Order means nothing to the picklist itself.
+export const fontValues = ['dyslexic', 'sans'] as const;
 
 const themeSchema = v.picklist(themeValues);
 const fontSchema = v.picklist(fontValues);
+const showInvisiblesSchema = v.boolean();
 const versionSchema = v.pipe(v.number(), v.integer());
 
 // The preferences the user can actually set — everything in `config.json` that
@@ -46,6 +50,9 @@ const versionSchema = v.pipe(v.number(), v.integer());
 export const preferencesSchema = v.object({
     theme: themeSchema,
     font: fontSchema,
+    // Markers for spaces, hard breaks and paragraph ends in the editor. A view
+    // preference only: the markers are decorations and never reach the file.
+    showInvisibles: showInvisiblesSchema,
     tts: ttsPreferencesSchema,
     prettier: prettierPreferencesSchema
 });
@@ -66,6 +73,7 @@ export type Config = v.InferOutput<typeof configSchema>;
 const FALLBACK_PREFERENCES: Preferences = {
     theme: 'dark',
     font: 'dyslexic',
+    showInvisibles: false,
     tts: { voiceUri: null, rate: TTS_DEFAULT_RATE },
     prettier: { printWidth: PRINT_WIDTH_DEFAULT, proseWrap: 'always' }
 };
@@ -133,6 +141,11 @@ function layerPreferences(input: unknown, base: Preferences): Preferences {
     return {
         theme: pick(themeSchema, raw.theme, base.theme),
         font: pick(fontSchema, raw.font, base.font),
+        showInvisibles: pick(
+            showInvisiblesSchema,
+            raw.showInvisibles,
+            base.showInvisibles
+        ),
         tts: layerTts(raw.tts, base.tts),
         prettier: layerPrettier(raw.prettier, base.prettier)
     };

@@ -5,17 +5,21 @@
     import { page } from '$app/state';
     import { onDestroy, onMount } from 'svelte';
 
+    import ConfirmDialog from '$lib/components/ConfirmDialog/ConfirmDialog.svelte';
     import * as Format from '$lib/components/Editor/Format';
+    import * as Link from '$lib/components/Editor/Link';
     import * as Page from '$lib/components/Editor/Page';
     import * as Statusbar from '$lib/components/Editor/Statusbar';
     import * as Toolbar from '$lib/components/Editor/Toolbar';
     import Rail from '$lib/components/Editor/Toolbar/ToolbarRail.svelte';
     import Settings from '$lib/components/Editor/Toolbar/ToolbarSettings.svelte';
     import * as SettingsPanel from '$lib/components/Settings';
+    import * as AlertDialog from '$lib/components/ui/alert-dialog';
     import * as InputGroup from '$lib/components/ui/input-group';
 
     import { isFileSystemAccessSupported } from '$lib/fs';
     import {
+        documentPath,
         extensionFromFileName,
         MARKDOWN_EXTENSION,
         TITLE_MAX_LENGTH
@@ -25,6 +29,7 @@
     import { doc } from '$lib/stores/document.svelte';
     import { workspace } from '$lib/stores/workspace.svelte';
     import { speech } from '$lib/tts/speech-controller.svelte';
+    import { editorRoute } from '$lib/utils/editor-route';
 
     let editor = $state<TipTapEditor>();
     // The editor component itself, for `reconcile()`. The exit paths below have to
@@ -34,7 +39,9 @@
     // rewriting the text) raises no event to tell it otherwise.
     let pageEditor: ReturnType<typeof Page.Editor> | undefined;
     let settingsOpen = $state(false);
+    let deleteOpen = $state(false);
     let title = $state('');
+    let titleField = $state<HTMLInputElement | null>(null);
 
     // Whether there is anything to undo or redo. `editor.can()` reads ProseMirror
     // state, which is not a signal, so these are refreshed from the editor's own
@@ -42,6 +49,21 @@
     // false, which is exactly what a writer sees the moment a document opens.
     let canUndo = $state(false);
     let canRedo = $state(false);
+
+    // The link dialog and the link card. One dialog for three ways in — the
+    // toolbar button, ⌘K, and the card's Edit — so it lives here rather than in
+    // any of them.
+    //
+    // `$state.raw` for the target: it carries the rendered <a> the card anchors
+    // to, and a DOM node has no business behind a deep proxy.
+    let linkDialogOpen = $state(false);
+    let linkTarget = $state.raw<Link.LinkTarget | null>(null);
+
+    function openLinkDialog() {
+        if (!editor) return;
+        linkTarget = null;
+        linkDialogOpen = true;
+    }
 
     // The markdown file's path relative to the working folder — `notes.md`,
     // `Chapters/One.md`. A bare folder name from an older link still resolves.
@@ -56,6 +78,17 @@
     // Deliberately a plain `let` rather than `$state`: the effect below both reads
     // and writes it, and a signal would re-trigger the effect on its own write.
     let openedPath: string | null | undefined = undefined;
+
+    // Bumped by every `openFromUrl`, so a slow open can tell it has been overtaken.
+    // Not `openedPath`: the URL sync below rewrites that to the canonical path the
+    // moment an open lands, and an old bare-folder link would then look overtaken
+    // by itself and never get its title.
+    let openSeq = 0;
+
+    // An open is part-way through: flushing the outgoing document, or reading the
+    // incoming one. A signal rather than a plain `let`, so the URL sync re-runs
+    // when it clears and catches the location the open settled on.
+    let opening = $state(false);
 
     onMount(async () => {
         if (!isFileSystemAccessSupported()) {
@@ -96,7 +129,59 @@
         void openFromUrl(next, first);
     });
 
+    // The URL follows the document, not only the other way round. A rename moves
+    // the file and a first save creates one, and neither navigates — so without
+    // this the address bar keeps naming a file that has just been deleted, or no
+    // file at all, and a reload opens that instead of the writing.
+    //
+    // `goto` rather than shallow `replaceState`: the shallow form leaves `page.url`
+    // and the history entry's own record of it on the OLD path, and SvelteKit
+    // restores from that record on Back/Forward — reopening the deleted file by
+    // another route. Replacing the entry keeps Back going to the Files screen.
+    //
+    // `openedPath` is set first, so the effect above sees its own URL and does not
+    // take the navigation for a document switch — which would flush, re-read and
+    // reset the editor under the writer's caret.
+    //
+    // It stands down until this page has opened something — the store is shared
+    // and can still hold the last document's location at mount — and while an
+    // open is in flight: the switch's flush of an unsaved outgoing document gives
+    // it a location, and following that would send the URL back to the document
+    // being left.
+    $effect(() => {
+        const location = doc.location;
+        if (opening || openedPath === undefined) return;
+        // Unsaved: there is no file for the URL to name yet.
+        if (location === null) return;
+
+        const next = documentPath(location);
+        if (next === openedPath) return;
+
+        openedPath = next;
+        void goto(resolve(editorRoute(next)), {
+            replaceState: true,
+            keepFocus: true,
+            noScroll: true
+        });
+    });
+
     async function openFromUrl(next: string | null, first: boolean) {
+        const seq = ++openSeq;
+        opening = true;
+
+        try {
+            await openDocument(next, first, seq);
+        } finally {
+            // Only ours to clear: a later open may have claimed it meanwhile.
+            if (seq === openSeq) opening = false;
+        }
+    }
+
+    async function openDocument(
+        next: string | null,
+        first: boolean,
+        seq: number
+    ) {
         // A switch is not an unmount, so `onDestroy` will not run: the read has to
         // be stopped here or it carries on talking over the next document with the
         // highlight pointing into a document that is no longer on screen.
@@ -106,6 +191,11 @@
         // keystroke and the bin.
         if (!first) {
             speech.stop();
+            // Both describe the outgoing document: the card's anchor is about
+            // to be redrawn away, and the dialog's range points into text that
+            // is no longer on screen.
+            linkTarget = null;
+            linkDialogOpen = false;
             // Ask the editor first: this flush is the last thing that runs against
             // the outgoing document, and it is a no-op on one the store believes
             // is clean. `doc.open()` resets rather than flushing, so an edit the
@@ -122,7 +212,7 @@
 
         // A second change overtook this one while it was reading; the title belongs
         // to whichever document is open now, not to the one we were fetching.
-        if (openedPath !== next) return;
+        if (seq !== openSeq) return;
 
         title = doc.title;
     }
@@ -167,6 +257,25 @@
         void doc.close();
     });
 
+    // The same honesty the Files screen's delete has: a document that owns its
+    // folder takes the folder and its images into the trash, a markdown file
+    // sitting among the user's own files takes only itself.
+    const deleteDescription = $derived(
+        doc.location?.ownsFolder
+            ? m.files_delete_description()
+            : m.files_delete_file_description()
+    );
+
+    // Confirmed. Silence the read first — it would carry on over a document that
+    // is about to leave — and tell the store about any edit it has not heard of,
+    // so `trash()`'s flush puts it into the copy that lands in the trash. On a
+    // refusal the document stays open and `doc.error` already says why.
+    async function confirmDelete() {
+        speech.stop();
+        pageEditor?.reconcile();
+        if (await doc.trash()) await goto(resolve('/'));
+    }
+
     async function onBack() {
         pageEditor?.reconcile();
         await doc.flush();
@@ -179,6 +288,18 @@
     function renameFromTitle() {
         pageEditor?.reconcile();
         void doc.rename(title);
+    }
+
+    // There is no form behind this field, so Return has nothing to submit and
+    // would otherwise do nothing at all — leaving the writer typing into a name
+    // they have already finished. Letting go of the field is what they mean by
+    // it, and the blur is what commits the rename: the browser fires `change` on
+    // its way out, exactly as clicking away does.
+    function onTitleKeydown(event: KeyboardEvent) {
+        if (event.key !== 'Enter') return;
+
+        event.preventDefault();
+        titleField?.blur();
     }
 
     function persistTtsPreferences(prefs: TtsPreferences) {
@@ -224,10 +345,12 @@
                         <InputGroup.Root>
                             <InputGroup.Input
                                 aria-label={m.editor_title_label()}
+                                bind:ref={titleField}
                                 class="font-medium"
                                 maxlength={TITLE_MAX_LENGTH}
-                                onchange={renameFromTitle}
                                 onblur={renameFromTitle}
+                                onchange={renameFromTitle}
+                                onkeydown={onTitleKeydown}
                                 placeholder={m.content_title_placeholder()}
                                 bind:value={title}
                             />
@@ -238,7 +361,12 @@
                             {/if}
                         </InputGroup.Root>
                     </Toolbar.Title>
-                    <div class="ml-auto">
+                    <div class="ml-auto flex items-center gap-1">
+                        <!-- Unsaved means nothing on disk to move into the trash. -->
+                        <Toolbar.Delete
+                            disabled={disabled || doc.location === null}
+                            onDelete={() => (deleteOpen = true)}
+                        />
                         <Settings bind:open={settingsOpen} />
                     </div>
                 </div>
@@ -272,11 +400,14 @@
                                 {editor}
                             />
                         </Format.Group>
+                        <!-- Rendered from HEADING_LEVELS rather than four hand-written
+                             rows: `definitions.ts` already owns which levels the
+                             editor offers, and a fifth written there would
+                             otherwise need remembering here too. -->
                         <Format.Group bind:formatting={doc.formatting}>
-                            <Format.Heading {disabled} {editor} level={1} />
-                            <Format.Heading {disabled} {editor} level={2} />
-                            <Format.Heading {disabled} {editor} level={3} />
-                            <Format.Heading {disabled} {editor} level={4} />
+                            {#each Format.HEADING_LEVELS as level (level)}
+                                <Format.Heading {disabled} {editor} {level} />
+                            {/each}
                         </Format.Group>
                         <Format.Group bind:formatting={doc.formatting}>
                             <Format.Bold {disabled} {editor} />
@@ -297,6 +428,10 @@
                                 {disabled}
                                 {editor}
                                 onPick={(file) => doc.addImage(file)}
+                            />
+                            <Format.InsertLink
+                                {disabled}
+                                onOpen={openLinkDialog}
                             />
                         </Format.Group>
                     </Format.Root>
@@ -333,18 +468,33 @@
                 class="flex flex-1 flex-col"
                 content={doc.contentJson}
                 font={workspace.font}
+                showInvisibles={workspace.showInvisibles}
                 onBlur={() => doc.flush()}
                 onDropImage={(file) => doc.addImage(file)}
+                onLinkClick={(target) => (linkTarget = target)}
+                onLinkShortcut={openLinkDialog}
                 onTransaction={(e) => {
                     doc.formatting = Format.getFormattingActive(e);
                     canUndo = e.can().undo();
                     canRedo = e.can().redo();
                 }}
                 onUpdate={() => {
+                    // Any change can redraw the paragraph holding the link the
+                    // card is anchored to, so the card closes with it.
+                    linkTarget = null;
                     if (editor) doc.applyEdit(editor.getJSON());
                 }}
             />
         </Page.Root>
+
+        <!-- Both portal to <body>, so where they sit is only about finding them:
+             beside the editor they act on. -->
+        <Link.Dialog bind:open={linkDialogOpen} {editor} />
+        <Link.Card
+            onClose={() => (linkTarget = null)}
+            onEdit={openLinkDialog}
+            target={linkTarget}
+        />
 
         <Statusbar.Root
             error={doc.error}
@@ -358,3 +508,46 @@
         <SettingsPanel.Panel bind:open={settingsOpen} />
     {/if}
 </div>
+
+<!-- A document that could not be opened — a bookmark to a file since renamed or
+     deleted outside the app. Modal on purpose: the editor behind it is empty
+     with no file to write to, and anything typed there would be saved as a new
+     document. The file list is the only way on, so every way out of the dialog
+     goes there — the button, and Escape through the binding's setter.
+
+     `onclick` on the Action displaces bits-ui's own close handler, so the
+     setter does not also fire and send the writer back twice. -->
+<AlertDialog.Root
+    bind:open={
+        () => doc.openError !== '',
+        (open) => {
+            if (!open) void onBack();
+        }
+    }
+>
+    <AlertDialog.Content>
+        <AlertDialog.Header>
+            <AlertDialog.Title>{doc.openError}</AlertDialog.Title>
+            <AlertDialog.Description>
+                {m.editor_open_description()}
+            </AlertDialog.Description>
+        </AlertDialog.Header>
+        <AlertDialog.Footer>
+            <AlertDialog.Action onclick={onBack}>
+                {m.editor_back()}
+            </AlertDialog.Action>
+        </AlertDialog.Footer>
+    </AlertDialog.Content>
+</AlertDialog.Root>
+
+<!-- The editor's Delete. Recoverable from `.trash/`, but the document still
+     leaves the writer's list and the screen, so it asks first — with the same
+     copy the Files screen uses for the same act. -->
+<ConfirmDialog
+    bind:open={deleteOpen}
+    confirmLabel={m.files_delete()}
+    description={deleteDescription}
+    destructive
+    onConfirm={confirmDelete}
+    title={m.files_delete_title({ title: doc.title })}
+/>

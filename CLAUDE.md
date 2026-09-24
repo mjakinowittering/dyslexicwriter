@@ -18,6 +18,18 @@ to static files and runs entirely in one browser tab against one local folder. A
 proposal that reintroduces a server, an account, multi-device sync or collaborative
 editing is out of scope and should be raised before it is built, not after.
 
+## Principles
+
+They apply to code and to guidance (this file, the skills, the README) alike.
+
+- **Keep it simple** — the plainest thing that works; no cleverness to save a line.
+- **You aren't gonna need it** — build for today's requirement, not a guessed one; no
+  speculative options, abstractions or documentation of what the code already shows.
+- **Don't repeat yourself** — one home per rule, fact or helper; elsewhere, point to
+  it. A rule applying everywhere lives here; a domain rule lives in its skill.
+- **Kaizen** — leave it a little better: fix what's stale or wrong in whatever you
+  touch, in small steps, rather than saving it for a rewrite.
+
 ---
 
 ## Skills Index — where the depth lives
@@ -40,7 +52,9 @@ is the _how_.
 | `ui-components`      | building UI with shadcn-svelte, component props/variants                                                                                                                                              |
 | `animations`         | any motion — Svelte transitions/motion/easing, shared `motion.ts` timings, the two-phase reveal pattern                                                                                               |
 | `testing`            | writing Vitest tests; before committing changes to the markdown round-trip, the fs layer, or models                                                                                                   |
-| `branch-and-commit`  | starting an approved plan (the branch is its first step), naming a branch, staging, or writing a commit message                                                                                       |
+| `branch-and-commit`  | starting an approved plan (the branch is its first step), naming a branch, staging, writing a commit message, pushing a branch, or opening a PR — which always targets `develop`                      |
+| `todo-review`        | the `## Todo` section of `README.md` — showing the list, planning an item, adding one, pruning stale ones                                                                                             |
+| `ascii-wireframes`   | drawing any change a writer will see, before it is built, and sequence diagrams for a flow crossing the editor, the stores and the filesystem                                                         |
 
 > When a domain skill contradicts a stale line here, the skill is the more detailed
 > source — but hard invariants (the General Rules) always hold regardless of which skill
@@ -57,13 +71,14 @@ is the _how_.
 - **Durable folder handle** — the `FileSystemDirectoryHandle` persisted through
   IndexedDB (it is not serializable to a string) and re-permissioned silently on return
   visits, so the user picks their folder once, not every launch
-- **`config.json` as the only settings store** — theme, font and read-aloud voice/speed,
-  all in one file in the user's folder so preferences travel with the writing. Settings
-  only: the list of documents is scanned from the folder, never cached here
+- **`config.json` as the only settings store** — theme, font, invisible characters,
+  read-aloud voice/speed and the markdown formatting options, all in one file in the
+  user's folder so preferences travel with the writing. Settings only: the list of
+  documents is scanned from the folder, never cached here
 - **A lossless-enough markdown round-trip** — TipTap `JSONContent` is the editing model;
   markdown is what lands on disk and what is parsed back on open
 - **Distraction-free editing** — a deliberately capped toolbar: headings, bold/italic,
-  lists, checklists, blockquote, horizontal rule, tables, images. Nothing more.
+  lists, checklists, blockquote, horizontal rule, tables, images, links. Nothing more.
 - **Read aloud** — Web Speech API playback of the selection or whole document, with
   exact sentence highlighting, so the writer can catch by ear what the eye misses
 - **Accessibility as the product** — OpenDyslexic as a first-class font choice, a
@@ -109,14 +124,22 @@ model exists in two representations — in memory while editing, and on disk as 
 ### In memory
 
 ```ts
-interface Doc {
-    title: string; // also the folder name and the file's basename
-    contentJson: JSONContent; // TipTap — the editing source of truth
+// The open document, held by the document store (src/lib/stores/document.svelte.ts)
+{
+    title: string; // the markdown file's basename
+    contentJson: JSONContent | null; // TipTap — the editing source of truth
     wordCount: number; // derived live from TipTap's CharacterCount
-    dirHandle: FileSystemDirectoryHandle | null; // null until first save
-    fileHandle: FileSystemFileHandle | null; // null until first save
+    location: DocumentLocation | null; // null until first save — see below
+    saveState: SaveState; // idle | pending | saving | saved | error
+    savedAt: number | null; // epoch ms of the last successful write
 }
 ```
+
+A document is held as a **path**, never as handles. `DocumentLocation` is
+`{ folder, file, ownsFolder }`, and every filesystem call resolves it against the
+working folder's handle at the moment it runs — a handle cached across an await is
+one a rename or an outside edit can invalidate. `null` is the test for "not saved
+yet", never falsiness: `''` is a real folder, the working folder itself.
 
 The Files screen's list is the other in-memory representation — a `FolderNode` tree of
 `DocumentIndexEntry` rows, scanned from the folder into the workspace store and held
@@ -157,10 +180,10 @@ levels down, and all of it is theirs to open.
 That gives **two kinds of document**, and every filesystem operation branches on
 which it is:
 
-| Kind                | Is                                                             | Rename                                    | Delete                 | Images    |
-| ------------------- | -------------------------------------------------------------- | ----------------------------------------- | ---------------------- | --------- |
-| **folder-document** | `X/X.md`, alone in its folder — every document the app creates | moves the whole folder, inside its parent | removes it recursively | inside it |
-| **file-document**   | a markdown file sitting among others, at any depth             | renames the file alone                    | removes only the file  | beside it |
+| Kind                | Is                                                             | Rename                                    | Delete                                | Images    |
+| ------------------- | -------------------------------------------------------------- | ----------------------------------------- | ------------------------------------- | --------- |
+| **folder-document** | `X/X.md`, alone in its folder — every document the app creates | moves the whole folder, inside its parent | moves the whole folder into `.trash/` | inside it |
+| **file-document**   | a markdown file sitting among others, at any depth             | renames the file alone                    | moves only the file into `.trash/`    | beside it |
 
 `ownsFolder` is what separates them, and it is **recomputed by every scan**, never
 trusted from the config cache. A folder only qualifies when it holds exactly that one
@@ -174,8 +197,9 @@ destroys anything, because the flag they were handed is a snapshot — the Files
 from the last scan, the editor's from when the document was opened — and a subdirectory
 added since would otherwise be removed recursively without ever being copied. Where the
 claim no longer holds, rename falls through to the file-document path and renames the
-markdown file alone; delete refuses outright, because there is no trash behind it and
-the writer confirmed against copy that no longer describes the folder.
+markdown file alone; delete refuses outright, because its copy into the trash takes
+files only before the original is removed recursively, and the writer confirmed
+against copy that no longer describes the folder.
 
 The scan walks **three directory levels** below the working folder. A directory the
 cap stops at comes back unloaded and the Files screen shows it closed; expanding it
@@ -189,6 +213,7 @@ slow enough to read as broken. Dot-directories and `node_modules` are skipped.
     version: number,
     theme: 'light' | 'dark',
     font: 'sans' | 'dyslexic',
+    showInvisibles: boolean,
     tts: { voiceUri: string | null, rate: number },
     prettier: { printWidth: number, proseWrap: 'always' | 'never' | 'preserve' }
 }
@@ -218,7 +243,7 @@ already correct in memory, so a failure to tidy the file is not put in front of 
 writer.
 
 The first-run value of every preference lives in `src/lib/config/defaults.json` —
-`theme`, `font`, `tts` and `prettier` only. `version` is structural rather than
+`theme`, `font`, `showInvisibles`, `tts` and `prettier` only. `version` is structural rather than
 configurable, so the code owns it. `defaults.json` is a checked-in seed, never
 written to at runtime; it is validated through the same schemas and falls back to
 in-code constants when malformed.
@@ -412,8 +437,12 @@ a document is open, so the failure modes that matter are all about losing writin
 - **Permission can be revoked at any time.** Every filesystem call must handle a
   rejected or stale handle by surfacing a re-pick prompt, never by silently failing or
   discarding the in-memory document.
-- **Destructive operations confirm first.** Delete removes a real folder from the user's
-  disk and there is no trash — confirm before it happens, and say what will be removed.
+- **Delete moves to `.trash/`, and still confirms first.** The File System Access API
+  cannot reach the OS recycle bin — `removeEntry` is final — so a deleted document is
+  moved into a `.trash/` folder at the root of the working folder, which the scan
+  skips because it is a dot-directory. It leaves the writer's list either way, so
+  confirm before it happens and say what will be moved. Emptying the trash is the
+  writer's job in their file manager; an empty folder is still removed outright.
 - **Validate everything read from disk.** `config.json` is user-editable and may be
   hand-edited, corrupt, or from a future version. Parse it through a Valibot schema and
   fall back to defaults; never trust its shape.
@@ -429,11 +458,17 @@ a document is open, so the failure modes that matter are all about losing writin
 
 ## Environment Variables
 
-None. The app is entirely local and requires no configuration to run.
+None that the app reads. It is entirely local and needs no configuration to run.
 
-If a build-time flag is ever genuinely needed it goes through `$env/static/public` and
-must be documented in `.env.example` — but the default and correct answer is that this
-project has no environment configuration.
+The one environment variable in the repo is **`BASE_PATH`**, read by
+`svelte.config.js` to set `kit.paths.base` and supplied by the deploy workflow from
+`actions/configure-pages`. That is build tooling, not app configuration: it never
+reaches `$env`, and unset — dev, `vite preview`, Storybook — it falls back to serving
+from the root.
+
+If a flag the app itself reads is ever genuinely needed it goes through
+`$env/static/public` and must be documented in `.env.example` — but the default and
+correct answer is that this project has no environment configuration.
 
 ---
 
@@ -447,8 +482,9 @@ project has no environment configuration.
   content in IndexedDB, `localStorage` or `sessionStorage` "for convenience"
 - The `FileSystemDirectoryHandle` lives **only** in IndexedDB, and it is the **only**
   thing in IndexedDB — never `localStorage` (a handle cannot be string-serialized)
-- **Every persisted preference lives in `config.json`** — theme, font, TTS voice/speed,
-  and anything added later. No exceptions, no other settings store
+- **Every persisted preference lives in `config.json`** — theme, font,
+  `showInvisibles`, TTS voice/speed, the Prettier options, and anything added later.
+  No exceptions, no other settings store
 - Every preference in `config.json` has a sibling in `src/lib/config/defaults.json`
   giving its first-run value, and a new setting adds **both in the same commit** — the
   pairing `toMarkdown`/`fromMarkdown` already follows. `defaults.json` holds preferences
@@ -495,19 +531,27 @@ project has no environment configuration.
   hard wrapping is covered by round-trip tests that pin the hazard of a `1.`, `-`, `#`,
   `>` or `+` landing at a line start
 - The toolbar is **capped by product decision**: undo/redo, headings, bold, italic,
-  bullet/ordered/task list, blockquote, horizontal rule, table, image. No font-family or
-  font-size pickers, no colour pickers, no alignment controls, no bubble/slash menus.
-  Default to "no"; when in doubt remove UI rather than add it
-- Read-aloud highlighting is **ProseMirror decorations only**, never marks or nodes — it
-  must never appear in `editor.getJSON()` and never reach the markdown
+  bullet/ordered/task list, blockquote, horizontal rule, table, image, link. No
+  font-family or font-size pickers, no colour pickers, no alignment controls, no
+  bubble/slash menus. The link card shown when a link is clicked is not a bubble menu —
+  it holds no formatting, only where the link goes, Edit and Open. Default to "no"; when
+  in doubt remove UI rather than add it
+- Read-aloud highlighting and the invisible-character markers are **ProseMirror
+  decorations only**, never marks or nodes — they must never appear in
+  `editor.getJSON()` and never reach the markdown
 - SSR-guard every browser API (`showDirectoryPicker`, `speechSynthesis`, `AudioContext`,
   `window`, `indexedDB`) — the app is a static SPA but modules are still analysed
 - Feature-detect the File System Access API at startup and show the unsupported screen
   rather than letting a non-Chromium browser fail deeper in
 - Autosave debounces, but **always flush** on blur, `pagehide`, `visibilitychange` and
   destroy — a dropped last edit is the worst bug this app can have
-- Confirm before any destructive filesystem operation; there is no undo for a deleted
-  folder
+- Confirm before any destructive filesystem operation — a delete included, even though
+  it only moves the document into `.trash/`
+- **Delete is a move into `.trash/`**, never a `removeEntry` of the document itself,
+  from the Files screen and the editor alike. It keeps rename's ordering — copy into
+  the trash first, remove the original last — and a timestamped name, so trashing
+  one title twice never overwrites the earlier copy. Only an empty folder is removed
+  outright, because there is nothing in it to recover
 - Validate anything read from disk with a schema from `src/lib/models/` — `config.json`
   is user-editable and must never be trusted by shape
 - Sanitise titles before they become path segments (separators, dots, reserved names,
@@ -524,10 +568,15 @@ project has no environment configuration.
   `cubic-bezier` for state-driven motion, never a third-party animation lib; shared
   durations/easing come from `$lib/config/motion.ts`
 - Theme colours are **Tailwind CSS variables in `src/routes/layout.css`** — never
-  hardcode a colour in a component. Both themes are shadcn-svelte's neutral greys, every
-  token chroma `0`: light is near-white but never `#fff`; dark is near-black with
-  near-white ink
-- Fonts are **self-hosted** under `static/fonts/` — never load a webfont from a CDN
+  hardcode a colour in a component. Both themes are shadcn-svelte's neutral greys:
+  light is near-white but never `#fff`; dark is near-black with near-white ink. Every
+  token is chroma `0` **except `--destructive`**, which stays red on purpose — a grey
+  delete confirmation says nothing. Adding a second chromatic token needs the same
+  argument, in `layout.css`, beside it
+- Fonts are **self-hosted** — never load a webfont from a CDN. Both come from their
+  `@fontsource` packages and are `@import`ed in `layout.css`, so Vite bundles the files
+  out of `node_modules` and their licence notices travel with the build. There is no
+  `static/fonts/`
 - Storybook stories live in `src/stories/` and mirror the `src/lib/components/` tree —
   never co-locate stories inside `src/lib/components/`
 - Vitest suites live in `src/tests/` and mirror the `src/lib/` tree, importing their
@@ -537,8 +586,10 @@ project has no environment configuration.
 - **Custom-submit forms** (an `onsubmit` handler rather than a native submit) must call
   `event.preventDefault()` — otherwise the browser does a full-page reload and the async
   handler never completes
-- `speech.stop()` on editor unmount and on document switch — otherwise audio bleeds
-  across documents and the highlight targets a destroyed view
+- `speech.stop()` on editor unmount, on document switch **and on `pagehide`** —
+  otherwise audio bleeds across documents and the highlight targets a destroyed view.
+  `pagehide` is the one `onDestroy` cannot cover: it does not run on a tab close or
+  reload, and Chrome's speech queue outlives the page that started it
 - There is **no server**: no `.remote.ts` files, no `+page.server.ts`, no `hooks.server.ts`,
   no `$lib/server/`. `ssr = false` app-wide; the build is static
 - Do not reintroduce accounts, sync, collaboration, or LLM features — all were

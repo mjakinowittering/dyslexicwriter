@@ -508,6 +508,28 @@ describe('switching documents', () => {
     });
 });
 
+// The editor puts a failed open in a dialog that leads back to the file list, and
+// keeps save and rename failures inline — so the store has to keep them apart.
+describe('a document that cannot be opened', () => {
+    it('reports the failure apart from save and rename errors', async () => {
+        await doc.open('Gone/Gone.md');
+
+        expect(doc.openError).not.toBe('');
+        expect(doc.error).toBe('');
+        expect(doc.location).toBeNull();
+    });
+
+    it('clears the failure when another document opens', async () => {
+        await opfs.writeRaw(root, 'Here', 'Here.md', 'Here body');
+        ignoreFixtureWrites();
+
+        await doc.open('Gone/Gone.md');
+        await doc.open('Here/Here.md');
+
+        expect(doc.openError).toBe('');
+    });
+});
+
 describe('close', () => {
     it('flushes the last edit and then clears the document', async () => {
         await opfs.writeRaw(root, 'Charlie', 'Charlie.md', 'Charlie body');
@@ -586,6 +608,48 @@ describe('rename', () => {
         expect(doc.isDirty).toBe(false);
     });
 
+    // A rename writes the document into a new file and removes the old one, so
+    // the copy on disk is as new as the rename however old the last edit was.
+    // The status bar ages this figure, and left alone it went on reporting the
+    // mtime of a file that no longer exists.
+    it('counts the rename as a fresh save', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('Body'));
+        await doc.flush();
+
+        const saved = doc.savedAt;
+        await vi.advanceTimersByTimeAsync(10 * 60_000);
+
+        await doc.rename('Chapter One');
+
+        expect(saved).not.toBeNull();
+        expect(doc.savedAt).toBeGreaterThan(saved ?? 0);
+        expect(doc.savedAt).toBeGreaterThanOrEqual(Date.now() - 1_000);
+    });
+
+    // The title field fires `change` and then `blur` for one edit, and Return
+    // blurs it — so the same rename arrives twice, back to back. Run as two
+    // renames they race each other over one folder: whichever loses finds the
+    // source already moved and reports a failure for work that succeeded.
+    it('ignores a second rename to the name already in flight', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('Body'));
+        await doc.flush();
+
+        // Deliberately not awaited: this is the change/blur pair, one after the
+        // other with nothing in between.
+        const first = doc.rename('Chapter One');
+        const second = doc.rename('Chapter One');
+        await Promise.all([first, second]);
+
+        expect(doc.error).toBe('');
+        expect(doc.title).toBe('Chapter One');
+        expect(await readFile('Chapter One', 'Chapter One.md')).toBe('Body');
+        await expect(
+            opfs.fileExists(root, 'Untitled', 'Untitled.md')
+        ).resolves.toBe(false);
+    });
+
     // There is no trash behind any of this, so a refused rename has to leave the
     // document exactly where it was rather than half-moved.
     it('keeps the source intact when the name is already taken', async () => {
@@ -651,6 +715,88 @@ describe('rename', () => {
 // A document folder has to stay self-contained and portable as a unit, so the
 // image goes beside the markdown that references it and comes back as a relative
 // path — never base64, never a shared top-level images folder.
+describe('trash', () => {
+    // Every file in the trash, by name — the timestamp makes the exact name a
+    // matter of when the test happened to run.
+    async function trashed(): Promise<string[]> {
+        const trash = await opfs.directory(root, '.trash');
+        const names: string[] = [];
+        for await (const name of trash.keys()) names.push(name);
+        return names;
+    }
+
+    it('does nothing to a document that has never been saved', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('Never saved'));
+
+        expect(await doc.trash()).toBe(false);
+
+        // Still the writer's, still waiting for its first save.
+        expect(doc.location).toBeNull();
+        expect(doc.isDirty).toBe(true);
+    });
+
+    // The copy in the trash is the one a writer recovers, so it has to be the
+    // document as they last saw it — not the last autosave, a sentence short.
+    it('moves the document with its last edit, and clears the store', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('First'));
+        await doc.flush();
+        doc.applyEdit(content('Written just before the delete'));
+
+        expect(await doc.trash()).toBe(true);
+
+        expect(doc.location).toBeNull();
+        expect(doc.isDirty).toBe(false);
+        await expect(
+            opfs.fileExists(root, 'Untitled', 'Untitled.md')
+        ).resolves.toBe(false);
+
+        const names = await trashed();
+        expect(names).toHaveLength(1);
+        expect(await readFile(`.trash/${names[0]}`, 'Untitled.md')).toBe(
+            'Written just before the delete'
+        );
+    });
+
+    // The editor unmounts straight after, and its `close()` flushes. A store
+    // still holding the document would write it back where it was deleted from.
+    it('writes nothing back once the document has gone', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('Body'));
+        await doc.flush();
+
+        await doc.trash();
+        ignoreFixtureWrites();
+        await doc.close();
+        await vi.runAllTimersAsync();
+
+        expect(documentWrites()).toHaveLength(0);
+        await expect(
+            opfs.fileExists(root, 'Untitled', 'Untitled.md')
+        ).resolves.toBe(false);
+    });
+
+    it('leaves a refused document open, on disk, and saying why', async () => {
+        await doc.createNew();
+        doc.applyEdit(content('Body'));
+        await doc.flush();
+        // A subdirectory the delete would otherwise take with it, unread.
+        await opfs.writeRaw(root, 'Untitled/Drafts', 'earlier.md', 'earlier');
+
+        expect(await doc.trash()).toBe(false);
+
+        expect(doc.error).not.toBe('');
+        expect(doc.location).not.toBeNull();
+        expect(await readFile('Untitled', 'Untitled.md')).toBe('Body');
+
+        // And the writer can carry on: writes are not left standing down.
+        doc.applyEdit(content('Still writing'));
+        await doc.flush();
+        expect(await readFile('Untitled', 'Untitled.md')).toBe('Still writing');
+    });
+});
+
 describe('addImage', () => {
     const png = (): File =>
         new File([new Uint8Array([137, 80, 78, 71])], 'diagram.png', {
