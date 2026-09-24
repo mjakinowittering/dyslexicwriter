@@ -80,9 +80,11 @@ Four steps, and the first two are **one commit** — the pairing is an invariant
 - A schema and the type inferred from it live in the same file. Infer with
   `v.InferOutput<typeof schema>`; **never** hand-write a type beside a schema
   that already describes it.
-- Declare a reusable enum once as `… as const` and wrap it in `v.picklist(...)`,
-  so the same list backs the schema and any UI that offers the choice —
-  `themeValues`, `fontValues`.
+- Declare a reusable enum once as `… as const` and wrap it in `v.picklist(...)` —
+  `themeValues`, `fontValues`. A control that offers that choice **as a list** builds
+  itself from the constant rather than retyping the members, so the schema and the UI
+  cannot disagree about what a valid value is. A two-state control has no list to
+  build and is the exception: the theme is a `Switch`.
 - Bounds that the UI also needs are exported constants, not literals repeated in
   both places: `TTS_RATE_MIN` / `TTS_RATE_MAX` / `TTS_DEFAULT_RATE` are shared by
   the schema and the voice-settings control, so the slider cannot emit a rate that

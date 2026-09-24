@@ -13,16 +13,22 @@ way to work on it, not a place it gets locked up.
   competing with the words.
 - **Read aloud** — the whole document or just what you've selected is spoken back to
   you, with the current sentence highlighted as it goes, so you can catch by ear the
-  mistakes your eye slides past. Transport controls for play/pause, stop, and skipping
-  a sentence back or forward. Voice and speed are yours to set.
+  mistakes your eye slides past. Where your voice supports it the current word lights
+  up too. Transport controls for play/pause, stop, and skipping a sentence back or
+  forward, and the page follows along. Voice and speed are yours to set.
 - **Plain markdown files** — every document is saved as a real `.md` file on your own
   disk, not in a proprietary format or a database. Open it in any other editor, put it
   in version control, back it up, email it, move to a different app entirely — your
   writing is yours and it goes wherever you do.
-- **A plain Files screen** — list your documents, create, open, rename, delete.
+- **A Files screen that matches your folder** — your documents as the tree they
+  actually are on disk, not a flat list. Create documents and folders, open, rename,
+  and delete into a `.trash/` folder you can fish things back out of.
 - **Word count and reading time** — always visible in the status bar, never in the way.
 - **Two typefaces** — a standard sans-serif, or OpenDyslexic.
 - **Two themes** — a neutral dark by default, or a neutral light (a hair off stark white).
+- **Show the invisibles** — optional dots for spaces and marks for line and paragraph
+  ends, for when a stray space is the thing throwing you. They are drawn on screen
+  only and never written to the file.
 
 ## How your documents are stored
 
@@ -34,18 +40,34 @@ my-writing/                  <- the folder you chose
 ├── My Chapter/
 │   ├── My Chapter.md        <- the document itself
 │   └── diagram.png          <- images live beside the document that uses them
-└── Another Draft/
-    └── Another Draft.md
+├── notes.md                 <- a loose file, found rather than created
+├── Book/
+│   └── Chapters/
+│       ├── One.md           <- however you already have things arranged
+│       └── Two.md
+└── .trash/                  <- deleted documents wait here
 ```
 
-Each document is a folder containing a markdown file of the same name, plus any images
-you've dropped in. Images are written as real files and referenced with relative paths
-(`![alt](diagram.png)`) — never embedded as base64 — so a document folder is
-self-contained and can be moved, zipped or shared as a unit.
+**A document the app creates gets a folder of its own**, holding a markdown file of the
+same name plus any images you drop in. Images are written as real files and referenced
+with relative paths (`![alt](diagram.png)`) — never embedded as base64 — so a document
+folder is self-contained and can be moved, zipped or shared as a unit. On the Files
+screen a folder holding nothing but the document named after it shows as one row, not
+two.
 
-`config.json` holds **every** preference (theme, font, read-aloud voice and speed) and
-nothing else. Because it lives in your folder rather than in browser storage, moving
-that folder to another machine or browser brings your settings along with your writing.
+**Any markdown it finds is a document too.** Point the app at a folder you already
+write in and loose `.md` files, and ones nested a few levels down, all open just the
+same. Those stay exactly where they are — renaming one renames the file alone, and it
+never gets moved into a folder you didn't ask for.
+
+Deleting is a **move into `.trash/`** at the top of your working folder, not a
+permanent removal — the browser can't reach your OS recycle bin, so the app makes its
+own. Trashed copies keep a timestamp in the name, and emptying the folder is up to you.
+
+`config.json` holds **every** preference (theme, font, invisible characters, read-aloud
+voice and speed, and how the markdown is formatted) and nothing else. Because it lives
+in your folder rather than in browser storage, moving that folder to another machine or
+browser brings your settings along with your writing.
 
 Your list of documents is not stored anywhere. The app reads it from the folder each
 time it needs it — when you open the app, when you come back to the Files screen, and
@@ -74,6 +96,7 @@ app in those browsers shows a short message saying so rather than half-working.
 | File storage    | File System Access API                       |
 | JSON → Markdown | turndown (+ GFM plugin for tables)           |
 | Markdown → JSON | marked → TipTap `generateJSON`               |
+| Markdown format | Prettier standalone, in a web worker         |
 | Folder handle   | Dexie (IndexedDB) — the handle, nothing else |
 | Read aloud      | Web Speech API (`speechSynthesis`)           |
 | Validation      | Valibot                                      |

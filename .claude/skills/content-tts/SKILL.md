@@ -18,23 +18,28 @@ dyslexia aid), not on-canvas chrome — do not strip them under the "keep the ed
 
 ## File map
 
-| File                                         | Role                                                                                                                                                                                                                                                                                                                                                                    |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `$lib/tts/text-map.ts`                       | **Pure, unit-tested.** Builds the utterance string from a doc range + a segment map, splits it into speakable chunks, translates char offsets back to ProseMirror positions, and resolves sentence-skip targets (`buildUtterance`, `chunkUtterance`, `rangeToPos`, `splitSentences`, `sentenceStartIndices`, `sentenceStartAt`, `nextSentenceStart`, `skipBackTarget`). |
-| `$lib/tts/tiptap-tts-highlight.ts`           | TipTap `Extension` + ProseMirror plugin holding a `DecorationSet`; `setTtsHighlight(view, { word, sentence } \| null)` drives it, and `isTtsHighlightTransaction(tr)` lets `onTransaction` subscribers skip one.                                                                                                                                                        |
-| `$lib/tts/chirp.ts`                          | Web Audio chirp synthesis (`playStartChirp` / `playStopChirp`).                                                                                                                                                                                                                                                                                                         |
-| `$lib/tts/speech-controller.svelte.ts`       | `SpeechController` runes **singleton** `speech` — wraps `speechSynthesis`, owns playback + voice/rate state, wires boundary events to the highlight. `pickDefaultVoice` is pure + exported, and unit-tested.                                                                                                                                                            |
-| `Editor/Toolbar/ToolbarPlay.svelte`          | Play/pause button (`speech.toggle(editor)`).                                                                                                                                                                                                                                                                                                                            |
-| `Editor/Toolbar/ToolbarSkipBack.svelte`      | Previous-sentence button (`speech.skipBack()`); gated on `speech.canSkipBack`.                                                                                                                                                                                                                                                                                          |
-| `Editor/Toolbar/ToolbarSkipForward.svelte`   | Next-sentence button (`speech.skipForward()`); gated on `speech.canSkipForward`.                                                                                                                                                                                                                                                                                        |
-| `Editor/Toolbar/ToolbarVoiceSettings.svelte` | Popover: voice `Select` + speed `Slider` + reset; calls a `persist` prop (debounced).                                                                                                                                                                                                                                                                                   |
-| `$lib/tts/scroll-geometry.ts`                | **Pure, unit-tested.** Where the canvas should scroll to keep the spoken text inside the comfort band, or `null` to leave it alone (`followScrollTarget`, `BAND_TOP`, `BAND_BOTTOM`, `ANCHOR`).                                                                                                                                                                         |
-| `$lib/tts/scroll-follower.svelte.ts`         | `ScrollFollower` — resolves the canvas from the view, turns a `Range` into content coordinates, and drives a `ScrollAnimator`. Owned privately by `SpeechController`.                                                                                                                                                                                                   |
-| `Editor/Page/PageBackToTop.svelte`           | The floating button `Page` shows mid-read; stops the read and glides the canvas home.                                                                                                                                                                                                                                                                                   |
+| File                                           | Role                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `$lib/tts/text-map.ts`                         | **Pure, unit-tested.** Builds the utterance string from a doc range + a segment map, splits it into speakable chunks, translates char offsets back to ProseMirror positions, and resolves sentence-skip targets (`buildUtterance`, `chunkUtterance`, `rangeToPos`, `splitSentences`, `sentenceStartIndices`, `sentenceStartAt`, `nextSentenceStart`, `skipBackTarget`). |
+| `$lib/tts/tiptap-tts-highlight.ts`             | TipTap `Extension` + ProseMirror plugin holding a `DecorationSet`; `setTtsHighlight(view, { word, sentence } \| null)` drives it, and `isTtsHighlightTransaction(tr)` lets `onTransaction` subscribers skip one.                                                                                                                                                        |
+| `$lib/tts/chirp.ts`                            | Web Audio chirp synthesis (`playStartChirp` / `playStopChirp`).                                                                                                                                                                                                                                                                                                         |
+| `$lib/tts/speech-controller.svelte.ts`         | `SpeechController` runes **singleton** `speech` — wraps `speechSynthesis`, owns playback + voice/rate state, wires boundary events to the highlight. `pickDefaultVoice` is pure + exported, and unit-tested.                                                                                                                                                            |
+| `Editor/Toolbar/ToolbarPlay.svelte`            | Play/pause button (`speech.toggle(editor)`).                                                                                                                                                                                                                                                                                                                            |
+| `Editor/Toolbar/ToolbarSkipBack.svelte`        | Previous-sentence button (`speech.skipBack()`); gated on `speech.canSkipBack`.                                                                                                                                                                                                                                                                                          |
+| `Editor/Toolbar/ToolbarSkipForward.svelte`     | Next-sentence button (`speech.skipForward()`); gated on `speech.canSkipForward`.                                                                                                                                                                                                                                                                                        |
+| `Editor/Toolbar/ToolbarTts.svelte`             | The transport group — Play, Stop, the two skips and the voice popover — and the one `Tooltip.Provider` behind them. Takes a `controller` prop so a story can drive all five from a chosen state.                                                                                                                                                                        |
+| `Editor/Toolbar/ToolbarStop.svelte`            | Stop button (`speech.stop()`); leaves the page where it is, deliberately.                                                                                                                                                                                                                                                                                               |
+| `Editor/Toolbar/ToolbarTransportButton.svelte` | The shared shape behind Play/Stop/SkipBack/SkipForward — icon, tooltip, disabled state.                                                                                                                                                                                                                                                                                 |
+| `Editor/Toolbar/ToolbarVoiceSettings.svelte`   | Popover: voice `Select` + a speed `ToggleGroup` of presets + reset; calls a `persist` prop (debounced). **Presets, not a slider** — the ends are the stored rate's own validation bounds and the presets simply stop offering the values between, which a drag cannot.                                                                                                  |
+| `$lib/tts/scroll-geometry.ts`                  | **Pure, unit-tested.** Where the canvas should scroll to keep the spoken text inside the comfort band, or `null` to leave it alone (`followScrollTarget`, `BAND_TOP`, `BAND_BOTTOM`, `ANCHOR`).                                                                                                                                                                         |
+| `$lib/tts/scroll-follower.svelte.ts`           | `ScrollFollower` — resolves the canvas from the view, turns a `Range` into content coordinates, and drives a `ScrollAnimator`. Owned privately by `SpeechController`.                                                                                                                                                                                                   |
+| `Editor/Page/PageBackToTop.svelte`             | The floating button `Page` shows mid-read; stops the read and glides the canvas home.                                                                                                                                                                                                                                                                                   |
 
 Registration: `TtsHighlightExtension` is added to the editor's extension array in
-`Editor/Page/PageEditor.svelte`; the buttons live in the top `Toolbar.Group` in
-`routes/(app)/content/+page.svelte`, which also hydrates `speech` and owns its lifecycle.
+`Editor/Page/PageEditor.svelte`; the transport rides the right-hand end of the toolbar
+row as `Toolbar.Tts`, in `routes/edit/+page.svelte`, which also hydrates `speech`
+(`loadVoices()` before anything awaits, then `applyPreferences`) and owns its lifecycle
+(`stop()` + `unloadVoices()` on destroy).
 
 ## Two platform realities that shape the whole design
 
@@ -102,9 +107,6 @@ track a real engine — espeak stretches stressed syllables and expands tokens (
 none. If perfect word sync on Linux is ever required, the answer is **cloud TTS with word
 timestamps** (Azure/Google/ElevenLabs), not local estimation.
 
-The full rationale and the dead-ends are recorded in Amendments 1–3 of
-`~/.claude/plans/*playful-quilt.md`.
-
 A boundary event's `charIndex` is **relative to its chunk** — always add `chunk.startOffset`
 before mapping through `rangeToPos`. Getting this wrong highlights the wrong word.
 
@@ -138,7 +140,7 @@ shared reference).
 ## Hard rules
 
 - **Highlighting is ProseMirror decorations only — never marks/nodes.** Decorations don't appear
-  in `editor.getJSON()`, so they can't leak into the server's derived markdown
+  in `editor.getJSON()`, so they can't leak into the markdown derived on the way to disk
   (`toMarkdown`, capped at the shared extension set). Never implement the highlight as a mark. The
   highlight transaction sets `addToHistory: false` and doesn't change the doc, so it never marks
   the page dirty.
@@ -151,9 +153,12 @@ shared reference).
 - **The offset→position map is the fragile part.** It lives in `text-map.ts` and is covered by
   `text-map.test.ts` (round-trips: doc text at mapped positions === the utterance substring). Keep
   it pure and keep the tests green when touching it.
-- **Lifecycle:** `speech.stop()` on editor unmount, on document switch (the `{#key}` block
-  remounts/destroys the editor) **and on `pagehide`** — otherwise audio bleeds across documents
-  and the highlight targets a destroyed view. `pagehide` is the one `onDestroy` cannot cover: it
+- **Lifecycle:** `speech.stop()` on editor unmount, on document switch **and on `pagehide`**
+  — otherwise audio bleeds across documents and the highlight targets a destroyed view. A
+  switch is **not** an unmount: SvelteKit does not remount the page for `?doc=A` → `?doc=B`,
+  so `openDocument` in `routes/edit/+page.svelte` calls `speech.stop()` itself before
+  reading the next document. There is no `{#key}` block doing it for you.
+  `pagehide` is the one `onDestroy` cannot cover: it
   doesn't run on a tab close or reload, and Chrome's speech queue outlives the page that started
   it. `visibilitychange` deliberately does **not** stop a read — listening while looking at
   another window is using the feature. **Detach utterance handlers before `cancel()`** (that's
