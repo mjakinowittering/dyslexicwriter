@@ -120,6 +120,20 @@ export async function writeConfig(
     await writeFile(root, CONFIG_FILE_NAME, serialiseConfig(config));
 }
 
+// Settings writes, one at a time.
+//
+// `updateConfig` reads, merges and writes across two awaits, so two calls can
+// interleave: the second reads the file BEFORE the first has written it, and then
+// writes a merge that never heard of the first patch. Two clicks in the settings
+// panel are enough — nothing there awaits the previous write — and the earlier
+// preference silently goes back to what it was, on disk and in the panel with it.
+//
+// The same shape as `#writing` in the document store, for the same reason: a
+// read-modify-write that can overlap itself is not one. Module-level because
+// there is one working folder, and settings are written rarely enough that
+// queueing them costs nothing.
+let writes: Promise<unknown> = Promise.resolve();
+
 // Read-modify-write a single setting. Preferences are written far less often than
 // document content, so the extra read costs nothing and keeps callers from having
 // to hold a whole Config just to flip the theme.
@@ -132,7 +146,17 @@ export async function updateConfig(
     root: FileSystemDirectoryHandle,
     patch: Partial<Config>
 ): Promise<Config> {
-    const next = { ...(await readConfig(root)), ...patch };
-    await writeConfig(root, next);
-    return next;
+    const run = writes.then(async () => {
+        const next = { ...(await readConfig(root)), ...patch };
+        await writeConfig(root, next);
+        return next;
+    });
+
+    // The queue has to survive a rejection, or one unreadable file leaves every
+    // later setting change stuck behind it for the rest of the session. The
+    // caller still gets the rejection — `run`, not this — so a refused write is
+    // reported exactly as it was.
+    writes = run.catch(() => {});
+
+    return run;
 }
