@@ -55,7 +55,9 @@ the one mistake with no recovery. Helpers (`joinPath`, `parentPath`, `lastSegmen
 three more levels from there when the user opens it. An unbounded walk of somebody's
 whole Documents tree stats every markdown file in it — slow enough to read as broken.
 Dot-entries and `node_modules` are skipped; `config.json` falls out of the `.md`
-filter, and is excluded by name from the `others` count below.
+filter, and is excluded by name from the `others` count below. Each level sorts
+folders first, then documents, alphabetically; `lastModified` is shown per row but
+orders nothing.
 
 A folder whose entire contents is **the one markdown file named after it** is
 **collapsed into its parent**: the walk lifts that document up and emits no folder
@@ -177,6 +179,11 @@ remove the old one. Deleting last is what makes either safe — a failure at any
 point leaves the original intact. The worst case is a duplicate, never a lost
 document. Renaming fires on the title field's `change`/blur — **never** per
 keystroke.
+
+The `ownsFolder` it was handed is a snapshot — the Files screen's from the last scan,
+the editor's from when the document was opened — so rename re-derives it from the
+directory immediately before the recursive remove. Where the claim no longer holds,
+it falls through to the file-document path and renames the markdown file alone.
 
 ### Delete moves into `.trash/`, and still confirms
 
