@@ -15,12 +15,20 @@
 @plugin '@tailwindcss/typography';
 
 :root {
-    /* Light theme — neutral grey, a hair off pure white. A bright #fff page is
-       the single most common complaint from writers with dyslexia and visual
-       stress: the contrast glares and text appears to shimmer, so the page stops
-       just short of it. Otherwise this is shadcn-svelte's neutral palette — every
-       token chroma 0 — with the ramp shifted down ~0.02 so its step sizes still
-       read against a 0.98 page rather than the reference's 1.0 one. */
+    /* Light theme — warm cream paper, never white. The argument for colour here:
+       - The British Dyslexia Association Style Guide (2023): dark text on a
+         light, not white, background — white can be too dazzling; use cream or
+         a soft pastel.
+       - Rello & Bigham, "Good Background Colors for Readers" (ASSETS 2017):
+         341 readers, 89 dyslexic. Warm backgrounds (peach, orange, yellow) gave
+         significantly faster reading than cool ones; grey ranked 7th of 10 for
+         the dyslexic readers — which is what this theme used to be.
+       So every surface carries a faint tint at hue 80, chroma 0.01–0.016: warm
+       paper, not yellow or beige. The ladder is shadcn-svelte's neutral one,
+       shifted down so the brightest surface (the sheet) stops at 0.975 rather
+       than approaching white. The ink leans the same way at chroma ≤ 0.006,
+       which keeps it near-black while stopping it reading cold against cream.
+       `.dark` stays fully achromatic. */
 
     /* The two theme grounds, defined once here and nowhere else.
        `--background` below takes the light one and `.dark` swaps in the other,
@@ -29,26 +37,27 @@
        reason: the dark ground has to be readable while the light theme is the
        one showing. Previously the layout carried hand-converted hex copies of
        these two values, which is one edit away from a mismatched address bar. */
-    --ground-light: oklch(0.98 0 0);
+    --ground-light: oklch(0.965 0.012 80);
     --ground-dark: oklch(0.145 0 0);
 
     --background: var(--ground-light);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(0.99 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(0.99 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.95 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.95 0 0);
+    --foreground: oklch(0.145 0.004 80);
+    --card: oklch(0.975 0.01 80);
+    --card-foreground: oklch(0.145 0.004 80);
+    --popover: oklch(0.975 0.01 80);
+    --popover-foreground: oklch(0.145 0.004 80);
+    --primary: oklch(0.205 0.006 80);
+    --primary-foreground: oklch(0.975 0.01 80);
+    --secondary: oklch(0.935 0.014 80);
+    --secondary-foreground: oklch(0.205 0.006 80);
+    --muted: oklch(0.935 0.014 80);
     /* Darker than the reference's 0.556 for the same reason the ramp is shifted:
-       shadcn pitches this to clear 4.5:1 against a 1.0 page and it lands at 4.46
-       against ours. 0.53 clears it on the page, the sheet and --muted alike. */
-    --muted-foreground: oklch(0.53 0 0);
-    --accent: oklch(0.92 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+       shadcn pitches this to clear 4.5:1 against a 1.0 page, and the cream
+       surfaces sit lower than that. 0.5 clears the page at 5.42, the sheet at
+       5.58, --muted at 4.96 and --accent, the darkest surface, at 4.52. */
+    --muted-foreground: oklch(0.5 0.012 80);
+    --accent: oklch(0.905 0.016 80);
+    --accent-foreground: oklch(0.205 0.006 80);
     /* Not neutralised: the one colour left in either theme is a signal, not
        furniture. A grey delete confirmation says nothing. Darkened a step off
        shadcn's red (0.577/0.245), which is another 4.49 against a 0.98 page.
@@ -56,11 +65,15 @@
        Darkened again, 0.555 -> 0.53, for the destructive *button*: that variant
        paints the same colour on a `bg-destructive/10` wash of itself, and text
        on its own 10% tint is a far tighter test than text on the page. 0.555
-       reached only 4.34 there and Storybook's enforced axe run failed it. 0.53
-       clears the tint at 4.67 and the page at 5.45. */
-    --destructive: oklch(0.53 0.225 27.325);
-    --border: oklch(0.9 0 0);
-    --input: oklch(0.9 0 0);
+       reached only 4.34 there and Storybook's enforced axe run failed it.
+
+       Darkened a third time, 0.53 -> 0.51, when the surfaces went cream: 0.53
+       fell to 4.48 on its tint over a 0.975 popover. 0.51 clears the tint at
+       4.74 over the popover and sheet, 4.61 over the page, and the page itself
+       at 5.53. */
+    --destructive: oklch(0.51 0.225 27.325);
+    --border: oklch(0.885 0.016 80);
+    --input: oklch(0.885 0.016 80);
     --ring: oklch(0.708 0 0);
     --chart-1: oklch(0.708 0 0);
     --chart-2: oklch(0.62 0 0);
@@ -71,11 +84,12 @@
     /* The document sheet in the editor (Page.svelte). The canvas is a shade
        darker than the chrome and the sheet a shade lighter, so the writing sits
        on paper in a shallow well rather than on the app background. The paper is
-       the brightest surface in the app and still not #fff. */
-    --canvas: oklch(0.955 0 0);
-    --sheet: oklch(0.99 0 0);
+       the brightest surface in the app, and still cream at 0.975, never #fff. */
+    --canvas: oklch(0.94 0.014 80);
+    --sheet: oklch(0.975 0.01 80);
     --sheet-shadow:
-        0 1px 2px oklch(0.145 0 0 / 0.05), 0 8px 24px oklch(0.145 0 0 / 0.06);
+        0 1px 2px oklch(0.145 0.004 80 / 0.05),
+        0 8px 24px oklch(0.145 0.004 80 / 0.06);
     /* Max width of the *text* in the editor (Page.svelte) — the sheet is this
        plus its two inner margins. Narrower than a typical app container: a
        shorter line length is easier to track across, which is the whole point of
@@ -94,13 +108,13 @@
        window isn't mostly margin, and stops growing once the page is A4-shaped. The
        cap moves with the measure at each step, so the proportion survives them. */
     --doc-sheet-padding: clamp(2rem, 8vw, 7.3rem);
-    --sidebar: oklch(0.965 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.92 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.9 0 0);
+    --sidebar: oklch(0.95 0.013 80);
+    --sidebar-foreground: oklch(0.145 0.004 80);
+    --sidebar-primary: oklch(0.205 0.006 80);
+    --sidebar-primary-foreground: oklch(0.975 0.01 80);
+    --sidebar-accent: oklch(0.905 0.016 80);
+    --sidebar-accent-foreground: oklch(0.205 0.006 80);
+    --sidebar-border: oklch(0.885 0.016 80);
     --sidebar-ring: oklch(0.708 0 0);
 }
 

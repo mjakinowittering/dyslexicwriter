@@ -82,7 +82,7 @@ is the _how_.
 - **Read aloud** — Web Speech API playback of the selection or whole document, with
   exact sentence highlighting, so the writer can catch by ear what the eye misses
 - **Accessibility as the product** — OpenDyslexic as a first-class font choice, a
-  neutral light theme and a neutral dark theme, generous reading measure
+  warm cream light theme and a neutral dark theme, generous reading measure
 - **Word count + reading time** always visible, never intrusive
 - **Honest browser support** — feature-detect the File System Access API and say plainly
   when a browser can't run the app, rather than degrading into something half-working
@@ -568,11 +568,12 @@ correct answer is that this project has no environment configuration.
   `cubic-bezier` for state-driven motion, never a third-party animation lib; shared
   durations/easing come from `$lib/config/motion.ts`
 - Theme colours are **Tailwind CSS variables in `src/routes/layout.css`** — never
-  hardcode a colour in a component. Both themes are shadcn-svelte's neutral greys:
-  light is near-white but never `#fff`; dark is near-black with near-white ink. Every
-  token is chroma `0` **except `--destructive`**, which stays red on purpose — a grey
-  delete confirmation says nothing. Adding a second chromatic token needs the same
-  argument, in `layout.css`, beside it
+  hardcode a colour in a component. Light is a **warm cream**, never `#fff`: every
+  surface faintly tinted at one hue, with near-black ink leaning the same way, on
+  the dyslexia guidance argued in `layout.css`. Dark is shadcn-svelte's neutral dark,
+  near-black with near-white ink, every token chroma `0`. **`--destructive`** stays
+  red in both on purpose — a grey delete confirmation says nothing. Any other
+  chromatic token needs the same kind of argument, in `layout.css`, beside it
 - Fonts are **self-hosted** — never load a webfont from a CDN. Both come from their
   `@fontsource` packages and are `@import`ed in `layout.css`, so Vite bundles the files
   out of `node_modules` and their licence notices travel with the build. There is no

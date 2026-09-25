@@ -25,7 +25,7 @@ way to work on it, not a place it gets locked up.
   and delete into a `.trash/` folder you can fish things back out of.
 - **Word count and reading time** — always visible in the status bar, never in the way.
 - **Two typefaces** — a standard sans-serif, or OpenDyslexic.
-- **Two themes** — a neutral dark by default, or a neutral light (a hair off stark white).
+- **Two themes** — a neutral dark by default, or a warm cream light (never stark white).
 - **Show the invisibles** — optional dots for spaces and marks for line and paragraph
   ends, for when a stray space is the thing throwing you. They are drawn on screen
   only and never written to the file.
