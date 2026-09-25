@@ -190,7 +190,12 @@
 
             <Dialog.Footer>
                 {#if editing}
-                    <Button onclick={remove} type="button" variant="outline">
+                    <Button
+                        class="sm:me-auto"
+                        onclick={remove}
+                        type="button"
+                        variant="destructive"
+                    >
                         {m.content_link_remove()}
                     </Button>
                 {/if}
