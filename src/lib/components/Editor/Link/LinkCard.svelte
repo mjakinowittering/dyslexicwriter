@@ -60,13 +60,14 @@
             aria-label={m.content_link_card_label({
                 domain: domain || shown.href
             })}
+            class="w-auto max-w-(--bits-floating-available-width) min-w-72"
             customAnchor={shown.anchor}
             onCloseAutoFocus={(event) => event.preventDefault()}
             onOpenAutoFocus={(event) => event.preventDefault()}
             side="bottom"
         >
             <div class="grid gap-1">
-                <p class="font-medium">{shown.text}</p>
+                <p class="font-medium break-words">{shown.text}</p>
                 {#if domain}
                     <p class="text-muted-foreground">{domain}</p>
                 {/if}
