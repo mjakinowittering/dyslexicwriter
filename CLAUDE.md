@@ -167,6 +167,7 @@ levels down, and all of it is theirs to open.
 ```
 <working folder>/            <- chosen once via showDirectoryPicker()
 ├── config.json              <- ALL preferences, and nothing else
+├── .trash/                  <- deleted documents; skipped by the scan
 ├── My Chapter/              <- a folder-document: what the app creates
 │   ├── My Chapter.md        <- the document; markdown is what persists
 │   └── diagram.png          <- images belong to the document that uses them
@@ -185,26 +186,11 @@ which it is:
 | **folder-document** | `X/X.md`, alone in its folder — every document the app creates | moves the whole folder, inside its parent | moves the whole folder into `.trash/` | inside it |
 | **file-document**   | a markdown file sitting among others, at any depth             | renames the file alone                    | moves only the file into `.trash/`    | beside it |
 
-`ownsFolder` is what separates them, and it is **recomputed by every scan**, never
-trusted from the config cache. A folder only qualifies when it holds exactly that one
-markdown file and no subdirectories — both conditions exist for delete, which is
-recursive: a folder with anything else in it must never qualify, or deleting one
-document takes its neighbours with it.
-
-A scan is not recent enough for the two destructive paths. Rename and delete
-**re-derive `ownsFolder` from the directory itself** immediately before the step that
-destroys anything, because the flag they were handed is a snapshot — the Files screen's
-from the last scan, the editor's from when the document was opened — and a subdirectory
-added since would otherwise be removed recursively without ever being copied. Where the
-claim no longer holds, rename falls through to the file-document path and renames the
-markdown file alone; delete refuses outright, because its copy into the trash takes
-files only before the original is removed recursively, and the writer confirmed
-against copy that no longer describes the folder.
-
-The scan walks **three directory levels** below the working folder. A directory the
-cap stops at comes back unloaded and the Files screen shows it closed; expanding it
-scans three more from there. An unbounded walk of somebody's whole Documents tree is
-slow enough to read as broken. Dot-directories and `node_modules` are skipped.
+`ownsFolder` is what separates them: the folder is named after the file and holds
+exactly that one markdown file and no subdirectories. The Files screen shows the folder
+structure as a disclosure tree, three levels deep at a time, with a folder-document
+lifted into its parent as one row. The scan, the collapse and the trash are detailed in
+the **`filesystem-storage`** skill.
 
 ### `config.json`
 
@@ -219,85 +205,9 @@ slow enough to read as broken. Dot-directories and `node_modules` are skipped.
 }
 ```
 
-**Preferences only.** There is no document index here. The folder on disk is the only
-source for that list: `scanFolder` walks it into the workspace store on load, every
-screen renders from that `$state`, and it is scanned again rather than remembered. A
-copy in `config.json` would be written after every autosave and read by nobody. Older
-files still carrying a `documents` key parse fine — it is ignored, and dropped when the
-folder is next adopted.
-
-Validated with Valibot on read, **key by key**: a hand-edited mistake in one setting
-costs the user that setting alone, not every other preference they have chosen. A
-corrupt or unreadable file falls back to defaults rather than crashing the app.
-
-**Adopting a folder brings its `config.json` up to date.** The merged result is
-written back whenever the file has fallen behind what this version writes — a
-preference added since it was last saved, a value that failed validation, a legacy
-key now dropped — so a setting the app has learned about appears in the file the
-user hand-edits rather than living only in memory. A folder with no settings file
-gets one. Two files are never rewritten: one that could not be **parsed**, because
-that is a hand-edit caught mid-mistake and there is no trash behind it, and one that
-could not be **read**, because writing over settings we never saw is exactly what
-`readConfig`'s throw exists to prevent. The write is best-effort — the config is
-already correct in memory, so a failure to tidy the file is not put in front of a
-writer.
-
-The first-run value of every preference lives in `src/lib/config/defaults.json` —
-`theme`, `font`, `showInvisibles`, `tts` and `prettier` only. `version` is structural rather than
-configurable, so the code owns it. `defaults.json` is a checked-in seed, never
-written to at runtime; it is validated through the same schemas and falls back to
-in-code constants when malformed.
-
-### Key rules
-
-- **The filesystem is the source of truth.** `contentJson` is a working copy that exists
-  only while a document is open. Nothing else caches document content — not IndexedDB,
-  not `localStorage`, not `sessionStorage`.
-- **The Files screen shows the folder structure**, not a flat list — a disclosure tree
-  of the directories the scan reached. Sorting is folders first then documents,
-  alphabetical; `lastModified` is shown per row but no longer orders anything.
-- **A folder holding nothing but the document named after it is shown as that
-  document.** The scan lifts it into the parent rather than emitting a folder row you
-  must open to find the single file repeating its name — `My Chapter/My Chapter.md` is
-  one row, not two. The name check is the whole of it: `Drafts/Chapter One.md` keeps
-  its `Drafts` row, and so does every level of `Book/Chapters/One.md`, because the tree
-  has to match the folder on disk. The folder is untouched on disk and the entry's
-  `folder` still points inside it, so rename, delete and images are unaffected. An
-  unloaded folder is never collapsed: nothing is known about what else is in it.
-- **Every other folder the scan reached keeps its row** — including an empty one,
-  which is very often one the writer has just made to file writing into, and one
-  holding nothing this app can open, which is theirs either way. The second says so
-  rather than claiming to be empty.
-- **A new document from the editor is in-memory only** until its first save. It starts
-  as `Untitled`, incrementing to `Untitled 2`, `Untitled 3`… when a folder of that name
-  already exists. Nothing is written to disk until there is something to write.
-- **First save creates the folder, then the file inside it** — `My Chapter/My Chapter.md`,
-  a top-level folder-document. A document created from a folder row on the Files screen
-  differs only in when: it is named before it is made and written straight away, as
-  `<folder>/<Title>/<Title>.md` inside the folder chosen for it. Same shape, same
-  ordering, one level down. **Every document the app creates owns its folder** — images
-  belong to the document that uses them, and only a folder of its own can hold them.
-  Flat markdown files are what the scan _finds_ in a writer's tree, never what the app
-  adds to it.
-- **Rename is folder first, then the file inside it**, so a failure halfway through can
-  never leave a folder and file whose names disagree. A file-document renames only its
-  file — its folder and any images beside it belong to the user, not to that document.
-  Renaming is triggered on the title field's `change`/blur, debounced — **never** on
-  every keystroke.
-- **Images are written into the document's own directory** and referenced by relative
-  path. Never base64, never a shared top-level images folder — a document folder must
-  stay self-contained and portable as a unit. For a file-document that directory is the
-  user's own folder, so the image lands beside the markdown that references it.
-- **IndexedDB stores exactly one thing**: the `FileSystemDirectoryHandle`. It goes there
-  because a handle is structured-cloneable but not string-serializable, so
-  `localStorage` genuinely cannot hold it. Nothing else may be added to that store.
-- **Every persisted preference lives in `config.json`** — no exceptions. If a new setting
-  appears, it goes there too. Never reach for `localStorage`, IndexedDB or a URL param
-  to remember a preference.
-- **The document list is scanned, never cached.** It lives in the workspace store's
-  `$state` for as long as the app is open and nowhere else — not in `config.json`, not
-  anywhere on disk. The Files screen rescans on mount and on window focus, because the
-  File System Access API has no way to tell us a file changed.
+**Preferences only** — the document list is scanned, never stored here. Parsed key by
+key so one bad hand-edit costs only that setting, and brought up to date on adopt.
+The parse is in **`models-validation`**; the adopt rewrite in **`filesystem-storage`**.
 
 ---
 
@@ -314,76 +224,11 @@ in-code constants when malformed.
 
 ---
 
-## Svelte 5 Conventions
+## Svelte 5
 
-Always use Svelte 5 runes. Never use Svelte 4 legacy syntax.
-
-### State
-
-```svelte
-<!-- ✅ -->
-let count = $state(0)
-
-<!-- ❌ -->
-let count = writable(0)
-```
-
-### Derived
-
-```svelte
-<!-- ✅ -->
-let doubled = $derived(count * 2)
-
-<!-- ❌ -->
-$: doubled = count * 2
-```
-
-### Effects
-
-```svelte
-<!-- ✅ -->
-$effect(() => {console.log(count)})
-
-<!-- ❌ -->
-$: console.log(count)
-```
-
-### Props
-
-```svelte
-<!-- ✅ -->
-<script lang="ts">
-    let { title, onSave }: { title: string; onSave: () => void } = $props();
-</script>
-
-<!-- ❌ -->
-export let title: string
-```
-
-### Event handlers
-
-```svelte
-<!-- ✅ -->
-<button onclick={handleClick}>Save</button>
-
-<!-- ❌ -->
-<button on:click={handleClick}>Save</button>
-```
-
-### Async/await in templates
-
-Svelte 5 experimental async is enabled. Use `await` directly in component templates.
-Wrap in `<svelte:boundary>` for loading and error states:
-
-```svelte
-<svelte:boundary>
-    {#snippet failed(error)}
-        <p>Failed to load: {error.message}</p>
-    {/snippet}
-
-    <p>{(await readConfig()).font}</p>
-</svelte:boundary>
-```
+Runes only (`$state`, `$derived`, `$effect`, `$props`, `onclick`) — never Svelte 4
+syntax (`writable`, `$:`, `export let`, `on:click`). Experimental async is enabled:
+`await` directly in templates, inside a `<svelte:boundary>` with a `failed` snippet.
 
 > **Svelte MCP server** — use it whenever writing or reviewing Svelte code:
 > `list-sections` to discover docs, `get-documentation` to fetch relevant ones, and
@@ -392,83 +237,12 @@ Wrap in `<svelte:boundary>` for loading and error states:
 
 ---
 
-## Copy — Paraglide-js
-
-All UI strings go through Paraglide. Never hardcode English strings in components — the
-value here is not translation (the app ships **English only**) but keeping copy out of
-the markup, in one place, editable without touching components.
-
-```svelte
-<script lang="ts">
-    import * as m from '$lib/paraglide/messages';
-</script>
-
-<button>{m.document_save()}</button>
-```
-
-Messages live in `messages/en.json`. English is the only locale (`locales: ["en"]` in
-`project.inlang/settings.json`); there is no locale switcher and no `fr.json`. After
-adding message keys, recompile before type-checking:
-`npx paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide`.
-
-Keep copy short, calm and non-technical. The user is a writer, not an operator: say
-"Couldn't save — check the folder is still available", not "EIO: write failed".
-
----
-
-## Storage & Safety
-
-These are **durability** concerns. The app holds the only copy of the user's work while
-a document is open, so the failure modes that matter are all about losing writing.
-
-- **Autosave is debounced, and flushed on every exit path.** A debounce alone is not
-  enough — flush on blur, on `pagehide`, on `visibilitychange`, and on component
-  destroy, so closing a tab mid-sentence cannot drop the last edit.
-- **Never write a partially-derived document.** Derive the markdown first, then open the
-  writable and write; if derivation throws, leave the existing file untouched. Tidying
-  the markdown with Prettier is part of deriving it, so that finishes first too.
-- **Formatting must never fail a save.** The formatter runs in a worker and every
-  failure path — no `Worker`, a worker that will not construct, a clone that will not
-  cross the port, a Prettier throw — resolves with the _unformatted_ markdown rather
-  than rejecting. The autosave retry has no give-up ceiling, so a formatter that could
-  fail a save would loop forever on a document that never reaches disk. A tidier file
-  is not worth an unsaved one, and the two exit paths that cannot wait for a worker
-  (`pagehide`, `visibilitychange`) skip formatting outright.
-- **Permission can be revoked at any time.** Every filesystem call must handle a
-  rejected or stale handle by surfacing a re-pick prompt, never by silently failing or
-  discarding the in-memory document.
-- **Delete moves to `.trash/`, and still confirms first.** The File System Access API
-  cannot reach the OS recycle bin — `removeEntry` is final — so a deleted document is
-  moved into a `.trash/` folder at the root of the working folder, which the scan
-  skips because it is a dot-directory. It leaves the writer's list either way, so
-  confirm before it happens and say what will be moved. Emptying the trash is the
-  writer's job in their file manager; an empty folder is still removed outright.
-- **Validate everything read from disk.** `config.json` is user-editable and may be
-  hand-edited, corrupt, or from a future version. Parse it through a Valibot schema and
-  fall back to defaults; never trust its shape.
-- **Treat file and folder names as untrusted.** Titles become path segments — reject or
-  sanitise path separators, leading dots, reserved names and over-long names before they
-  reach the filesystem.
-- **Never render document content as raw HTML.** It goes through TipTap's sanitised
-  render path. No `{@html}` on anything derived from a document or a filename.
-- **Fail loudly to the user, quietly to the console.** A failed save must be visible in
-  the UI — a silent failure is how writing gets lost.
-
----
-
 ## Environment Variables
 
-None that the app reads. It is entirely local and needs no configuration to run.
-
-The one environment variable in the repo is **`BASE_PATH`**, read by
-`svelte.config.js` to set `kit.paths.base` and supplied by the deploy workflow from
-`actions/configure-pages`. That is build tooling, not app configuration: it never
-reaches `$env`, and unset — dev, `vite preview`, Storybook — it falls back to serving
-from the root.
-
-If a flag the app itself reads is ever genuinely needed it goes through
-`$env/static/public` and must be documented in `.env.example` — but the default and
-correct answer is that this project has no environment configuration.
+None that the app reads. The only one in the repo is **`BASE_PATH`**, build tooling
+read by `svelte.config.js` to set `kit.paths.base`, supplied by the deploy workflow
+and unset everywhere else. A flag the app itself genuinely needs goes through
+`$env/static/public` and `.env.example` — but the default answer is none.
 
 ---
 
@@ -489,29 +263,21 @@ correct answer is that this project has no environment configuration.
   giving its first-run value, and a new setting adds **both in the same commit** — the
   pairing `toMarkdown`/`fromMarkdown` already follows. `defaults.json` holds preferences
   only; `version` is structural and stays owned by the code
-- Renames establish the **new name first** and remove the **old one last**, whichever
-  kind of document it is — Chromium's `move()` is not reliable for directories, and
-  deleting last means a failure leaves a duplicate, never a loss. A folder-document
-  copies its whole folder inside its own parent, the markdown file taking the new
-  name; a file-document copies just the file. Triggered on `change`/blur — never per
-  keystroke
+- Renames establish the **new name first** and remove the **old one last** — a failure
+  leaves a duplicate, never a loss. Triggered on `change`/blur — never per keystroke
 - Images are written into **their own document's directory** and referenced by
   relative path — never base64, never a shared images folder
 - Paths are `/`-joined and relative to the working folder, `''` being the working
   folder itself. `sanitiseTitle` owns each **segment** as it is created; a path is
   never parsed out of user input, and the resolver refuses `.` and `..` regardless
-- `ownsFolder` is **recomputed by every scan** — it decides whether delete removes a
-  folder recursively or a single file — and **re-derived from the directory again**
-  immediately before rename's or delete's destructive step, because the flag they were
-  handed is a snapshot and a subdirectory added since would be destroyed unread. Where
-  it no longer holds, rename renames the markdown file alone and delete refuses
+- `ownsFolder` is **recomputed by every scan**, never remembered, and **re-derived from
+  the directory** immediately before rename's or delete's destructive step. Where it no
+  longer holds, rename renames the markdown file alone and delete refuses
 - **Every document the app creates is a folder-document.** From the editor it stays
-  **in memory until first save**, named `Untitled`, `Untitled 2`, … by probing for an
-  existing folder of that name, and lands at the top level. One created from a folder
-  row on the Files screen is named first and written immediately, as
-  `<folder>/<Title>/<Title>.md` inside that folder — so its images stay its own. Either
-  way the name is refused **before** the write, against a **file and a directory** of
-  that name both, never worked around afterwards
+  **in memory until first save**, as `Untitled`, `Untitled 2`, …, landing at the top
+  level; from a Files screen folder row it is named first and written at once, as
+  `<folder>/<Title>/<Title>.md`. A clashing name is refused **before** the write,
+  never worked around afterwards
 - A constant, type or function with a home already **is imported from it**, never
   retyped. The empty document shape (`emptyDocument()`), `UNTITLED`, the TTS rate
   bounds, the theme grounds in `layout.css`, a format control's `value` — each has
@@ -526,7 +292,10 @@ correct answer is that this project has no environment configuration.
   `joinFrontmatter` — the body only, so Prettier's YAML printer never touches the
   frontmatter fence. `writeDocument` receives the formatter as a parameter; `fs/` must
   stay free of any Prettier or worker import. A rename copies bytes and never
-  reformats: a file the writer did not edit is not this feature's business
+  reformats
+- **Never write a partially-derived document** — derive and format the markdown fully
+  before opening the writable, which truncates. Formatting must **never fail a save**:
+  every formatter failure resolves with the unformatted markdown
 - Formatting changes the bytes on purpose but must never change the **document** —
   hard wrapping is covered by round-trip tests that pin the hazard of a `1.`, `-`, `#`,
   `>` or `+` landing at a line start
@@ -545,22 +314,26 @@ correct answer is that this project has no environment configuration.
   rather than letting a non-Chromium browser fail deeper in
 - Autosave debounces, but **always flush** on blur, `pagehide`, `visibilitychange` and
   destroy — a dropped last edit is the worst bug this app can have
+- Permission can be revoked at any time: a rejected or stale handle surfaces a
+  re-pick prompt, never a silent failure or a discarded in-memory document
+- **Fail loudly to the user** — a failed save is always visible in the UI
 - Confirm before any destructive filesystem operation — a delete included, even though
   it only moves the document into `.trash/`
-- **Delete is a move into `.trash/`**, never a `removeEntry` of the document itself,
-  from the Files screen and the editor alike. It keeps rename's ordering — copy into
-  the trash first, remove the original last — and a timestamped name, so trashing
-  one title twice never overwrites the earlier copy. Only an empty folder is removed
-  outright, because there is nothing in it to recover
+- **Delete is a move into `.trash/`**, never a `removeEntry` of the document itself —
+  copy in first, remove the original last, under a timestamped name. Only an empty
+  folder is removed outright
 - Validate anything read from disk with a schema from `src/lib/models/` — `config.json`
   is user-editable and must never be trusted by shape
 - Sanitise titles before they become path segments (separators, dots, reserved names,
   length)
+- Never render document content or a filename as raw HTML — no `{@html}`
 - No `any` — ever
 - No `console.log` in committed code, except `console.error` for genuine,
   otherwise-invisible failures
 - All UI copy goes through Paraglide (`m.*`) — never hardcode a string in a component,
-  including error text. English is the only locale; recompile after adding keys
+  including error text. English is the only locale; recompile after adding keys.
+  Copy is short, calm and non-technical: "Couldn't save — check the folder is still
+  available", never "EIO: write failed"
 - shadcn-svelte for all UI components — do not hand-roll form inputs or buttons; add
   them via `npx shadcn-svelte@latest add <name> --yes` (writes into `src/lib/components/ui/`)
 - All animation uses **native Svelte** (`svelte/transition` / `svelte/animate` /
