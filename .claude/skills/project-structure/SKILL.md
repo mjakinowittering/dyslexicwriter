@@ -151,8 +151,8 @@ The **font** preference never reaches `<html>`. It rides on the editor's `font`
 prop (passed from `/edit`) and applies the `.reading-font` class to the document
 surface alone, so OpenDyslexic dresses the writing and not the app chrome.
 
-`routes/layout.css` holds every colour token (neutral greys throughout — a
-near-white `:root`, a near-black `.dark`), the font tokens, and the self-hosted
+`routes/layout.css` holds every colour token (a warm cream
+`:root`, a neutral near-black `.dark`), the font tokens, and the self-hosted
 `@font-face` imports. **Never hardcode a colour in a component**, including in
 script: `--ground-light` / `--ground-dark` sit on `:root` unconditionally so the
 root layout can _read_ the two theme grounds for mode-watcher's `themeColors`
