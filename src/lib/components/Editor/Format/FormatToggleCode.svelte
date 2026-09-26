@@ -4,17 +4,13 @@
     import { formatToggles } from './definitions';
     import FormatToggleControl from './FormatToggleControl.svelte';
 
-    // Blockquote.
+    // Inline code.
     // Everything about it — icon, label, shortcut, command — is the
-    // `blockquote` row of `definitions.ts`.
+    // `code` row of `definitions.ts`.
     let {
         disabled,
         editor
     }: { disabled: boolean; editor: Editor | undefined } = $props();
 </script>
 
-<FormatToggleControl
-    definition={formatToggles.blockquote}
-    {disabled}
-    {editor}
-/>
+<FormatToggleControl definition={formatToggles.code} {disabled} {editor} />

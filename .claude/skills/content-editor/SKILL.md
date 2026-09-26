@@ -15,8 +15,22 @@ lost the next time the file is opened.
 The editor is deliberately minimal, and that is a product constraint rather than a
 gap. The writer sees their prose, a placeholder, and a quiet word count.
 
-The toolbar is **capped**: undo/redo, headings, bold, italic, bullet/ordered/task
-list, blockquote, horizontal rule, table, image, link. That is the whole list.
+The toolbar is **capped**: undo/redo, headings, bold, italic, inline code,
+bullet/ordered/task list, blockquote, code block, horizontal rule, table, image,
+link, and the invisible-characters toggle. That is the whole list.
+
+Inline code and code block are on it because StarterKit already had both and the
+markdown already round-trips them; the ¶ toggle because it is the Settings panel's
+`showInvisibles` switch, moved to where the writer is working — one preference, two
+switches, never a second setting.
+
+The row is **collapsed at every width**, so it never changes shape: undo/redo, a
+Text style menu (Text, H1–H4), bold/italic/code, a Lists menu, a Blocks menu, an
+Insert menu, then ¶ — and, right-aligned, the Read aloud button. Those dropdowns
+are allowed because they **group** capped controls — they add no formatting, only
+a place to put it — so they are not the bubble or slash menus ruled out below.
+Nor is the read-aloud bar that button opens over the canvas: it holds only the
+transport (see `[[content-tts]]`).
 
 Undo and redo are on it because they surface a keymap the writer already has
 (`Mod+Z`, `Shift+Mod+Z`) rather than adding a capability — the same reasoning
@@ -31,9 +45,18 @@ Every stateful control on that row is a row in
 `Editor/Format/definitions.ts` — icon, label, hint, shortcut, the `value` it
 reports itself under, and the TipTap command. `getFormattingActive()` derives
 from the same table, so a control's pressed key and the question asked of the
-editor cannot disagree; the named components (`Format.Bold`, …) are thin wrappers
-that pick one row. Undo, redo and the three inserts are not in it — they have no
-on/off state to report.
+editor cannot disagree. `doc.formatting` is that list: the bold/italic/code toggle
+group binds to it, and the menus (`formatMenus` in the same file) read their state
+from it — no second source. `Format.Bold`, `Format.Italic` and `Format.Code` are
+thin wrappers that pick one row; the menus render theirs through `FormatMenu`.
+Buttons and menu items share one set of commands, in `Format/commands.ts`. Undo,
+redo, the horizontal rule and the three inserts are not in the table — they have
+no on/off state to report.
+
+A menu never steals the selection: every command runs `.focus()` on the editor,
+which puts the caret back where ProseMirror kept it, before the menu closes — and
+bits-ui returns focus to the trigger only when nothing else has taken it (Escape).
+`FormatToolbar.svelte.test.ts` pins both, and the link dialog keeping its focus.
 
 ## Links
 

@@ -1,13 +1,13 @@
 <script lang="ts" module>
     import { defineMeta } from '@storybook/addon-svelte-csf';
-    import { expect, fn } from 'storybook/test';
+    import { expect } from 'storybook/test';
 
     import Format from '$lib/components/Editor/Format/Format.svelte';
     import FormatGroup from '$lib/components/Editor/Format/FormatGroup.svelte';
-    import FormatInsertImage from '$lib/components/Editor/Format/FormatInsertImage.svelte';
-    import FormatInsertTable from '$lib/components/Editor/Format/FormatInsertTable.svelte';
+    import FormatRedo from '$lib/components/Editor/Format/FormatRedo.svelte';
     import FormatToggleBold from '$lib/components/Editor/Format/FormatToggleBold.svelte';
     import FormatToggleItalic from '$lib/components/Editor/Format/FormatToggleItalic.svelte';
+    import FormatUndo from '$lib/components/Editor/Format/FormatUndo.svelte';
 
     import * as m from '$lib/paraglide/messages';
 
@@ -27,7 +27,7 @@
             docs: {
                 description: {
                     component:
-                        'Groups related toolbar controls. With `formatting` it is a multi-select `ToggleGroup.Root` binding its pressed values, so toggles (e.g. bold/italic) reflect the current selection; without it the group renders insert actions as plain buttons in a `ButtonGroup.Root`. Anything built on `FormatToggle` needs the toggle-group form — a `ToggleGroup.Item` with no root above it throws.'
+                        'Groups related toolbar controls. With `formatting` it is a multi-select `ToggleGroup.Root` binding its pressed values, so toggles (e.g. bold/italic) reflect the current selection; without it the group renders one-shot actions (undo, redo) as plain buttons in a `ButtonGroup.Root`. Anything built on `FormatToggle` needs the toggle-group form — a `ToggleGroup.Item` with no root above it throws.'
                 }
             }
         }
@@ -94,16 +94,13 @@
     {/snippet}
 </Story>
 
-<!-- No `formatting`, so the group renders insert actions as plain buttons. Only
-     controls built on `FormatInsert` belong here — `FormatInsertHorizontalRule` is
-     a toggle underneath, and would find no ToggleGroup root to register with. -->
+<!-- No `formatting`, so the group renders one-shot actions as plain buttons.
+     Only controls built on `FormatInsert` belong here — a toggle would find no
+     ToggleGroup root to register with. -->
 <Story
-    name="Insert Actions"
+    name="Plain Actions"
     play={async ({ canvas }) => {
-        for (const name of [
-            m.content_format_table(),
-            m.content_format_image()
-        ]) {
+        for (const name of [m.content_format_undo(), m.content_format_redo()]) {
             const button = canvas.getByRole('button', { name });
             await expect(button).toBeEnabled();
             // Plain buttons: no pressed state to report at all.
@@ -117,12 +114,8 @@
         >
             <Format>
                 <FormatGroup>
-                    <FormatInsertTable disabled={false} editor={undefined} />
-                    <FormatInsertImage
-                        disabled={false}
-                        editor={undefined}
-                        onPick={fn(async () => null)}
-                    />
+                    <FormatUndo disabled={false} editor={undefined} />
+                    <FormatRedo disabled={false} editor={undefined} />
                 </FormatGroup>
             </Format>
         </div>

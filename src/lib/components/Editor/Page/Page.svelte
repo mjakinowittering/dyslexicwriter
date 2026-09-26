@@ -21,6 +21,7 @@
         narrow = false,
         reading = false,
         onBackToTop,
+        controls,
         children
     }: {
         narrow?: boolean;
@@ -28,6 +29,10 @@
         // Called before the canvas glides home, so the page can end the read — a
         // read that carried on would simply scroll back to the spoken sentence.
         onBackToTop?: () => void;
+        // Floats in the canvas's top-right corner while it is given — the
+        // read-aloud bar. The canvas only places it; whether it shows, and what
+        // it holds, is the page's business.
+        controls?: Snippet;
         children: Snippet;
     } = $props();
 
@@ -101,8 +106,9 @@
      document never puts a scrollbar on screen, and grows from there as one
      continuous page — the page is never cut into pages.
 
-     The positioning wrapper is what lets the back-to-top button sit against the
-     canvas's own box: inside the canvas it would scroll away with the content. -->
+     The positioning wrapper is what lets the back-to-top button and the
+     `controls` sit against the canvas's own box: inside the canvas they would
+     scroll away with the content. Here the page scrolls under them. -->
 <div class="relative flex min-h-0 w-full flex-1 flex-col">
     <div
         bind:this={canvas}
@@ -119,6 +125,21 @@
             </div>
         </div>
     </div>
+
+    {#if controls}
+        <!-- The mirror of back-to-top: the same side margins, set against the
+             canvas's top edge, and flying in from above rather than below. -->
+        <div
+            class="absolute top-4 right-6 sm:right-9"
+            transition:fly={{
+                y: -8,
+                duration: prefersReducedMotion.current ? 0 : disclosureDuration,
+                easing: motionEasing
+            }}
+        >
+            {@render controls()}
+        </div>
+    {/if}
 
     {#if showBackToTop}
         <!-- Half again as much room on the right as below: the canvas's scrollbar

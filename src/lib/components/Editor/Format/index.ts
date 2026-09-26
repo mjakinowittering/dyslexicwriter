@@ -1,28 +1,28 @@
-import type { ChainedCommands, Editor } from '@tiptap/core';
+import type { Editor } from '@tiptap/core';
 
-import { allFormatToggles, HEADING_LEVELS } from './definitions';
+import { allFormatToggles } from './definitions';
 import Root from './Format.svelte';
+import Blocks from './FormatBlocks.svelte';
 import Group from './FormatGroup.svelte';
 import Insert from './FormatInsert.svelte';
-import HorizontalRule from './FormatInsertHorizontalRule.svelte';
-import InsertImage from './FormatInsertImage.svelte';
-import InsertLink from './FormatInsertLink.svelte';
-import InsertTable from './FormatInsertTable.svelte';
+import InsertMenu from './FormatInsertMenu.svelte';
+import Invisibles from './FormatInvisibles.svelte';
+import Lists from './FormatLists.svelte';
+import Menu from './FormatMenu.svelte';
+import MenuItem from './FormatMenuItem.svelte';
 import Redo from './FormatRedo.svelte';
+import TextStyle from './FormatTextStyle.svelte';
 import Toggle from './FormatToggle.svelte';
-import Blockquote from './FormatToggleBlockquote.svelte';
 import Bold from './FormatToggleBold.svelte';
-import BulletList from './FormatToggleBulletList.svelte';
-import Heading from './FormatToggleHeading.svelte';
+import Code from './FormatToggleCode.svelte';
 import Italic from './FormatToggleItalic.svelte';
-import OrderedList from './FormatToggleOrderedList.svelte';
-import TaskList from './FormatToggleTaskList.svelte';
 import Undo from './FormatUndo.svelte';
 
-// Which controls are currently on, as the group's pressed keys.
+// Which controls are currently on, as the group's pressed keys — and the list
+// the menus read their state from.
 //
-// Derived from the same table the buttons render from, so this can never ask
-// about a name no button uses — which is exactly what it used to do, with its
+// Derived from the same table the controls render from, so this can never ask
+// about a name no control uses — which is exactly what it used to do, with its
 // own hand-written list of five strings plus a heading-level lookup.
 const getFormattingActive = (editor: Editor | undefined): string[] => {
     if (!editor) return [];
@@ -32,66 +32,22 @@ const getFormattingActive = (editor: Editor | undefined): string[] => {
         .map((definition) => definition.value);
 };
 
-const getWordBoundary = (
-    editor: Editor
-): { from: number; to: number; word: string } | null => {
-    const { state } = editor;
-    const { selection } = state;
-    const currentPos = selection.from;
-    const resolvedPos = state.doc.resolve(currentPos);
-    const textBefore = resolvedPos.parent.textContent.slice(
-        0,
-        resolvedPos.parentOffset
-    );
-    const textAfter = resolvedPos.parent.textContent.slice(
-        resolvedPos.parentOffset
-    );
-    const wordBefore = textBefore.match(/\w*$/)?.[0] || '';
-    const wordAfter = textAfter.match(/^\w*/)?.[0] || '';
-    const from = currentPos - wordBefore.length;
-    const to = currentPos + wordAfter.length;
-    const word = wordBefore + wordAfter;
-
-    if (!word) return null;
-
-    return { from, to, word };
-};
-
-const toggleWithWordBoundary = (
-    editor: Editor,
-    toggle: (chain: ChainedCommands) => ChainedCommands
-): void => {
-    const prevPos = editor.state.selection;
-    const boundaries = getWordBoundary(editor);
-    if (!boundaries) return;
-
-    const from = prevPos.from === prevPos.to ? boundaries.from : prevPos.from;
-    const to = prevPos.from === prevPos.to ? boundaries.to : prevPos.to;
-
-    toggle(editor.chain().focus().setTextSelection({ from, to })).run();
-    editor.commands.setTextSelection({ from: prevPos.from, to: prevPos.to });
-};
-
 export {
-    Blockquote,
+    Blocks,
     Bold,
-    BulletList,
+    Code,
     getFormattingActive,
-    getWordBoundary,
     Group,
-    Heading,
-    HEADING_LEVELS,
-    HorizontalRule,
     Insert,
-    InsertImage,
-    InsertLink,
-    InsertTable,
+    InsertMenu,
+    Invisibles,
     Italic,
-    OrderedList,
+    Lists,
+    Menu,
+    MenuItem,
     Redo,
     Root,
-    TaskList,
+    TextStyle,
     Toggle,
-    toggleWithWordBoundary,
     Undo
 };

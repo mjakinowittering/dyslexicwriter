@@ -9,21 +9,26 @@
 
     import ToolbarTransportButton from './ToolbarTransportButton.svelte';
 
-    // `pause()` leaves isPlaying true, so this stays enabled while paused — which
-    // is the whole point: it's the only way out of a paused read.
+    // Stop leaves the page where it is, deliberately: the writer carries on from
+    // the last thing they heard.
     //
-    // `controller` defaults to the app's one controller — it is a prop only so a
-    // story or a test can drive the button from a chosen playback state. The same
-    // is true of the other three transport buttons.
-    let { controller = speech }: { controller?: TtsTransport } = $props();
+    // With `onStop` it also puts the read-aloud bar away, so it stays live when
+    // nothing is playing — it is the way to dismiss a bar opened by mistake.
+    let {
+        onStop,
+        controller = speech
+    }: { onStop?: () => void; controller?: TtsTransport } = $props();
 </script>
 
 <ToolbarTransportButton
     label={m.content_tts_stop()}
     hint={m.content_tts_stop_hint()}
     value="stop"
-    disabled={!controller.isPlaying}
-    onClick={() => controller.stop()}
+    disabled={!onStop && !controller.isPlaying}
+    onClick={() => {
+        controller.stop();
+        onStop?.();
+    }}
 >
     <Icon icon={StopIcon} />
 </ToolbarTransportButton>
