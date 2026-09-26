@@ -1,7 +1,11 @@
 <script lang="ts" module>
+    import { makeEditor } from '../../support/editor';
+    import { FAKE_VOICES, makeTts } from '../../support/fakes.svelte';
     import { defineMeta } from '@storybook/addon-svelte-csf';
+    import { expect, fn } from 'storybook/test';
 
     import Page from '$lib/components/Editor/Page/Page.svelte';
+    import ToolbarTts from '$lib/components/Editor/Toolbar/ToolbarTts.svelte';
 
     import * as m from '$lib/paraglide/messages';
 
@@ -13,6 +17,7 @@
             narrow: { control: 'boolean' },
             reading: { control: 'boolean' },
             children: { control: false },
+            controls: { control: false },
             onBackToTop: { control: false }
         },
         parameters: {
@@ -20,11 +25,17 @@
             docs: {
                 description: {
                     component:
-                        'The document sheet — a page with Google Docs-like margins (its own background, border, shadow) on a recessed canvas, running edge-to-edge below `sm`. It takes exactly the height the window leaves, so a short document never scrolls, then grows as one continuous page rather than breaking into pages. `narrow` mirrors the settings panel state: when set, the sheet tweens to a slightly tighter measure via a native `Tween` (persistent element, so no `transition:`).'
+                        'The document sheet — a page with Google Docs-like margins (its own background, border, shadow) on a recessed canvas, running edge-to-edge below `sm`. It takes exactly the height the window leaves, so a short document never scrolls, then grows as one continuous page rather than breaking into pages. `narrow` mirrors the settings panel state: when set, the sheet tweens to a slightly tighter measure via a native `Tween` (persistent element, so no `transition:`). `controls` floats in the canvas’s top-right corner — the read-aloud bar — and stays there while the page scrolls under it.'
                 }
             }
         }
     });
+</script>
+
+<script lang="ts">
+    const reading = makeTts({ isPlaying: true, voices: FAKE_VOICES });
+    const editor = makeEditor();
+    $effect(() => () => editor.destroy());
 </script>
 
 <!-- The canvas scrolls once the sheet overflows it, so something inside has to be
@@ -109,3 +120,41 @@
         </div>
     {/snippet}
 </Story>
+
+<!-- The read-aloud bar, pinned to the canvas's top-right corner over a page
+     long enough to scroll under it. -->
+<Story
+    name="With Read Aloud Bar"
+    args={{ narrow: false, reading: true }}
+    play={async ({ canvas }) => {
+        await expect(
+            canvas.getByRole('toolbar', { name: m.content_tts_bar_label() })
+        ).toBeInTheDocument();
+    }}
+>
+    {#snippet template({ children, ...args })}
+        <div class="flex h-screen w-full">
+            <Page {...args} controls={bar}>
+                <div
+                    aria-label={m.content_editor_label()}
+                    class="prose dark:prose-invert"
+                    contenteditable="true"
+                    role="textbox"
+                    tabindex="0"
+                >
+                    <h1>Document title</h1>
+                    {#each { length: 12 } as _, i (i)}
+                        <p>
+                            The bar stays in the corner while the page scrolls
+                            under it, so the transport is always to hand.
+                        </p>
+                    {/each}
+                </div>
+            </Page>
+        </div>
+    {/snippet}
+</Story>
+
+{#snippet bar()}
+    <ToolbarTts controller={reading} {editor} onClose={fn()} persist={fn()} />
+{/snippet}

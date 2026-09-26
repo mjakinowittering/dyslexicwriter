@@ -78,7 +78,8 @@ is the _how_.
 - **A lossless-enough markdown round-trip** — TipTap `JSONContent` is the editing model;
   markdown is what lands on disk and what is parsed back on open
 - **Distraction-free editing** — a deliberately capped toolbar: headings, bold/italic,
-  lists, checklists, blockquote, horizontal rule, tables, images, links. Nothing more.
+  inline code, lists, checklists, blockquote, code block, horizontal rule, tables,
+  images, links, and the invisible-characters toggle. Nothing more.
 - **Read aloud** — Web Speech API playback of the selection or whole document, with
   exact sentence highlighting, so the writer can catch by ear what the eye misses
 - **Accessibility as the product** — OpenDyslexic as a first-class font choice, a
@@ -301,12 +302,15 @@ and unset everywhere else. A flag the app itself genuinely needs goes through
   hard wrapping is covered by round-trip tests that pin the hazard of a `1.`, `-`, `#`,
   `>` or `+` landing at a line start
 - The toolbar is **capped by product decision**: undo/redo, headings, bold, italic,
-  bullet/ordered/task list, blockquote, horizontal rule, table, image, link. No
-  font-family or font-size pickers, no colour pickers, no alignment controls, no
-  bubble/slash menus. The link card shown when a link is clicked is not a bubble menu —
+  inline code, bullet/ordered/task list, blockquote, code block, horizontal rule,
+  table, image, link, and the invisible-characters toggle. No font-family or font-size
+  pickers, no colour pickers, no alignment controls, no bubble/slash menus. Dropdown
+  menus that group capped controls are allowed — they add no formatting, only a place
+  to put it. The link card shown when a link is clicked is not a bubble menu —
   it holds no formatting, only where the link goes, Edit and Open. Nor is the title row's
   folder button and its "Saved in" card: they show where the document is saved, with
-  Show in Files, and format nothing. Default to "no"; when in doubt remove UI rather
+  Show in Files, and format nothing. Nor is the read-aloud bar floating over the canvas:
+  it holds only the transport, read-aloud being the product's deliberate exception. Default to "no"; when in doubt remove UI rather
   than add it
 - Read-aloud highlighting and the invisible-character markers are **ProseMirror
   decorations only**, never marks or nodes — they must never appear in

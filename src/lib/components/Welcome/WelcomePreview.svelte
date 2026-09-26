@@ -1,28 +1,20 @@
 <script lang="ts">
     import {
+        ArrowDown01Icon,
         ArrowLeft01Icon,
         EyeIcon,
-        Heading01Icon,
-        Heading02Icon,
-        Heading03Icon,
-        Heading04Icon,
-        Image01Icon,
         LeftToRightBlockQuoteIcon,
         LeftToRightListBulletIcon,
-        LeftToRightListNumberIcon,
-        MinusSignIcon,
-        NextIcon,
-        PlayIcon,
-        PreferenceHorizontalIcon,
-        PreviousIcon,
+        ParagraphIcon,
+        PlusSignIcon,
         Redo03Icon,
         Settings01Icon,
-        StopIcon,
+        SourceCodeIcon,
         Summation01Icon,
-        TableIcon,
         TextBoldIcon,
         TextItalicIcon,
-        Undo03Icon
+        Undo03Icon,
+        VolumeHighIcon
     } from '@hugeicons/core-free-icons';
     import type { IconSvgElement } from '@hugeicons/svelte';
 
@@ -62,37 +54,55 @@
     const readingTime = readingTimeLabel(WORD_COUNT);
 
     // Every group the editor's toolbar has, in its order. Joined, bordered
-    // segments — `Format.Group` passes `variant="outline"`.
+    // segments — `Format.Group` passes `variant="outline"`. A segment is an icon,
+    // or a menu trigger: a label or an icon with the menu's chevron after it.
     //
-    // All six, always. The window is only ever drawn at the column's full width
-    // from `lg` up — comfortably more than the row needs — and hidden below
-    // that, so there is no longer a size at which a group has to be given up.
-    // The three container queries that used to drop them are gone with the
-    // ratio that made the window narrow in the first place.
-    const FORMAT_GROUPS: IconSvgElement[][] = [
-        [Undo03Icon, Redo03Icon],
-        [Heading01Icon, Heading02Icon, Heading03Icon, Heading04Icon],
-        [TextBoldIcon, TextItalicIcon],
-        [LeftToRightListBulletIcon, LeftToRightListNumberIcon],
-        [LeftToRightBlockQuoteIcon, MinusSignIcon],
-        [TableIcon, Image01Icon]
+    // The toolbar is collapsed at every width, so this is the one shape it has:
+    // undo/redo, the text style (reading H2, as the page's heading is), bold,
+    // italic and code, the Lists, Blocks and Insert menus, and ¶. The window is
+    // only drawn from `lg` up, comfortably wider than the row needs.
+    interface Segment {
+        icon?: IconSvgElement;
+        text?: string;
+        menu?: boolean;
+    }
+
+    const plain = (...icons: IconSvgElement[]): Segment[] =>
+        icons.map((icon) => ({ icon }));
+    const menu = (segment: Segment): Segment[] => [{ ...segment, menu: true }];
+
+    const FORMAT_GROUPS: Segment[][] = [
+        plain(Undo03Icon, Redo03Icon),
+        menu({ text: m.content_format_heading_short({ level: 2 }) }),
+        plain(TextBoldIcon, TextItalicIcon, SourceCodeIcon),
+        menu({ icon: LeftToRightListBulletIcon }),
+        menu({ icon: LeftToRightBlockQuoteIcon }),
+        menu({ icon: PlusSignIcon }),
+        plain(ParagraphIcon)
     ];
-    const TRANSPORT: IconSvgElement[] = [
-        PreviousIcon,
-        PlayIcon,
-        StopIcon,
-        NextIcon,
-        PreferenceHorizontalIcon
-    ];
+    // Read aloud: one button on the row. The transport it opens floats over
+    // the canvas, and only while a read is under way, so the mock leaves it out.
+    const READ_ALOUD = plain(VolumeHighIcon);
 </script>
 
-{#snippet group(icons: IconSvgElement[])}
+{#snippet group(segments: Segment[])}
     <span class="flex items-center rounded-md">
-        {#each icons as icon (icon)}
+        {#each segments as segment, i (i)}
             <span
-                class="border-input inline-flex h-7 min-w-7 items-center justify-center border border-l-0 px-2 first:rounded-l-md first:border-l last:rounded-r-md"
+                class="border-input inline-flex h-7 min-w-7 items-center justify-center gap-1 border border-l-0 px-2 first:rounded-l-md first:border-l last:rounded-r-md"
             >
-                <Icon class="size-3.5" {icon} />
+                {#if segment.icon}
+                    <Icon class="size-3.5" icon={segment.icon} />
+                {/if}
+                {#if segment.text}
+                    <span class="text-xs font-medium">{segment.text}</span>
+                {/if}
+                {#if segment.menu}
+                    <Icon
+                        class="text-muted-foreground size-2.5"
+                        icon={ArrowDown01Icon}
+                    />
+                {/if}
             </span>
         {/each}
     </span>
@@ -164,14 +174,13 @@
                 </div>
 
                 <div class="flex items-center gap-2 px-2.5 pb-1.5">
-                    <!-- `gap-4`, drawn from the editor's own `space-x-5`: the
-                         row always carries all six groups now. -->
-                    <span class="flex flex-1 items-start gap-4">
+                    <!-- `gap-1.5`, the editor's own gap between groups. -->
+                    <span class="flex flex-1 items-center gap-1.5">
                         {#each FORMAT_GROUPS as icons, i (i)}
                             {@render group(icons)}
                         {/each}
                     </span>
-                    <span class="ml-auto">{@render group(TRANSPORT)}</span>
+                    <span class="ml-auto">{@render group(READ_ALOUD)}</span>
                 </div>
             </div>
         </div>

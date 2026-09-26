@@ -2,7 +2,7 @@
     import { makeEditor } from '../../support/editor';
     import { FAKE_VOICES, makeTts } from '../../support/fakes.svelte';
     import { defineMeta } from '@storybook/addon-svelte-csf';
-    import { expect, fn } from 'storybook/test';
+    import { expect, fn, userEvent } from 'storybook/test';
 
     import ToolbarTts from '$lib/components/Editor/Toolbar/ToolbarTts.svelte';
 
@@ -16,6 +16,8 @@
             editor: { control: false },
             persist: { control: false },
             controller: { control: false },
+            onClose: { control: false },
+            autofocus: { control: false },
             disabled: { control: 'boolean' }
         },
         parameters: {
@@ -23,7 +25,7 @@
             docs: {
                 description: {
                     component:
-                        'Read-aloud toolbar cluster — a fully-controlled `ToggleGroup` composing skip-back, stop, play/pause, skip-forward and voice settings. Its pressed state is derived from the TTS controller, never from the group itself, which is why the group’s setter is a no-op. The controller is handed to all five children.'
+                        'The read-aloud bar — a fully-controlled `ToggleGroup` composing skip-back, stop, play/pause, skip-forward and voice settings, on its own floating surface. The editor pins it to the canvas’s top-right corner while the toolbar’s Read aloud button holds it open. Its pressed state is derived from the TTS controller, never from the group itself, which is why the group’s setter is a no-op. With `onClose`, Stop also puts the bar away, so it stays live even before anything has been read. The controller is handed to all five children.'
                 }
             }
         }
@@ -39,25 +41,31 @@
         voices: FAKE_VOICES
     });
 
+    const close = fn();
+
     const editor = makeEditor();
     $effect(() => () => editor.destroy());
 </script>
 
-<!-- At rest: only Play is reachable — there is no session to stop or skip within. -->
+<!-- Just opened: nothing read yet. Play is live, and Stop too — it puts the bar
+     away. The skips have no session to move within. -->
 <Story
     name="Default"
     play={async ({ canvas }) => {
-        await expect(
-            canvas.getByRole('button', { name: m.content_tts_play() })
-        ).toBeEnabled();
-
+        for (const name of [m.content_tts_play(), m.content_tts_stop()]) {
+            await expect(canvas.getByRole('button', { name })).toBeEnabled();
+        }
         for (const name of [
-            m.content_tts_stop(),
             m.content_tts_skip_back(),
             m.content_tts_skip_forward()
         ]) {
             await expect(canvas.getByRole('button', { name })).toBeDisabled();
         }
+
+        await userEvent.click(
+            canvas.getByRole('button', { name: m.content_tts_stop() })
+        );
+        await expect(close).toHaveBeenCalledOnce();
     }}
 >
     {#snippet template()}
@@ -68,6 +76,7 @@
                 controller={idle}
                 disabled={false}
                 {editor}
+                onClose={close}
                 persist={fn()}
             />
         </div>
@@ -105,6 +114,7 @@
                 controller={reading}
                 disabled={false}
                 {editor}
+                onClose={fn()}
                 persist={fn()}
             />
         </div>

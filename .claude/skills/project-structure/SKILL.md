@@ -30,8 +30,11 @@ src/
 │   │   │   ├── Format/               //   the capped formatting controls (see content-editor)
 │   │   │   │   ├── definitions.ts            // THE table: icon/label/shortcut/value/command
 │   │   │   │   ├── FormatToggleControl.svelte// renders one row of it
-│   │   │   │   ├── FormatToggle*.svelte      // thin wrappers: bold, italic, lists, quote, headings
-│   │   │   │   ├── FormatInsert*.svelte      // table, image, link, horizontal rule
+│   │   │   │   ├── FormatToggle*.svelte      // thin wrappers: bold, italic, inline code
+│   │   │   │   ├── FormatMenu*.svelte        // the shared dropdown and its item row
+│   │   │   │   ├── Format{TextStyle,Lists,Blocks,InsertMenu}.svelte // the four menus
+│   │   │   │   ├── FormatInvisibles.svelte   // ¶ — the showInvisibles preference
+│   │   │   │   ├── commands.ts               // what a button and a menu item both run
 │   │   │   │   └── Format{Undo,Redo}.svelte  // stateless, so not in definitions.ts
 │   │   │   ├── Link/                 //   links: dialog, click card, ⌘K (see content-editor)
 │   │   │   │   ├── LinkDialog.svelte       // add / edit / remove — one dialog, three ways in

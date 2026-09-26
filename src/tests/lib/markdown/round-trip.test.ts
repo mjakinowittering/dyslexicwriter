@@ -97,6 +97,57 @@ describe('markdown round-trip', () => {
         expect(roundTrip(md)).toBe(md);
     });
 
+    // Everything the toolbar's menus and the code toggle can make, together:
+    // inline code, a fenced code block, each list, a quotation and a rule.
+    it('preserves a document using every menu and code control', () => {
+        const md = [
+            '# Title',
+            '',
+            'Call `toMarkdown()` before the write.',
+            '',
+            '```',
+            'const a = 1;',
+            '```',
+            '',
+            '-   Bullet',
+            '',
+            '1.  Numbered',
+            '',
+            '-   [ ] Checklist',
+            '',
+            '> A quotation.',
+            '',
+            '* * *',
+            '',
+            'The end.'
+        ].join('\n');
+
+        expect(roundTrip(md)).toBe(md);
+    });
+
+    // The text-style menu's Text item, applied to every heading level: what
+    // lands on disk is plain paragraphs, and they read back the same.
+    it('preserves headings switched back to body text', () => {
+        const levels = [1, 2, 3, 4];
+        const headings = fromMarkdown(
+            levels
+                .map((level) => `${'#'.repeat(level)} Line ${level}`)
+                .join('\n\n')
+        );
+        const asText = {
+            ...headings,
+            content: headings.content?.map((node) => ({
+                ...node,
+                type: 'paragraph',
+                attrs: undefined
+            }))
+        };
+        const md = levels.map((level) => `Line ${level}`).join('\n\n');
+
+        expect(toMarkdown(asText)).toBe(md);
+        expect(roundTrip(md)).toBe(md);
+    });
+
     it('keeps image paths relative so they resolve inside the document folder', () => {
         const json = fromMarkdown('![Chart](sub-image.png)');
         expect(toMarkdown(json)).toContain('(sub-image.png)');

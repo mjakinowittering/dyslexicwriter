@@ -28,6 +28,7 @@
     import * as m from '$lib/paraglide/messages';
     import { doc } from '$lib/stores/document.svelte';
     import { workspace } from '$lib/stores/workspace.svelte';
+    import { ReadAloudBar } from '$lib/tts/read-aloud-bar.svelte';
     import { speech } from '$lib/tts/speech-controller.svelte';
     import { editorRoute } from '$lib/utils/editor-route';
     import { filesRoute } from '$lib/utils/files-route';
@@ -319,6 +320,19 @@
         void workspace.setTtsPreferences(prefs);
     }
 
+    // The floating read-aloud bar: open from the toolbar's Read aloud button
+    // until a read that started in it ends. See `ReadAloudBar` for why every
+    // way a read stops also puts the bar away.
+    const readAloud = new ReadAloudBar(speech);
+    let readAloudButton = $state<HTMLElement | null>(null);
+
+    // Stop took the bar away, and the button that had focus with it — so focus
+    // goes back to the button that opens it, not to the top of the page.
+    function closeReadAloud() {
+        readAloud.close();
+        readAloudButton?.focus();
+    }
+
     const wordCount = $derived(doc.wordCount);
     const disabled = $derived(!editor);
 
@@ -399,10 +413,12 @@
                     </div>
                 </div>
 
-                <!-- Clipped, so the controls that don't fit are hidden rather
-                     than spilling into the settings panel's column beside them.
-                     The formatting row cannot shrink below its buttons, so once
-                     the panel narrows the editor this row overflows to the right.
+                <!-- The formatting row is collapsed at every width — four menus
+                     in place of a strip of buttons — so it fits beside the
+                     settings panel at the narrowest window the editor supports.
+                     It stays clipped as a backstop: if it ever did overflow, a
+                     control is hidden rather than spilling into the panel's
+                     column beside it.
 
                      `-mt-1 pt-1` is not spacing: it is 4px of room inside the clip
                      for the 3px focus ring, which is drawn outside the button's
@@ -410,8 +426,8 @@
                      negative margin cancels the padding, so nothing moves. The
                      sides and bottom already have `px-3`/`pb-2` to sit in.
 
-                     Tooltips, the voice popover and its select all portal to the
-                     body, so none of them are clipped by this. -->
+                     Tooltips, the menus, the voice popover and its select all
+                     portal to the body, so none of them are clipped by this. -->
                 <div
                     class="-mt-1 flex items-center gap-2 overflow-hidden px-3 pt-1 pb-2"
                 >
@@ -428,48 +444,47 @@
                                 {editor}
                             />
                         </Format.Group>
-                        <!-- Rendered from HEADING_LEVELS rather than four hand-written
-                             rows: `definitions.ts` already owns which levels the
-                             editor offers, and a fifth written there would
-                             otherwise need remembering here too. -->
-                        <Format.Group bind:formatting={doc.formatting}>
-                            {#each Format.HEADING_LEVELS as level (level)}
-                                <Format.Heading {disabled} {editor} {level} />
-                            {/each}
-                        </Format.Group>
+                        <!-- The menus read `doc.formatting` rather than binding
+                             it: they show what is on, and change it only through
+                             the editor, which reports back on its transaction. -->
+                        <Format.TextStyle
+                            active={doc.formatting}
+                            {disabled}
+                            {editor}
+                        />
                         <Format.Group bind:formatting={doc.formatting}>
                             <Format.Bold {disabled} {editor} />
                             <Format.Italic {disabled} {editor} />
+                            <Format.Code {disabled} {editor} />
                         </Format.Group>
-                        <Format.Group bind:formatting={doc.formatting}>
-                            <Format.BulletList {disabled} {editor} />
-                            <Format.OrderedList {disabled} {editor} />
-                            <Format.TaskList {disabled} {editor} />
-                        </Format.Group>
-                        <Format.Group bind:formatting={doc.formatting}>
-                            <Format.Blockquote {disabled} {editor} />
-                            <Format.HorizontalRule {disabled} {editor} />
-                        </Format.Group>
-                        <Format.Group>
-                            <Format.InsertTable {disabled} {editor} />
-                            <Format.InsertImage
-                                {disabled}
-                                {editor}
-                                onPick={(file) => doc.addImage(file)}
-                            />
-                            <Format.InsertLink
-                                {disabled}
-                                onOpen={openLinkDialog}
-                            />
-                        </Format.Group>
-                    </Format.Root>
-
-                    <!-- Read-aloud transport, right-aligned on the toolbar row. -->
-                    <div class="ml-auto">
-                        <Toolbar.Tts
+                        <Format.Lists
+                            active={doc.formatting}
                             {disabled}
                             {editor}
-                            persist={persistTtsPreferences}
+                        />
+                        <Format.Blocks
+                            active={doc.formatting}
+                            {disabled}
+                            {editor}
+                        />
+                        <Format.InsertMenu
+                            {disabled}
+                            {editor}
+                            onOpenLink={openLinkDialog}
+                            onPick={(file) => doc.addImage(file)}
+                        />
+                        <Format.Invisibles />
+                    </Format.Root>
+
+                    <!-- Read aloud, right-aligned on the toolbar row. The
+                         transport itself floats over the canvas, below. -->
+                    <div class="ml-auto">
+                        <Toolbar.ReadAloud
+                            bind:ref={readAloudButton}
+                            {disabled}
+                            onOpenChange={(open) =>
+                                open ? readAloud.launch() : readAloud.close()}
+                            open={readAloud.open}
                         />
                     </div>
                 </div>
@@ -480,11 +495,24 @@
             <p class="text-destructive px-4 py-2 text-sm">{doc.error}</p>
         {/if}
 
+        <!-- The read-aloud bar, pinned to the canvas's top-right corner while
+             `readAloud` holds it open. Stop also puts it away. -->
+        {#snippet readAloudControls()}
+            <Toolbar.Tts
+                autofocus
+                {disabled}
+                {editor}
+                onClose={closeReadAloud}
+                persist={persistTtsPreferences}
+            />
+        {/snippet}
+
         <!-- `reading` is what puts the back-to-top button on the canvas: the read
              has been following the voice down the page, so there has to be a way
              back. Clicking it ends the read — one that carried on would scroll
              straight back to the spoken sentence. -->
         <Page.Root
+            controls={readAloud.open ? readAloudControls : undefined}
             narrow={settingsOpen}
             onBackToTop={() => speech.stop()}
             reading={speech.isPlaying}

@@ -7,7 +7,7 @@
 </script>
 
 <Tooltip.Provider>
-    <div class="flex flex-1 flex-row items-start space-x-5">
+    <div class="flex flex-1 flex-row items-center gap-1.5">
         {@render children()}
     </div>
 </Tooltip.Provider>
