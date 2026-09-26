@@ -55,7 +55,7 @@
     }}
 >
     {#snippet template(args)}
-        <ul class="bg-background w-full max-w-2xl p-6">
+        <ul class="bg-panel w-full max-w-2xl rounded-2xl border p-3">
             <FileTreeNameRow {...args} />
         </ul>
     {/snippet}
@@ -79,7 +79,7 @@
     }}
 >
     {#snippet template(args)}
-        <ul class="bg-background w-full max-w-2xl p-6">
+        <ul class="bg-panel w-full max-w-2xl rounded-2xl border p-3">
             <FileTreeNameRow {...args} />
         </ul>
     {/snippet}
@@ -110,7 +110,7 @@
     }}
 >
     {#snippet template(args)}
-        <ul class="bg-background w-full max-w-2xl p-6">
+        <ul class="bg-panel w-full max-w-2xl rounded-2xl border p-3">
             <FileTreeNameRow {...args} />
         </ul>
     {/snippet}
@@ -152,7 +152,7 @@
     }}
 >
     {#snippet template(args)}
-        <ul class="bg-background w-full max-w-2xl p-6">
+        <ul class="bg-panel w-full max-w-2xl rounded-2xl border p-3">
             <FileTreeNameRow {...args} />
         </ul>
     {/snippet}
@@ -182,7 +182,7 @@
     }}
 >
     {#snippet template(args)}
-        <ul class="bg-background w-full max-w-2xl p-6">
+        <ul class="bg-panel w-full max-w-2xl rounded-2xl border p-3">
             <FileTreeNameRow {...args} />
         </ul>
     {/snippet}

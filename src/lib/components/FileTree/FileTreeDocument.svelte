@@ -19,14 +19,15 @@
     } from '$lib/config/motion';
     import type { DocumentIndexEntry } from '$lib/models/document.model';
     import * as m from '$lib/paraglide/messages';
+    import { formatFileSize } from '$lib/utils/file-size';
     import { relativeTime } from '$lib/utils/relative-time';
 
     import type { FileTreeActions } from './actions';
     import FileTreeNameRow from './FileTreeNameRow.svelte';
     import FileTreeRowMenu from './FileTreeRowMenu.svelte';
 
-    // One document row in the Files tree: the title and when it was last edited,
-    // with rename and delete in the row's menu. The whole title block is the open
+    // One document row in the Files tree: the title, when it was last edited and
+    // how big it is, with rename and delete in the row's menu. The whole title block is the open
     // control, so the target is as large as the row allows.
     //
     // No leading spacer before the file icon. The tree indents by exactly one
@@ -149,12 +150,14 @@
     />
 {:else}
     <!-- The hover surface is the row itself, menu included — the same treatment
-         the folder rows carry, so the two kinds read as one list. `isolate` so
+         the folder rows carry, so the two kinds read as one list. /70 rather
+         than /40 because the rows sit on --panel, and at /40 the light wash
+         was half as visible there as it had been on the page. `isolate` so
          the arrival wash can sit behind the row's contents (`-z-10`) without
          dropping behind the page. -->
     <li
         bind:this={row}
-        class="group/row hover:bg-muted/40 hover:ring-border focus-within:bg-muted/40 focus-within:ring-border relative isolate flex items-center gap-2 rounded-md ring-1 ring-transparent"
+        class="group/row hover:bg-muted/70 hover:ring-border focus-within:bg-muted/70 focus-within:ring-border relative isolate flex items-center gap-2 rounded-md ring-1 ring-transparent"
     >
         <!-- Decoration only: nothing about the tree changes. The outer block
              is what `cut` removes — Svelte transitions are local, so taking the
@@ -196,7 +199,8 @@
                     ]}
                 >
                     {m.files_modified({
-                        when: relativeTime(entry.lastModified)
+                        when: relativeTime(entry.lastModified),
+                        size: formatFileSize(entry.size)
                     })}
                 </span>
             </span>

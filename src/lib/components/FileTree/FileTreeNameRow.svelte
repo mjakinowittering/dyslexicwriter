@@ -124,6 +124,9 @@
         />
 
         <InputGroup.Root class="min-w-0 flex-1">
+            <!-- A rename opens with the name selected, so that selection is the
+                 first thing the writer sees: the app's highlighter yellow, not
+                 the browser's blue. This input only — see --reveal. -->
             <InputGroup.Input
                 aria-invalid={isTaken}
                 aria-label={kind === 'folder'
@@ -131,6 +134,7 @@
                     : m.files_document_name_label()}
                 bind:ref={field}
                 bind:value
+                class="selection:bg-reveal selection:text-foreground"
                 {onkeydown}
             />
             <!-- The extension is part of the filename, so it reads as one thing

@@ -442,7 +442,7 @@
          column's `flex-1` keeps an empty folder's EmptyState centred. -->
     <div class="flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
         <div
-            class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-10"
+            class="mx-auto flex w-full flex-1 flex-col gap-6 px-6 py-10 md:max-w-5xl"
         >
             <!-- The list's own title row, not a landmark: the two folder actions
              that used to sit here have moved up into the app header's menu, and
@@ -519,17 +519,23 @@
                     {/snippet}
                 </EmptyState>
             {:else if workspace.tree}
-                <FileTree.Root
-                    actions={treeActions}
-                    {arrival}
-                    isExpanded={(node) => workspace.isExpanded(node)}
-                    {naming}
-                    node={workspace.tree}
-                    onArrived={() => (arrival = null)}
-                    onNamingCancel={() => (naming = null)}
-                    {onNamingSubmit}
-                    onToggle={(node) => workspace.toggle(node)}
-                />
+                <!-- The tree alone sits on the panel; the title row above and an
+                     empty folder's EmptyState stay on the page. Never
+                     `overflow-hidden`: focus rings, the naming row and the
+                     arrival highlight all reach the rows' edges. -->
+                <div class="bg-panel rounded-2xl border p-3">
+                    <FileTree.Root
+                        actions={treeActions}
+                        {arrival}
+                        isExpanded={(node) => workspace.isExpanded(node)}
+                        {naming}
+                        node={workspace.tree}
+                        onArrived={() => (arrival = null)}
+                        onNamingCancel={() => (naming = null)}
+                        {onNamingSubmit}
+                        onToggle={(node) => workspace.toggle(node)}
+                    />
+                </div>
             {/if}
 
             <!-- Portals to <body>, so where it sits in the markup is immaterial;

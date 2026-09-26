@@ -45,7 +45,8 @@
             folder,
             file: `${title}.md`,
             ownsFolder,
-            lastModified: Date.now() - DAY
+            lastModified: Date.now() - DAY,
+            size: 4_000
         };
     }
 
@@ -141,8 +142,10 @@
     }}
 >
     {#snippet template(args)}
-        <div class="bg-background w-full max-w-3xl p-6">
-            <FileTree {...args} />
+        <div class="bg-background w-full max-w-5xl p-6">
+            <div class="bg-panel rounded-2xl border p-3">
+                <FileTree {...args} />
+            </div>
         </div>
     {/snippet}
 </Story>
@@ -159,8 +162,10 @@
     }}
 >
     {#snippet template(args)}
-        <div class="bg-background w-full max-w-3xl p-6">
-            <FileTree {...args} />
+        <div class="bg-background w-full max-w-5xl p-6">
+            <div class="bg-panel rounded-2xl border p-3">
+                <FileTree {...args} />
+            </div>
         </div>
     {/snippet}
 </Story>
@@ -183,15 +188,18 @@
 >
     {#snippet template(args)}
         {@const collapsed = new SvelteSet<string>()}
-        <div class="bg-background w-full max-w-3xl p-6">
-            <FileTree
-                {...args}
-                isExpanded={(node) => !collapsed.has(node.path)}
-                onToggle={(node) => {
-                    if (collapsed.has(node.path)) collapsed.delete(node.path);
-                    else collapsed.add(node.path);
-                }}
-            />
+        <div class="bg-background w-full max-w-5xl p-6">
+            <div class="bg-panel rounded-2xl border p-3">
+                <FileTree
+                    {...args}
+                    isExpanded={(node) => !collapsed.has(node.path)}
+                    onToggle={(node) => {
+                        if (collapsed.has(node.path))
+                            collapsed.delete(node.path);
+                        else collapsed.add(node.path);
+                    }}
+                />
+            </div>
         </div>
     {/snippet}
 </Story>
@@ -227,8 +235,10 @@
     }}
 >
     {#snippet template(args)}
-        <div class="bg-background w-full max-w-3xl p-6">
-            <FileTree {...args} />
+        <div class="bg-background w-full max-w-5xl p-6">
+            <div class="bg-panel rounded-2xl border p-3">
+                <FileTree {...args} />
+            </div>
         </div>
     {/snippet}
 </Story>
@@ -256,8 +266,10 @@
     }}
 >
     {#snippet template(args)}
-        <div class="bg-background w-full max-w-3xl p-6">
-            <FileTree {...args} />
+        <div class="bg-background w-full max-w-5xl p-6">
+            <div class="bg-panel rounded-2xl border p-3">
+                <FileTree {...args} />
+            </div>
         </div>
     {/snippet}
 </Story>

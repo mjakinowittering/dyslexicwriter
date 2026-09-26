@@ -139,7 +139,7 @@ export function extensionFromFileName(file: string): string {
 }
 
 // One document as the Files screen knows it: where it lives, which of the two
-// kinds it is, and when it last changed.
+// kinds it is, when it last changed and how big it is.
 //
 // A plain interface rather than a Valibot schema, because this is never read from
 // disk. Every entry is built by `scanFolder` from a real file handle, so there is
@@ -160,6 +160,9 @@ export interface DocumentIndexEntry {
     ownsFolder: boolean;
     // Epoch milliseconds, shown against each document on the Files screen.
     lastModified: number;
+    // Bytes on disk, shown beside `lastModified` and read from the same `File`,
+    // so the two always describe one version of the file.
+    size: number;
 }
 
 // "Untitled", then "Untitled 2", "Untitled 3", … skipping names already taken.

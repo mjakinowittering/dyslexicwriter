@@ -106,6 +106,18 @@ describe('writeDocument', () => {
         expect(await readFile('Book/Chapters', 'One.md')).toBe('one');
         expect(await readFile('Book/Chapters', 'Two.md')).toBe('two');
     });
+
+    // Bytes, not characters: "é" is two of them in UTF-8, and the Files screen
+    // should agree with the writer's own file manager.
+    it('reports the size of what it wrote, in bytes', async () => {
+        const entry = await writeDocument(
+            root,
+            folderDoc('Café'),
+            fromMarkdown('Café')
+        );
+
+        expect(entry.size).toBe(5);
+    });
 });
 
 describe('writeDocument — the formatter', () => {
@@ -198,6 +210,15 @@ describe('readDocument', () => {
 });
 
 describe('scanFolder', () => {
+    it('reads each document size from the same file as its mtime', async () => {
+        await writeRaw('', 'notes.md', 'loose');
+
+        const [found] = flattenDocuments(await scanFolder(root));
+
+        expect(found?.size).toBe(5);
+        expect(found?.lastModified).toBeGreaterThan(0);
+    });
+
     it('lists the document folders the app itself creates', async () => {
         await writeDocument(root, folderDoc('Older'), fromMarkdown('a'));
         await writeDocument(root, folderDoc('Newer'), fromMarkdown('b'));
@@ -486,6 +507,20 @@ describe('renameDocument', () => {
         expect(entry.file).toBe('New Name.md');
         expect(await folderExists(root, 'Old Name')).toBe(false);
         expect(await readFile('New Name', 'New Name.md')).toBe('Body text');
+        expect(entry.size).toBe('Body text'.length);
+    });
+
+    it('keeps the size of a loose file it renames', async () => {
+        await writeRaw('Shared', 'Old.md', 'twelve bytes');
+        await writeRaw('Shared', 'Aside.md', 'x');
+
+        const entry = await renameDocument(
+            root,
+            fileDoc('Shared', 'Old.md'),
+            'New'
+        );
+
+        expect(entry.size).toBe(12);
     });
 
     it('carries the document images along with it', async () => {

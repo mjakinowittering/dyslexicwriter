@@ -152,6 +152,7 @@ interface DocumentIndexEntry {
     file: string; // file name within that folder, .md included
     ownsFolder: boolean; // folder-document or file-document — see below
     lastModified: number; // epoch ms, shown against the row
+    size: number; // bytes, from the same File as lastModified
 }
 ```
 

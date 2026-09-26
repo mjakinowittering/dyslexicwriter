@@ -312,7 +312,8 @@ describe('touch', () => {
         folder: '',
         file: 'notes.md',
         ownsFolder: false,
-        lastModified: 1_700_000_000_000
+        lastModified: 1_700_000_000_000,
+        size: 1_200
     };
 
     // The tree is the only copy of this list. Autosave calls touch() after every
@@ -327,6 +328,16 @@ describe('touch', () => {
             1_700_000_009_999
         );
         expect(updateConfig).not.toHaveBeenCalled();
+    });
+
+    // A save changes the size as well as the time, and the list is only
+    // rescanned when the writer asks — so a stale size would sit there.
+    it('notes the new size alongside the new mtime', async () => {
+        workspace.tree = node({ documents: [{ ...entry }] });
+
+        await workspace.touch({ ...entry, size: 5_400 });
+
+        expect(workspace.tree?.documents[0]?.size).toBe(5_400);
     });
 });
 
@@ -696,7 +707,8 @@ describe('reveal', () => {
             folder,
             file,
             ownsFolder,
-            lastModified: 0
+            lastModified: 0,
+            size: 0
         };
     }
 

@@ -44,7 +44,8 @@ function doc(
         folder,
         file,
         ownsFolder,
-        lastModified: Date.now()
+        lastModified: Date.now(),
+        size: 4_000
     };
 }
 
