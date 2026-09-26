@@ -20,7 +20,7 @@
             docs: {
                 description: {
                     component:
-                        'The settings panel — font and theme. Every control writes straight through to config.json in the user’s folder, so there is no separate save. It takes a column in the editor’s grid rather than floating, and reveals in two phases: the panel slides open on the x axis, then the controls fade in. `store` defaults to the real workspace; these stories pass a stand-in so there is no folder involved.'
+                        'The settings panel — font, invisibles and theme, in alphabetical order by heading. Every control writes straight through to config.json in the user’s folder, so there is no separate save. It takes a column in the editor’s grid rather than floating, and reveals in two phases: the panel slides open on the x axis, then the controls fade in. `store` defaults to the real workspace; these stories pass a stand-in so there is no folder involved.'
                 }
             }
         }
@@ -53,6 +53,33 @@
         await expect(
             canvas.getByRole('radio', { name: m.settings_font_dyslexic() })
         ).toBeChecked();
+
+        // Sections run alphabetically by heading, and each heading still sits in
+        // the section holding its own control.
+        const sectionControls = [
+            canvas.getByRole('radio', { name: m.settings_font_dyslexic() }),
+            canvas.getByRole('switch', { name: m.settings_invisibles_show() }),
+            canvas.getByRole('switch', { name: m.settings_theme_light() })
+        ];
+        const headings = canvas.getAllByRole('heading', { level: 3 });
+        await expect(headings.map((h) => h.textContent?.trim())).toEqual([
+            m.settings_font(),
+            m.settings_invisibles(),
+            m.settings_theme()
+        ]);
+        for (const [i, heading] of headings.entries()) {
+            await expect(heading.closest('section')).toContainElement(
+                sectionControls[i]
+            );
+        }
+
+        // Tab order follows the visual order. The radio group is one tab stop,
+        // landing on the checked radio.
+        canvas.getByRole('button', { name: m.settings_close() }).focus();
+        for (const control of sectionControls) {
+            await userEvent.tab();
+            await expect(control).toHaveFocus();
+        }
     }}
 >
     {#snippet template()}
