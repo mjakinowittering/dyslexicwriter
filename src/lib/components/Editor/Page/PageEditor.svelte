@@ -149,7 +149,9 @@
                     // unlabelled text box. The placeholder is the empty-state
                     // prompt, not a name, so it cannot stand in for it.
                     'aria-label': m.content_editor_label(),
-                    class: 'prose dark:prose-invert prose-sm sm:prose lg:prose-lg prose-headings:font-semibold prose-li:my-1 [&_li_p]:my-1.5 prose-h1:text-xl sm:prose-h1:text-2xl lg:prose-h1:text-3xl prose-h2:text-lg sm:prose-h2:text-xl lg:prose-h2:text-2xl prose-h3:text-base sm:prose-h3:text-lg lg:prose-h3:text-xl prose-h4:text-sm sm:prose-h4:text-base lg:prose-h4:text-lg 2xl:prose-xl 2xl:prose-h1:text-4xl 2xl:prose-h2:text-3xl 2xl:prose-h3:text-2xl 2xl:prose-h4:text-xl 3xl:prose-2xl 3xl:prose-h1:text-5xl 3xl:prose-h2:text-4xl 3xl:prose-h3:text-3xl 3xl:prose-h4:text-2xl focus:rounded-xl focus:outline-none grow prose-img:rounded-md prose-table:text-sm'
+                    // The prose size steps up with the viewport; the heading
+                    // scale is set in ems of it in layout.css, so it follows.
+                    class: 'prose dark:prose-invert prose-sm sm:prose lg:prose-lg 2xl:prose-xl 3xl:prose-2xl prose-li:my-1 [&_li_p]:my-1.5 focus:rounded-xl focus:outline-none grow prose-img:rounded-md'
                 },
                 handleDrop: (view, event) => {
                     const files = event.dataTransfer?.files;
@@ -343,21 +345,26 @@
        the project forbids (highlight advances by decoration change, not transition).
 
        Functional colour, so it lives with the component rather than in layout.css —
-       the documented exception that keeps every theme token there at chroma 0.
+       the documented exception to keeping every theme colour there.
 
-       One rule set serves both themes. At 0.92 the band all but covers the ground
-       beneath it, so light and dark composite to within a few percent of each other,
-       and the ink is dark on both by definition. The sentence and the word are a
-       tonal pair rather than two alphas of one colour: 0.92 against 1.0 is not a
-       visible step. */
+       A highlighter's peach, at the page's own warm hue rather than a bright
+       orange: the BDA asks for no bright contrasting colours, and Rello & Bigham
+       found warm tints read fastest. Opaque, so one rule set serves both themes —
+       the band looks the same on the dark sheet as on cream, and the ink on it is
+       dark in both by definition. The sentence and the word are a tonal pair, a
+       step apart in lightness and chroma at one hue, so the word reads as the
+       sentence's focus rather than a second colour. The ink measures 14.58 on the
+       sentence and 11.14 on the word (the old tints: 13.86 and 9.24, the word a
+       garish pure orange). The sentence stays clear of text selection, which is
+       --reveal's yellow at hue 102. */
 
     /* The two tints, declared once on the surface and inherited by everything
-       below — the band, the word inside it, and the list marker beside them.
-       `--tts-tint` stays per-class on top of these so the reading-font rule can
-       go on painting both with one gradient. */
+       below — the band and the word inside it. `--tts-tint` stays per-class on
+       top of these so the reading-font rule can go on painting both with one
+       gradient. */
     .editor-surface {
-        --tts-sentence-tint: rgb(255 204 153 / 0.92);
-        --tts-word-tint: rgb(255 153 0);
+        --tts-sentence-tint: oklch(0.9 0.055 68);
+        --tts-word-tint: oklch(0.82 0.105 68);
     }
 
     :global(.tts-sentence) {
@@ -371,27 +378,6 @@
         background-color: var(--tts-tint);
         color: oklch(0.145 0 0);
         border-radius: 0.15rem;
-    }
-
-    /* Every list marker, in both themes and whether or not anything is being
-       read — the colour only, never the band. The word tint rather than the
-       sentence's: this is ink on the page rather than a wash behind it, and at
-       0.92 alpha over the light theme's near-white the sentence tint would
-       barely register. Read-aloud still decorates the spoken item with
-       `.tts-marker`, which now has nothing further to paint.
-
-       These markers are drawn by layout.css in @layer base — a bullet and a
-       number as `::before` generated content, a checkbox as a real input. A
-       component `<style>` is unlayered and so outranks all of it, whatever the
-       specificity, which is the other reason this belongs here. `accent-color`
-       tints a ticked box; an unticked one keeps the browser's own border. */
-    .editor-surface :global(ol > li::before),
-    .editor-surface :global(ul > li::before) {
-        color: var(--tts-word-tint);
-    }
-    .editor-surface
-        :global(ul[data-type='taskList'] > li > label input[type='checkbox']) {
-        accent-color: var(--tts-word-tint);
     }
 
     /* Every link ends in an external-link glyph, because following one leaves
@@ -416,8 +402,10 @@
 
     /* Invisible-character markers (invisible-characters.ts). Decoration classes, so
        :global again. The glyphs are generated content: never text, so they cannot
-       be selected, copied, spoken or saved. Muted ink from the theme token, so both
-       themes read and the writing stays the loudest thing on the page.
+       be selected, copied, spoken or saved. The warm rule colour from layout.css:
+       it clears the 3:1 a non-text mark needs in both themes but sits behind the
+       writing rather than competing with it. The space's dot is bold so that, at
+       that lower contrast, a single dot still shows.
 
        The space's dot sits on top of the space rather than beside it — absolutely
        positioned over its own span — so switching markers on never reflows a
@@ -431,7 +419,8 @@
         position: absolute;
         inset-inline: 0;
         text-align: center;
-        color: var(--muted-foreground);
+        color: var(--rule-warm);
+        font-weight: 700;
         pointer-events: none;
         user-select: none;
     }
@@ -443,9 +432,17 @@
     }
     :global(.invisible-break),
     :global(.invisible-paragraph) {
-        color: var(--muted-foreground);
+        color: var(--rule-warm);
         pointer-events: none;
         user-select: none;
+    }
+
+    /* Text selection in the document — this surface only, so the app's chrome
+       keeps the browser's own. The --reveal pen from layout.css, with the prose's
+       body ink so a selected link or heading reads as selected first. */
+    .editor-surface :global(::selection) {
+        background-color: var(--reveal);
+        color: var(--tw-prose-body);
     }
 
     /* Ink over anything the band covers. Typography's element rules (strong, a, code,

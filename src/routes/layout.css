@@ -28,8 +28,9 @@
        shifted down so the brightest surface (the sheet) stops at 0.975 rather
        than approaching white. The ink leans the same way at chroma ≤ 0.006,
        which keeps it near-black while stopping it reading cold against cream.
-       `.dark` stays achromatic apart from the two signals, --destructive and
-       --reveal, each argued beside it. */
+       `.dark` keeps every surface achromatic: the only colour there is in the
+       signals — --destructive, --reveal and the document's ink below — each
+       argued beside it. */
 
     /* The two theme grounds, defined once here and nowhere else.
        `--background` below takes the light one and `.dark` swaps in the other,
@@ -86,11 +87,51 @@
        --background and 3.10 against the wash. A lighter #D9C25A ring was the
        first idea and measured 1.62 on cream, which is why this one is ochre.
 
-       Also the rename field's text selection on the Files screen, in place of
-       the browser's blue: the same pen marking "this one", so selected stays
-       one warm colour on a warm page. --foreground on it as above. */
+       Also the text selection — the rename field's on the Files screen, and
+       the document's own, table cells included (PageEditor.svelte) — in place
+       of the browser's blue: the same pen marking "this one", so selected
+       stays one warm colour on a warm page. The prose ink on it is 8.84, and
+       it stays apart from the read-aloud band by hue: yellow at 102 against
+       that band's peach at 68. */
     --reveal: oklch(0.945 0.085 102);
     --reveal-ring: oklch(0.62 0.12 100);
+    /* The document's ink: the few places on the page where colour is a signal
+       rather than furniture, so the writing is the loudest thing on it and
+       every tint says what it is. The BDA Style Guide asks for dark text on a
+       non-white ground, emphasis without italics, underlining or capitals, links
+       that look different from body text, and no bright contrasting colours —
+       and Rello & Bigham found warm tints read faster than cool ones. So the
+       markers and rules below are one warm brown family in the cream's own
+       direction, and the one cool colour is kept for links, which have to read
+       as different. Ratios are WCAG 2.x against the sheet (0.975), and against
+       the page (0.965), where Storybook's axe run measures them.
+
+       List bullets and numbers, the checkbox tick, and the line through a
+       finished to-do: a marker has to be read, a number above all, so it takes
+       text contrast. 5.27 on the sheet, 5.12 on the page — where the orange it
+       replaces managed 1.99, short even of 3:1 for a non-text mark. */
+    --marker: oklch(0.52 0.1 62);
+    /* The block-quote rule, the table header rule and the invisible-character
+       markers: lines and glyphs that sit behind the writing rather than being
+       read, so the non-text 3:1 is the target and no more. 3.17 on the sheet,
+       3.08 on the page. Typography's grey rules it replaces were 1.15. The
+       table header rule is 2.86 against the header's own canvas fill above
+       it; it is measured against the sheet-side row below it, where it
+       separates the header from the writing. */
+    --rule-warm: oklch(0.64 0.075 68);
+    /* Links, in the one cool hue on the page: the BDA asks that a link look
+       different from body text, and colour plus the underline says so twice
+       without leaning on weight, which is bold's signal. 6.10 on the sheet,
+       5.93 on the page, 5.45 under the hover wash. Previously --primary, which
+       is body ink — only the underline told a link apart. */
+    --link: oklch(0.48 0.11 255);
+    /* Inline code: a chip one step down from the sheet, at the surfaces' warm
+       hue, with a deep brown ink on it — code reads as a different kind of
+       text without a monospace island of cold grey. --code-ink on the chip
+       9.87; the prose's body ink 8.51 (a code span in a quote or heading
+       inherits that); a link's 5.42. */
+    --code-chip: oklch(0.935 0.018 82);
+    --code-ink: oklch(0.34 0.05 50);
     --border: oklch(0.885 0.016 80);
     --input: oklch(0.885 0.016 80);
     --ring: oklch(0.708 0 0);
@@ -184,6 +225,20 @@
        the ring 5.47 against --background. */
     --reveal: oklch(0.36 0.06 100);
     --reveal-ring: oklch(0.62 0.1 100);
+    /* See the light block: the document's ink keeps its hue and lifts its
+       lightness until it clears the same target on the paper — and lands on
+       about the light theme's ratio, so neither theme's markers are the louder.
+       Measured against the sheet (0.26), then the page (0.145):
+       --marker 5.27 / 6.71, --rule-warm 3.29 / 4.19, --link 6.04 / 7.70
+       (5.30 under the hover wash, 4.93 on the code chip).
+       The code chip is the one surface here, so it drops its chroma like every
+       other dark surface: a step above the sheet (1.22), with --code-ink on it
+       9.30 and the prose's body ink 8.62. */
+    --marker: oklch(0.68 0.1 62);
+    --rule-warm: oklch(0.56 0.075 68);
+    --link: oklch(0.71 0.11 255);
+    --code-chip: oklch(0.32 0 0);
+    --code-ink: oklch(0.9 0.05 50);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
@@ -363,10 +418,14 @@
         left: 0;
     }
 
+    /* Bold, so a number reads as a marker and not as the first word of the
+       item; tabular, so `1.` and `8.` stand the same width down the column. */
     .prose ol > li::before {
         content: counter(list-item) '.';
         width: var(--list-indent);
         color: var(--tw-prose-counters);
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
     }
 
     /* Centred on where the checkbox sits, so a bulleted list under a checklist
@@ -433,8 +492,9 @@
         /* The native control, tinted. An `appearance: none` rebuild would mean
            hand-drawing the tick, the focus ring and the disabled state — three
            things the browser already does accessibly, for a box the theme only
-           needs to recolour. Both themes are chroma 0, so the tick reads on it. */
-        accent-color: var(--primary);
+           needs to recolour. The list-marker ink, so a box, a bullet and a
+       number are one colour in one column. */
+        accent-color: var(--marker);
     }
 
     .prose ul[data-type='taskList'] > li > div {
@@ -444,9 +504,211 @@
 
     /* Crossed out when ticked — the point of the checkbox. Presentation only: the
        strike is CSS on the `data-checked` attribute, never a strike mark in the
-       document, so it can never reach the markdown as `~~done~~`. */
+       document, so it can never reach the markdown as `~~done~~`. The words
+       drop back to muted ink; the line itself is drawn in the tick's colour,
+       and heavy enough to see, so it reads as belonging to the box. */
     .prose ul[data-type='taskList'] > li[data-checked='true'] > div {
         color: var(--muted-foreground);
         text-decoration: line-through;
+        text-decoration-color: var(--marker);
+        text-decoration-thickness: 2px;
     }
+}
+
+/* The document's prose, restyled to the BDA Style Guide — see the ink tokens
+   in :root for the colour argument.
+
+   Unlayered on purpose. Typography's rules are emitted into `@layer utilities`,
+   and a later layer beats an earlier one whatever the specificity, so anything
+   here that changes a property Typography also sets would silently lose inside
+   `@layer base` (the list rules above only get away with it because Typography
+   never touches what they set). Outside every layer, these win.
+
+   Colour goes through Typography's own variables wherever it has one, so each
+   element keeps Typography's rule and only its source changes. The `invert`
+   twin of each is set as well, so `prose-invert` resolves to the same token
+   in either theme; the tokens swap under `.dark` themselves. */
+.prose {
+    /* Bold is weight alone: the same ink as the words around it. */
+    --tw-prose-bold: var(--tw-prose-body);
+    --tw-prose-invert-bold: var(--tw-prose-invert-body);
+    --tw-prose-links: var(--link);
+    --tw-prose-invert-links: var(--link);
+    --tw-prose-bullets: var(--marker);
+    --tw-prose-invert-bullets: var(--marker);
+    --tw-prose-counters: var(--marker);
+    --tw-prose-invert-counters: var(--marker);
+    --tw-prose-quotes: var(--tw-prose-body);
+    --tw-prose-invert-quotes: var(--tw-prose-invert-body);
+    --tw-prose-quote-borders: var(--rule-warm);
+    --tw-prose-invert-quote-borders: var(--rule-warm);
+    --tw-prose-code: var(--code-ink);
+    --tw-prose-invert-code: var(--code-ink);
+    --tw-prose-pre-bg: var(--canvas);
+    --tw-prose-invert-pre-bg: var(--canvas);
+    --tw-prose-pre-code: var(--tw-prose-body);
+    --tw-prose-invert-pre-code: var(--tw-prose-invert-body);
+    --tw-prose-th-borders: var(--rule-warm);
+    --tw-prose-invert-th-borders: var(--rule-warm);
+    --tw-prose-td-borders: var(--border);
+    --tw-prose-invert-td-borders: var(--border);
+    /* Typography's own greys are cool; a plain rule is furniture, not signal. */
+    --tw-prose-hr: var(--border);
+    --tw-prose-invert-hr: var(--border);
+}
+
+/* Headings. 700 rather than Typography's mix of 600-800: OpenDyslexic ships
+   only 400 and 700, so the reading font was already drawing 700, and this
+   makes the interface font agree.
+
+   The scale is in ems of the prose's own size, which the editor steps up at
+   each breakpoint (PageEditor.svelte) — so one rule serves every width, and
+   an H4 is never the size of the text under it. Line height is set with it:
+   the Tailwind `text-*` classes these replace carried their own, and
+   Typography's is tuned to its sizes rather than these.
+
+   More space above than below, so a heading reads as the start of what
+   follows it. Typography zeroes the top margin of whatever follows an h2-h4;
+   the same is done for an h1 here, or a paragraph's own top margin would
+   out-collapse the heading's bottom one. */
+.prose :is(h1, h2, h3, h4) {
+    font-weight: 700;
+    line-height: 1.3;
+    margin-top: 1.6em;
+    margin-bottom: 0.5em;
+}
+.prose h1 {
+    font-size: 1.78em;
+}
+.prose h2 {
+    font-size: 1.44em;
+}
+.prose h3 {
+    font-size: 1.22em;
+}
+.prose h4 {
+    font-size: 1.06em;
+}
+.prose :is(h1, h2, h3, h4) + * {
+    margin-top: 0;
+}
+/* Typography's own reset, restated: the heading margin above outranks it. */
+.prose > :is(h1, h2, h3, h4):first-child {
+    margin-top: 0;
+}
+
+.prose strong {
+    font-weight: 700;
+}
+
+/* Block quotes: set apart by the rule alone. Typography's italic, weight 500
+   and generated curly quotes all go — italics are the BDA's first example of
+   emphasis that hurts, and quotation marks that are not in the text would be
+   read by the eye but never saved or spoken. */
+.prose blockquote {
+    font-style: normal;
+    font-weight: 400;
+    border-inline-start-width: 4px;
+    padding-inline-start: 1.1em;
+}
+.prose blockquote p::before,
+.prose blockquote p::after {
+    content: none;
+}
+
+/* Inline code: a chip rather than Typography's generated backticks, which
+   are characters on the page that are not in the document. Scoped away from
+   `pre code`, which sits inside the block's own surface. */
+.prose code::before,
+.prose code::after {
+    content: none;
+}
+.prose :not(pre) > code {
+    background-color: var(--code-chip);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.05em 0.35em;
+    font-weight: 400;
+}
+
+/* Code blocks: the canvas's well rather than Typography's near-black slab,
+   so a block of code is part of the page rather than a hole in it. */
+.prose pre {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+/* Links: colour and an underline, never weight — weight is bold's signal.
+   The underline is thinner and further off the letters than the browser's,
+   so descenders are not crossed and the word keeps its shape. */
+.prose a {
+    font-weight: 400;
+    text-decoration-line: underline;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 0.28em;
+    text-decoration-skip-ink: auto;
+}
+.prose a:hover {
+    text-decoration-thickness: 2.5px;
+    background-color: color-mix(in oklch, var(--link) 8%, transparent);
+}
+.prose a:focus-visible {
+    outline: 2px solid var(--link);
+    outline-offset: 2px;
+}
+
+/* Tables, at the full body size and line height — Typography sets both
+   smaller on the table itself.
+
+   A wide table scrolls sideways in its own box rather than shrinking its
+   text. TipTap renders no wrapper element while resizing is off, and adding
+   one to the shared extension set would put it in front of the markdown
+   converters too, so the table is its own scroll box: a block that clips, with
+   its rows laid out by the `<tbody>` as the table proper. `border-collapse`
+   inherits, so the row lines still draw.
+
+   TipTap also emits no `<thead>` — header cells are `<th>` in the first body
+   row — so Typography's `thead` rules never apply and the header is styled
+   on its cells. Row lines between body rows and none under the last are
+   Typography's own, through `--tw-prose-td-borders`. */
+.prose table {
+    display: block;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 1em;
+    line-height: inherit;
+}
+.prose table > tbody {
+    display: table;
+    width: 100%;
+}
+.prose :is(th, td) {
+    padding: 0.75em 1.125em;
+}
+.prose :is(th, td) > :first-child {
+    margin-top: 0;
+}
+.prose :is(th, td) > :last-child {
+    margin-bottom: 0;
+}
+.prose th {
+    font-weight: 700;
+    background-color: var(--canvas);
+    border-bottom: 2px solid var(--tw-prose-th-borders);
+}
+/* Every second body row, banded half-way between the sheet and the canvas —
+   a mix of two argued tokens, so no new colour. */
+.prose tr:nth-child(even of :has(> td)) {
+    background-color: color-mix(in oklch, var(--sheet), var(--canvas) 50%);
+}
+/* A column's alignment is the markdown's, carried by TipTap as an inline
+   `text-align`, which outranks every rule here. A right-aligned column is
+   usually figures, so its digits take equal widths and line up. */
+.prose :is(th, td)[style*='text-align: right'] {
+    font-variant-numeric: tabular-nums;
+}
+/* A cell selection (TipTap's CellSelection): the same pen as selected text. */
+.prose .selectedCell {
+    background-color: var(--reveal);
 }

@@ -347,9 +347,25 @@ and unset everywhere else. A flag the app itself genuinely needs goes through
   hardcode a colour in a component. Light is a **warm cream**, never `#fff`: every
   surface faintly tinted at one hue, with near-black ink leaning the same way, on
   the dyslexia guidance argued in `layout.css`. Dark is shadcn-svelte's neutral dark,
-  near-black with near-white ink, every token chroma `0`. **`--destructive`** stays
-  red in both on purpose — a grey delete confirmation says nothing. Any other
-  chromatic token needs the same kind of argument, in `layout.css`, beside it
+  near-black with near-white ink, every surface chroma `0`. Colour is kept for
+  signals, each argued beside it in `layout.css`, and sanctioned only there:
+    - **`--destructive`**: stays red in both themes; a grey delete confirmation
+      says nothing
+    - **`--reveal`** / **`--reveal-ring`**: a highlighter pen for "look here" and for
+      text selection
+    - **`--marker`**: list bullets, numbers, the checkbox tick and the line through
+      a finished to-do, at text contrast
+    - **`--rule-warm`**: the quote rule, the table header rule and the invisible
+      characters, at the non-text 3:1
+    - **`--link`**: the one cool hue, so a link differs from body text by more
+      than its underline
+    - **`--code-chip`** / **`--code-ink`**: inline code; the chip drops to
+      chroma `0` in dark, like every other surface
+
+    The read-aloud tints are the one exception outside `layout.css`: functional
+    colour, in `PageEditor.svelte`, with dark ink forced over them in both themes.
+    Any new chromatic token needs the same kind of argument
+
 - Fonts are **self-hosted** — never load a webfont from a CDN. Both come from their
   `@fontsource` packages and are `@import`ed in `layout.css`, so Vite bundles the files
   out of `node_modules` and their licence notices travel with the build. There is no
