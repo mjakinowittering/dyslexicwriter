@@ -10,6 +10,7 @@
     } from '@hugeicons/core-free-icons';
     import { goto } from '$app/navigation';
     import { resolve } from '$app/paths';
+    import { page } from '$app/state';
     import { onMount } from 'svelte';
 
     import * as AppFooter from '$lib/components/AppFooter';
@@ -41,6 +42,7 @@
     import { doc } from '$lib/stores/document.svelte';
     import { workspace } from '$lib/stores/workspace.svelte';
     import { editorRoute } from '$lib/utils/editor-route';
+    import { filesRoute } from '$lib/utils/files-route';
 
     // The Files screen. Deliberately plain: a utility list, not a marketing
     // surface.
@@ -58,6 +60,12 @@
     // inside the recursive tree component — there is only ever one, and opening
     // a second would leave the first stranded mid-name.
     let naming = $state<FileTree.FileTreeNaming | null>(null);
+
+    // The document the editor's "Show in Files" sent us to, by `documentPath`,
+    // while its row is highlighted — and what the live region last said about
+    // it, for a writer who cannot see the highlight.
+    let arrival = $state<string | null>(null);
+    let announcement = $state('');
 
     // One of this screen's own filesystem operations is part-way through. A
     // rename writes the new name and removes the old one a moment later, so a
@@ -100,7 +108,44 @@
         // when the screen appears is the only way this list stays true.
         if (workspace.status === 'loading') await workspace.restore();
         else await rescan();
+
+        await revealFromUrl();
     });
+
+    // Arriving from the editor's "Show in Files", with `?reveal=` naming the
+    // document. Once the tree is fresh, open the folders down to it; the row
+    // itself does the scrolling, focusing and highlighting.
+    //
+    // A path that leads nowhere — renamed or deleted outside the app since — is
+    // shown as nothing at all: the list is right there, and a message about a
+    // file that has gone would only be a puzzle.
+    //
+    // The parameter goes either way, so a reload or a return by Back lands on
+    // the plain list rather than flashing the row again. `goto` with
+    // `replaceState` rather than a shallow `replaceState`, for the reason the
+    // editor's URL sync gives: SvelteKit restores Back/Forward from its own
+    // record of the URL, which the shallow form leaves on the old one.
+    async function revealFromUrl() {
+        const path = page.url.searchParams.get('reveal');
+        if (path === null) return;
+
+        const found =
+            workspace.status === 'ready' ? await workspace.reveal(path) : null;
+
+        if (found) {
+            arrival = documentPath(found.entry);
+            announcement = m.files_arrival({
+                title: found.entry.title,
+                folder: found.folderName
+            });
+        }
+
+        await goto(resolve(filesRoute(null)), {
+            replaceState: true,
+            keepFocus: true,
+            noScroll: true
+        });
+    }
 
     // Catch up with the folder, unless a walk is already under way. Both callers
     // fire in bursts — a focus event can land on top of a mount — and a second
@@ -476,9 +521,11 @@
             {:else if workspace.tree}
                 <FileTree.Root
                     actions={treeActions}
+                    {arrival}
                     isExpanded={(node) => workspace.isExpanded(node)}
                     {naming}
                     node={workspace.tree}
+                    onArrived={() => (arrival = null)}
                     onNamingCancel={() => (naming = null)}
                     {onNamingSubmit}
                     onToggle={(node) => workspace.toggle(node)}
@@ -515,6 +562,11 @@
         </div>
     </div>
 {/if}
+
+<!-- Says where "Show in Files" landed, for a writer who cannot see the
+     highlight. Outside the {#if} so it is already in the page when the text
+     arrives: a live region added together with its content is often not read. -->
+<p aria-live="polite" class="sr-only">{announcement}</p>
 
 <!-- The other half of the chrome, below every state above. Outside the {#if} for
      the same reason the header is above it: what it says about the licence and

@@ -19,3 +19,11 @@ export const disclosureDuration = 180; // ms
 // nudge would never settle at all. The deliberate scroll back to the top is a
 // single long move with nothing chasing it, so that one uses `motionDuration`.
 export const followScrollDuration = 450; // ms
+
+// The Files screen's arrival highlight, after "Show in Files". Held long enough
+// for the eye to land on the row once the scroll has stopped, then faded slowly
+// enough to read as the highlight letting go rather than as a flicker. Both are
+// longer than a disclosure because nothing is waiting on them: the row is
+// already focused and usable the whole time.
+export const arrivalHoldDuration = 1000; // ms
+export const arrivalFadeDuration = 1200; // ms

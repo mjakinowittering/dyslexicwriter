@@ -46,6 +46,7 @@ src/
 │   │   │   └── Toolbar/
 │   │   │       ├── ToolbarRail.svelte      // the tall left rail (bare chevron)
 │   │   │       ├── ToolbarTitle.svelte     // the title field's slot; the title IS the filename
+│   │   │       ├── ToolbarLocation.svelte  // where it is saved + the "Saved in" card
 │   │   │       ├── ToolbarDelete.svelte    // the editor's Delete, into .trash/
 │   │   │       ├── ToolbarSettings.svelte  // the gear
 │   │   │       ├── ToolbarTts.svelte       // the transport group + its one Tooltip.Provider
@@ -107,6 +108,8 @@ src/
 │   │   ├── reading-time.ts           // 238 wpm → parts, + the Paraglide label
 │   │   ├── relative-time.ts          // "2 hours ago" for the Files screen
 │   │   ├── editor-route.ts           // `/edit?doc=…`, or bare `/edit` for an unsaved one
+│   │   ├── files-route.ts            // `/?reveal=…` for Show in Files, or bare `/`
+│   │   ├── location-steps.ts         // a document's path as the Files tree draws it
 │   │   ├── link.ts                   // normaliseLinkHref — http/https/mailto only
 │   │   ├── icon-data-uri.ts          // Hugeicons data → a CSS url(), for the link glyph
 │   │   ├── scroll-animator.svelte.ts // one rAF loop shared by the scrollers
@@ -117,6 +120,7 @@ src/
 ├── stories/                          // Storybook, mirroring lib/components/
 └── tests/                            // Vitest, mirroring lib/
     ├── lib/                          //   src/tests/lib/fs/documents.svelte.test.ts, …
+    ├── routes/                       //   a route rendered whole, `$app/*` stubbed
     └── support/                      //   opfs.ts, PageEditorHarness.svelte
 ```
 
@@ -135,10 +139,10 @@ through to `404.html`, and the home page is served under a 404 that crawlers rea
 as "nothing here". `404.html` still catches every other path, which is how
 reloading a route survives.
 
-| Route   | Purpose                                                                                                                                                                                                                            |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`     | **Files screen.** Also carries the five pre-workspace states: `unsupported`, `loading`, `needs-folder`, `needs-permission` (Reopen card), `folder-missing` (look again, or let it go)                                              |
-| `/edit` | **Editor.** `?doc=` is the markdown file's path relative to the working folder — `notes.md`, `Chapters/One.md`. A bare folder name still resolves, for links made before the tree existed. No param starts an in-memory `Untitled` |
+| Route   | Purpose                                                                                                                                                                                                                                                                                                                  |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/`     | **Files screen.** Also carries the five pre-workspace states: `unsupported`, `loading`, `needs-folder`, `needs-permission` (Reopen card), `folder-missing` (look again, or let it go). `?reveal=` (the editor's Show in Files) opens the folders down to that document and highlights its row, then is taken off the URL |
+| `/edit` | **Editor.** `?doc=` is the markdown file's path relative to the working folder — `notes.md`, `Chapters/One.md`. A bare folder name still resolves, for links made before the tree existed. No param starts an in-memory `Untitled`                                                                                       |
 
 `routes/+layout.svelte` only mounts `ModeWatcher`. The **theme** is pushed onto
 `<html>` by `workspace.applyTheme()` — imperatively, when a folder is adopted and

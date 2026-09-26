@@ -682,6 +682,134 @@ describe('toggle', () => {
     });
 });
 
+// Opening the way to one document — the Files screen's arrival from the editor's
+// "Show in Files". Every folder on the path has to end up open, including one
+// the depth cap never walked, and nothing off the path may move.
+describe('reveal', () => {
+    function doc(
+        folder: string,
+        file: string,
+        ownsFolder = false
+    ): FolderNode['documents'][number] {
+        return {
+            title: file.replace(/\.md$/, ''),
+            folder,
+            file,
+            ownsFolder,
+            lastModified: 0
+        };
+    }
+
+    it('opens every collapsed folder on the path, top down', async () => {
+        const one = doc('Book/Chapters', 'One.md');
+        const chapters = node({
+            name: 'Chapters',
+            path: 'Book/Chapters',
+            documents: [one]
+        });
+        const book = node({ name: 'Book', path: 'Book', folders: [chapters] });
+        workspace.tree = node({ folders: [book] });
+        workspace.collapsed.add('Book/Chapters');
+
+        const found = await workspace.reveal('Book/Chapters/One.md');
+
+        expect(found).toEqual({ entry: one, folderName: 'Chapters' });
+        expect(workspace.isExpanded(book)).toBe(true);
+        expect(workspace.isExpanded(chapters)).toBe(true);
+    });
+
+    it('leaves a folder off the path as the writer had it', async () => {
+        const notes = node({ name: 'Notes', path: 'Notes' });
+        const book = node({
+            name: 'Book',
+            path: 'Book',
+            documents: [doc('Book', 'One.md')]
+        });
+        workspace.tree = node({ folders: [book, notes] });
+        workspace.collapsed.add('Notes');
+
+        await workspace.reveal('Book/One.md');
+
+        expect(workspace.collapsed.has('Notes')).toBe(true);
+    });
+
+    // The shape the app creates is drawn as a row in its parent, so that is
+    // where the walk has to stop and find it.
+    it('finds a folder-document in its parent folder', async () => {
+        const lantern = doc(
+            'Chapters/The Lantern Room',
+            'The Lantern Room.md',
+            true
+        );
+        const chapters = node({
+            name: 'Chapters',
+            path: 'Chapters',
+            documents: [lantern]
+        });
+        workspace.tree = node({ folders: [chapters] });
+
+        expect(
+            await workspace.reveal(
+                'Chapters/The Lantern Room/The Lantern Room.md'
+            )
+        ).toEqual({ entry: lantern, folderName: 'Chapters' });
+    });
+
+    it('names the working folder for a document at the root', async () => {
+        const notes = doc('', 'notes.md');
+        workspace.tree = node({ documents: [notes] });
+
+        expect(await workspace.reveal('notes.md')).toEqual({
+            entry: notes,
+            folderName: root.name
+        });
+    });
+
+    // Past the cap is where "open the way" means going and looking — and the
+    // folder has to stay open across the next rescan, not only this one.
+    it('walks a folder past the depth cap and keeps it open on refresh', async () => {
+        const deep = doc('Book', 'Deep.md');
+        const loadedBook = (): FolderNode =>
+            node({ name: 'Book', path: 'Book', documents: [deep] });
+        vi.mocked(scanFolder).mockResolvedValueOnce(loadedBook());
+        workspace.tree = node({
+            folders: [node({ name: 'Book', path: 'Book', loaded: false })]
+        });
+
+        const found = await workspace.reveal('Book/Deep.md');
+
+        expect(found?.entry).toEqual(deep);
+        expect(scanFolder).toHaveBeenCalledWith(root, { path: 'Book' });
+
+        // The rescan comes back with Book unwalked again; the replay walks it.
+        vi.mocked(scanFolder)
+            .mockResolvedValueOnce(
+                node({
+                    folders: [
+                        node({ name: 'Book', path: 'Book', loaded: false })
+                    ]
+                })
+            )
+            .mockResolvedValueOnce(loadedBook());
+        await workspace.refresh();
+
+        const book = workspace.tree?.folders[0];
+        expect(book?.loaded).toBe(true);
+        expect(book && workspace.isExpanded(book)).toBe(true);
+    });
+
+    // Renamed or deleted outside the app since the editor last saw it.
+    it('answers null for a path that leads nowhere, and opens nothing', async () => {
+        const book = node({ name: 'Book', path: 'Book' });
+        workspace.tree = node({ folders: [book] });
+        workspace.collapsed.add('Book');
+
+        expect(await workspace.reveal('Gone/Away.md')).toBeNull();
+        expect(await workspace.reveal('Book/Away.md')).toBeNull();
+        expect(workspace.error).toBe('');
+    });
+});
+
 // Re-opening, after a rescan, the folders the user expanded past the depth cap.
 //
 // The Files screen rescans on mount and on window focus, and a fresh scan knows

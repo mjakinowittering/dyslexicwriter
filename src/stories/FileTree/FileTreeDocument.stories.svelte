@@ -1,6 +1,6 @@
 <script lang="ts" module>
     import { defineMeta } from '@storybook/addon-svelte-csf';
-    import { expect, fn, userEvent } from 'storybook/test';
+    import { expect, fn, userEvent, waitFor } from 'storybook/test';
 
     import type { FileTreeActions } from '$lib/components/FileTree';
     import FileTreeDocument from '$lib/components/FileTree/FileTreeDocument.svelte';
@@ -79,6 +79,41 @@
         await expect(
             canvas.getByRole('button', { name: 'Actions for "notes"' })
         ).toBeInTheDocument();
+    }}
+>
+    {#snippet template(args)}
+        <ul class="bg-background w-full max-w-2xl p-6">
+            <FileTreeDocument {...args} />
+        </ul>
+    {/snippet}
+</Story>
+
+<!-- Where the editor's "Show in Files" lands: the highlighter wash and its
+     ring, a heavier title and a darker "Edited" line, and focus on the row so
+     Enter reopens it. The play waits for the focus, so the axe run that follows
+     measures the text against the wash while it is still held. -->
+<Story
+    name="Arriving"
+    args={{
+        entry: {
+            title: 'The Lantern Room',
+            folder: 'Chapters/The Lantern Room',
+            file: 'The Lantern Room.md',
+            ownsFolder: true,
+            lastModified: Date.now() - 60_000
+        },
+        actions,
+        arriving: true
+    }}
+    play={async ({ canvas, canvasElement }) => {
+        await waitFor(() =>
+            expect(
+                canvas.getByRole('button', { name: /^The Lantern Room Edited/ })
+            ).toHaveFocus()
+        );
+        await expect(
+            canvasElement.querySelector('[data-arrival]')
+        ).not.toBeNull();
     }}
 >
     {#snippet template(args)}

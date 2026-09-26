@@ -28,7 +28,8 @@
        shifted down so the brightest surface (the sheet) stops at 0.975 rather
        than approaching white. The ink leans the same way at chroma ≤ 0.006,
        which keeps it near-black while stopping it reading cold against cream.
-       `.dark` stays fully achromatic. */
+       `.dark` stays achromatic apart from the two signals, --destructive and
+       --reveal, each argued beside it. */
 
     /* The two theme grounds, defined once here and nowhere else.
        `--background` below takes the light one and `.dark` swaps in the other,
@@ -72,6 +73,20 @@
        4.74 over the popover and sheet, 4.61 over the page, and the page itself
        at 5.53. */
     --destructive: oklch(0.51 0.225 27.325);
+    /* The Files screen's arrival highlight: the row "Show in Files" lands on.
+       Chromatic on purpose, like --destructive, because it is a signal: a
+       highlighter-pen wash that says "look here", so the eye finds the row
+       without reading the list. Warm, in the read-aloud tint's family, but at
+       hue 100 rather than the surfaces' 80 so it reads as yellow on cream
+       rather than as one more shade of paper.
+
+       Measured (WCAG 2.x): --foreground on the wash 16.98. The row's "Edited"
+       line takes --foreground while highlighted; left at --muted-foreground it
+       would be 5.15 here but only 4.17 in dark. The ring is 3.27 against
+       --background and 3.10 against the wash. A lighter #D9C25A ring was the
+       first idea and measured 1.62 on cream, which is why this one is ochre. */
+    --reveal: oklch(0.945 0.085 102);
+    --reveal-ring: oklch(0.62 0.12 100);
     --border: oklch(0.885 0.016 80);
     --input: oklch(0.885 0.016 80);
     --ring: oklch(0.708 0 0);
@@ -151,6 +166,11 @@
     --sheet: oklch(0.26 0 0);
     --sheet-shadow:
         0 1px 2px oklch(0 0 0 / 0.5), 0 8px 24px oklch(0 0 0 / 0.45);
+    /* See the light block: the arrival highlight keeps its hue too, as a
+       low olive-yellow the near-white ink sits on. --foreground on it 10.36;
+       the ring 5.47 against --background. */
+    --reveal: oklch(0.36 0.06 100);
+    --reveal-ring: oklch(0.62 0.1 100);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
@@ -195,6 +215,8 @@
     --color-input: var(--input);
     --color-border: var(--border);
     --color-destructive: var(--destructive);
+    --color-reveal: var(--reveal);
+    --color-reveal-ring: var(--reveal-ring);
     --color-accent-foreground: var(--accent-foreground);
     --color-accent: var(--accent);
     --color-muted-foreground: var(--muted-foreground);

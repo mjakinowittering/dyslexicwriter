@@ -24,7 +24,7 @@ delays for a sequenced reveal, as below).
 
 ## Shared timings — never inline magic numbers
 
-Every duration and easing comes from **`src/lib/config/motion.ts`**, which holds four
+Every duration and easing comes from **`src/lib/config/motion.ts`**, which holds six
 exports and no more:
 
 ```ts
@@ -32,14 +32,17 @@ export const motionDuration = 700; // one phase; two sequential phases = 1.4s
 export const motionEasing = quintOut; // the one curve
 export const disclosureDuration = 180; // a Files-screen folder opening
 export const followScrollDuration = 450; // read-aloud following the voice
+export const arrivalHoldDuration = 1000; // Show in Files: the row's highlight holds
+export const arrivalFadeDuration = 1200; // ... then lets go
 ```
 
-The three durations differ because the movements do, and each says why in the file:
+The durations differ because the movements do, and each says why in the file:
 a disclosure row is small, frequent and local, and at `motionDuration` it reads as the
 app thinking rather than responding; the read-aloud follow has to keep pace with
-speech, which at 700ms would still be gliding when the next sentence starts. Reach for
-the one that matches the movement, and add a fourth only with the same kind of
-argument written beside it.
+speech, which at 700ms would still be gliding when the next sentence starts; the
+arrival highlight has nothing waiting on it, so it can take its time. Reach for the
+one that matches the movement, and add another only with the same kind of argument
+written beside it.
 
 Import them everywhere so every surface moves on one curve and can't drift. Do not
 introduce a second easing or a bare `cubic-bezier` string alongside a Svelte easing —

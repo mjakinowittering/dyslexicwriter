@@ -303,8 +303,10 @@ and unset everywhere else. A flag the app itself genuinely needs goes through
   bullet/ordered/task list, blockquote, horizontal rule, table, image, link. No
   font-family or font-size pickers, no colour pickers, no alignment controls, no
   bubble/slash menus. The link card shown when a link is clicked is not a bubble menu —
-  it holds no formatting, only where the link goes, Edit and Open. Default to "no"; when
-  in doubt remove UI rather than add it
+  it holds no formatting, only where the link goes, Edit and Open. Nor is the title row's
+  folder button and its "Saved in" card: they show where the document is saved, with
+  Show in Files, and format nothing. Default to "no"; when in doubt remove UI rather
+  than add it
 - Read-aloud highlighting and the invisible-character markers are **ProseMirror
   decorations only**, never marks or nodes — they must never appear in
   `editor.getJSON()` and never reach the markdown
