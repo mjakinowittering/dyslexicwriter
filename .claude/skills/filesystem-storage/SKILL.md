@@ -52,7 +52,8 @@ the one mistake with no recovery. Helpers (`joinPath`, `parentPath`, `lastSegmen
 `scanFolder(root, { path, depth })` returns a `FolderNode` tree and walks
 `SCAN_DEPTH` (3) directory levels. A directory the cap stops at comes back
 `loaded: false`; the Files screen shows it closed, and `workspace.toggle()` scans
-three more levels from there when the user opens it. An unbounded walk of somebody's
+three more levels from there when the user opens it — as does `workspace.reveal()`
+for each folder on the way to a document the editor's Show in Files names. An unbounded walk of somebody's
 whole Documents tree stats every markdown file in it — slow enough to read as broken.
 Dot-entries and `node_modules` are skipped; `config.json` falls out of the `.md`
 filter, and is excluded by name from the `others` count below. Each level sorts

@@ -20,7 +20,11 @@ import {
     type Font,
     type Theme
 } from '$lib/models/config.model';
-import type { DocumentIndexEntry } from '$lib/models/document.model';
+import {
+    lastSegment,
+    parentPath,
+    type DocumentIndexEntry
+} from '$lib/models/document.model';
 import * as m from '$lib/paraglide/messages';
 
 // The user's chosen working folder, the settings read from it, and the document
@@ -436,7 +440,58 @@ class WorkspaceStore implements PreferenceStore {
             return;
         }
 
-        if (!this.root) return;
+        if (await this.#load(node)) this.collapsed.delete(node.path);
+    }
+
+    // Open the way to a document — the Files screen's arrival from "Show in
+    // Files". Every folder on the path is opened, top down, walking any the depth
+    // cap stopped at; folders off the path are left as the writer had them.
+    //
+    // `path` is the markdown file's path, as `documentPath` gives it. Resolves the
+    // row it found, with the name of the folder the tree shows it in (the working
+    // folder's own at the root). Null when the path leads nowhere — renamed or
+    // deleted outside the app since the editor last saw it — which the caller
+    // treats as nothing to show rather than as an error.
+    async reveal(
+        path: string
+    ): Promise<{ entry: DocumentIndexEntry; folderName: string } | null> {
+        const folder = parentPath(path);
+        const file = lastSegment(path);
+        let node = this.tree;
+
+        while (node) {
+            const entry = node.documents.find(
+                (found) => found.folder === folder && found.file === file
+            );
+            if (entry) {
+                return {
+                    entry,
+                    folderName: node.name || (this.root?.name ?? '')
+                };
+            }
+
+            // A folder-document sits in its parent's list with its own folder in
+            // `entry.folder`, so the prefix test is what finds that parent too.
+            const child = node.folders.find(
+                (candidate) =>
+                    folder === candidate.path ||
+                    folder.startsWith(`${candidate.path}/`)
+            );
+            if (!child) return null;
+            if (!child.loaded && !(await this.#load(child))) return null;
+
+            this.collapsed.delete(child.path);
+            node = child;
+        }
+
+        return null;
+    }
+
+    // Walk a folder the depth cap stopped at, and remember it was opened so a
+    // rescan walks it again. False when the walk failed; `#scanFailed` has
+    // already said why.
+    async #load(node: FolderNode): Promise<boolean> {
+        if (!this.root) return false;
 
         try {
             const loaded = await scanFolder(this.root, { path: node.path });
@@ -445,10 +500,11 @@ class WorkspaceStore implements PreferenceStore {
             node.loaded = true;
             node.hasOtherEntries = loaded.hasOtherEntries;
             this.#opened.add(node.path);
-            this.collapsed.delete(node.path);
             this.#clearReadError();
+            return true;
         } catch {
             await this.#scanFailed();
+            return false;
         }
     }
 

@@ -43,16 +43,22 @@
         onToggle,
         actions,
         naming = null,
+        arrival = null,
         onNamingSubmit,
-        onNamingCancel
+        onNamingCancel,
+        onArrived
     }: {
         node: FolderNode;
         isExpanded: (node: FolderNode) => boolean;
         onToggle: (node: FolderNode) => void;
         actions: FileTreeActions;
         naming?: FileTreeNaming | null;
+        // The document "Show in Files" landed on, by `documentPath`. Threaded
+        // down to its one row, which does the scrolling and highlighting.
+        arrival?: string | null;
         onNamingSubmit: (name: string) => void;
         onNamingCancel: () => void;
+        onArrived?: () => void;
     } = $props();
 
     const reveal = $derived({
@@ -196,9 +202,11 @@
                     {:else}
                         <FileTree
                             {actions}
+                            {arrival}
                             {isExpanded}
                             {naming}
                             node={folder}
+                            {onArrived}
                             {onNamingCancel}
                             {onNamingSubmit}
                             {onToggle}
@@ -212,7 +220,9 @@
     {#each node.documents as entry (documentPath(entry))}
         <FileTreeDocument
             {actions}
+            arriving={arrival === documentPath(entry)}
             {entry}
+            {onArrived}
             onRenameCancel={onNamingCancel}
             onRenameSubmit={onNamingSubmit}
             renaming={naming?.mode === 'rename' &&

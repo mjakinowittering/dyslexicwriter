@@ -30,6 +30,7 @@
     import { workspace } from '$lib/stores/workspace.svelte';
     import { speech } from '$lib/tts/speech-controller.svelte';
     import { editorRoute } from '$lib/utils/editor-route';
+    import { filesRoute } from '$lib/utils/files-route';
 
     let editor = $state<TipTapEditor>();
     // The editor component itself, for `reconcile()`. The exit paths below have to
@@ -92,7 +93,7 @@
 
     onMount(async () => {
         if (!isFileSystemAccessSupported()) {
-            await goto(resolve('/'));
+            await goto(resolve(filesRoute(null)));
             return;
         }
 
@@ -102,7 +103,7 @@
 
         if (workspace.status === 'loading') await workspace.restore();
         if (workspace.status !== 'ready') {
-            await goto(resolve('/'));
+            await goto(resolve(filesRoute(null)));
             return;
         }
 
@@ -273,13 +274,25 @@
     async function confirmDelete() {
         speech.stop();
         pageEditor?.reconcile();
-        if (await doc.trash()) await goto(resolve('/'));
+        if (await doc.trash()) await goto(resolve(filesRoute(null)));
     }
 
-    async function onBack() {
+    // Back to the Files screen, as the plain list or — from the "Saved in"
+    // card — with this document revealed in it. Either way the pending edits
+    // land first: nothing else is going to flush them once the page has gone.
+    async function leaveFor(route: ReturnType<typeof filesRoute>) {
         pageEditor?.reconcile();
         await doc.flush();
-        await goto(resolve('/'));
+        await goto(resolve(route));
+    }
+
+    function onBack() {
+        return leaveFor(filesRoute(null));
+    }
+
+    function onShowInFiles() {
+        if (!doc.location) return;
+        void leaveFor(filesRoute(documentPath(doc.location)));
     }
 
     // `rename` flushes before it moves anything, so that pending edits land under
@@ -335,7 +348,10 @@
         <div class="border-border flex shrink-0 gap-3 border-b">
             <Rail {onBack} />
             <div class="flex min-w-0 flex-1 flex-col">
-                <div class="flex h-14 items-center gap-2 px-3">
+                <!-- A container, so the folder button can drop its ancestors
+                     when this row runs short — which the settings panel does
+                     to it as much as a narrow window. -->
+                <div class="@container flex h-14 items-center gap-2 px-3">
                     <!-- The title IS the filename — the markdown file's basename
                          — so the extension rides an addon beside it and the two
                          read as one name. Bordered at rest rather than quiet:
@@ -361,6 +377,18 @@
                             {/if}
                         </InputGroup.Root>
                     </Toolbar.Title>
+                    <!-- Where the document is saved. Unsaved has no file, so
+                         nowhere to show until the first save gives it one; the
+                         store's location, not the URL, because only the store
+                         knows whether the document owns its folder, and the
+                         Files screen draws the two kinds differently. -->
+                    {#if doc.location && workspace.root}
+                        <Toolbar.Location
+                            location={doc.location}
+                            {onShowInFiles}
+                            rootName={workspace.root.name}
+                        />
+                    {/if}
                     <div class="ml-auto flex items-center gap-1">
                         <!-- Unsaved means nothing on disk to move into the trash. -->
                         <Toolbar.Delete
