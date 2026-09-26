@@ -130,7 +130,7 @@
                  and the ring is what carries the affordance — the fill alone had
                  to be loud to be seen. -->
             <div
-                class="group/row hover:bg-muted/40 hover:ring-border focus-within:bg-muted/40 focus-within:ring-border flex items-center gap-2 rounded-md px-2 ring-1 ring-transparent"
+                class="group/row hover:bg-muted/70 hover:ring-border focus-within:bg-muted/70 focus-within:ring-border flex items-center gap-2 rounded-md px-2 ring-1 ring-transparent"
             >
                 <button
                     aria-expanded={open}

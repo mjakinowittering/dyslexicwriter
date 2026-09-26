@@ -194,10 +194,10 @@ async function toIndexEntry(
     folder: string,
     listing: DirectoryListing
 ): Promise<DocumentIndexEntry | null> {
-    let lastModified: number;
+    let file: File;
 
     try {
-        lastModified = (await handle.getFile()).lastModified;
+        file = await handle.getFile();
     } catch (cause) {
         if (isNotFoundError(cause)) return null;
         throw cause;
@@ -208,7 +208,8 @@ async function toIndexEntry(
         folder,
         file: handle.name,
         ownsFolder: ownsItsFolder(folder, handle.name, listing),
-        lastModified
+        lastModified: file.lastModified,
+        size: file.size
     };
 }
 
@@ -542,7 +543,8 @@ export async function writeDocument(
         folder: location.folder,
         file: location.file,
         ownsFolder: location.ownsFolder,
-        lastModified: Date.now()
+        lastModified: Date.now(),
+        size: new Blob([markdown]).size
     };
 }
 
@@ -617,34 +619,44 @@ async function refuseTakenName(
     );
 }
 
+// Resolves with the bytes copied, read off the same `File` the copy was made
+// from, so a rename can report the size without reading the file again.
 async function copyFile(
     source: FileSystemFileHandle,
     destination: FileSystemDirectoryHandle,
     name: string
-): Promise<void> {
+): Promise<number> {
     const data = await source.getFile();
     await writeFile(destination, name, await data.arrayBuffer());
+    return data.size;
 }
 
 // Copy every file in a folder-document's folder into another directory, the
 // markdown file `from` landing as `to` — the rename's new name, or its own name
 // again for the trash. Files only: both callers have just asked
 // `stillOwnsFolder`, which refuses a folder holding any subdirectory.
+//
+// Resolves with the markdown file's size, the one the Files screen shows.
 async function copyFolderFiles(
     source: FileSystemDirectoryHandle,
     destination: FileSystemDirectoryHandle,
     from: string,
     to: string
-): Promise<void> {
+): Promise<number> {
+    let size = 0;
+
     for await (const entry of source.values()) {
         if (entry.kind !== 'file') continue;
 
-        await copyFile(
+        const copied = await copyFile(
             entry,
             destination,
             entry.name === from ? to : entry.name
         );
+        if (entry.name === from) size = copied;
     }
+
+    return size;
 }
 
 // The trash at the root of the working folder, made the first time anything is
@@ -691,12 +703,16 @@ export async function renameDocument(
     const fileName = fileNameFor(target);
 
     if (target === titleFromFileName(location.file)) {
+        const dir = await resolveDirectory(root, location.folder);
+        const file = await (await dir.getFileHandle(location.file)).getFile();
+
         return {
             title: target,
             folder: location.folder,
             file: location.file,
             ownsFolder: location.ownsFolder,
-            lastModified: Date.now()
+            lastModified: Date.now(),
+            size: file.size
         };
     }
 
@@ -742,7 +758,12 @@ async function renameFolderDocument(
     });
 
     // 2. Its contents, with the markdown file taking the new name as it goes.
-    await copyFolderFiles(source, destination, location.file, fileName);
+    const size = await copyFolderFiles(
+        source,
+        destination,
+        location.file,
+        fileName
+    );
 
     // 3. Only now is it safe to drop the original.
     await parentDir.removeEntry(sourceName, { recursive: true });
@@ -752,7 +773,8 @@ async function renameFolderDocument(
         folder: joinPath(parent, target),
         file: fileName,
         ownsFolder: true,
-        lastModified: Date.now()
+        lastModified: Date.now(),
+        size
     };
 }
 
@@ -775,7 +797,7 @@ async function renameFileDocument(
     const source = await dir.getFileHandle(location.file);
 
     // New file first, old file last — same guarantee as the folder case.
-    await copyFile(source, dir, fileName);
+    const size = await copyFile(source, dir, fileName);
     await dir.removeEntry(location.file);
 
     return {
@@ -783,7 +805,8 @@ async function renameFileDocument(
         folder: location.folder,
         file: fileName,
         ownsFolder: false,
-        lastModified: Date.now()
+        lastModified: Date.now(),
+        size
     };
 }
 

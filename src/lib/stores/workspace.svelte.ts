@@ -508,7 +508,7 @@ class WorkspaceStore implements PreferenceStore {
         }
     }
 
-    // Note a document's new mtime without re-walking the tree.
+    // Note a document's new mtime and size without re-walking the tree.
     //
     // Autosave calls this after every write, and a depth-limited walk that stats
     // every markdown file it finds is far too much work to repeat every few
@@ -527,6 +527,7 @@ class WorkspaceStore implements PreferenceStore {
         }
 
         known.lastModified = entry.lastModified;
+        known.size = entry.size;
     }
 
     // Re-open the folders the user had expanded past the depth cap. Each pass

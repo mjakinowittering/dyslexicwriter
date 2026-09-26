@@ -36,7 +36,8 @@ const entry: DocumentIndexEntry = {
     folder: 'Chapters/The Lantern Room',
     file: 'The Lantern Room.md',
     ownsFolder: true,
-    lastModified: Date.now()
+    lastModified: Date.now(),
+    size: 4_000
 };
 
 const actions: FileTreeActions = {
@@ -124,5 +125,28 @@ describe('FileTreeDocument, arriving', () => {
 
         press();
         await expect.poll(() => wash(container)).toBeNull();
+    });
+});
+
+// The second line says how big the file is as well as when it changed — in the
+// same decimal units the writer's own file manager shows.
+describe('FileTreeDocument, size', () => {
+    it('shows the size beside when it was edited', async () => {
+        const screen = await render(FileTreeDocument, { entry, actions });
+
+        await expect
+            .element(screen.getByText(/^Edited .+ · 4 KB$/))
+            .toBeInTheDocument();
+    });
+
+    it('says an empty file is empty rather than "0 KB"', async () => {
+        const screen = await render(FileTreeDocument, {
+            entry: { ...entry, size: 0 },
+            actions
+        });
+
+        await expect
+            .element(screen.getByText(/^Edited .+ · Empty$/))
+            .toBeInTheDocument();
     });
 });

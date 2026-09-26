@@ -18,7 +18,7 @@
             docs: {
                 description: {
                     component:
-                        'One document row in the Files tree: the title and when it was last edited, with rename and delete in the row menu. The whole title block opens the document.'
+                        'One document row in the Files tree: the title, when it was last edited and its size, with rename and delete in the row menu. The whole title block opens the document. Shown on the panel the Files screen draws the tree on.'
                 }
             }
         }
@@ -38,7 +38,8 @@
         folder: 'My Chapter',
         file: 'My Chapter.md',
         ownsFolder: true,
-        lastModified: Date.now() - 3_600_000
+        lastModified: Date.now() - 3_600_000,
+        size: 4_000
     };
 </script>
 
@@ -54,7 +55,22 @@
     }}
 >
     {#snippet template(args)}
-        <ul class="bg-background w-full max-w-2xl p-6">
+        <ul class="bg-panel w-full max-w-2xl rounded-2xl border p-3">
+            <FileTreeDocument {...args} />
+        </ul>
+    {/snippet}
+</Story>
+
+<!-- A file with nothing in it says so, rather than "0 KB" or a rounded-up "1 KB". -->
+<Story
+    name="Empty File"
+    args={{ entry: { ...entry, size: 0 }, actions }}
+    play={async ({ canvas }) => {
+        await expect(canvas.getByText(/· Empty$/)).toBeInTheDocument();
+    }}
+>
+    {#snippet template(args)}
+        <ul class="bg-panel w-full max-w-2xl rounded-2xl border p-3">
             <FileTreeDocument {...args} />
         </ul>
     {/snippet}
@@ -68,7 +84,8 @@
             folder: '',
             file: 'notes.md',
             ownsFolder: false,
-            lastModified: Date.now() - 86_400_000
+            lastModified: Date.now() - 86_400_000,
+            size: 312_000
         },
         actions
     }}
@@ -82,7 +99,7 @@
     }}
 >
     {#snippet template(args)}
-        <ul class="bg-background w-full max-w-2xl p-6">
+        <ul class="bg-panel w-full max-w-2xl rounded-2xl border p-3">
             <FileTreeDocument {...args} />
         </ul>
     {/snippet}
@@ -100,7 +117,8 @@
             folder: 'Chapters/The Lantern Room',
             file: 'The Lantern Room.md',
             ownsFolder: true,
-            lastModified: Date.now() - 60_000
+            lastModified: Date.now() - 60_000,
+            size: 4_000
         },
         actions,
         arriving: true
@@ -117,7 +135,7 @@
     }}
 >
     {#snippet template(args)}
-        <ul class="bg-background w-full max-w-2xl p-6">
+        <ul class="bg-panel w-full max-w-2xl rounded-2xl border p-3">
             <FileTreeDocument {...args} />
         </ul>
     {/snippet}

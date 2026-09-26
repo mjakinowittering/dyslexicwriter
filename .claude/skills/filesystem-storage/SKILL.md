@@ -57,8 +57,8 @@ for each folder on the way to a document the editor's Show in Files names. An un
 whole Documents tree stats every markdown file in it — slow enough to read as broken.
 Dot-entries and `node_modules` are skipped; `config.json` falls out of the `.md`
 filter, and is excluded by name from the `others` count below. Each level sorts
-folders first, then documents, alphabetically; `lastModified` is shown per row but
-orders nothing.
+folders first, then documents, alphabetically; `lastModified` and `size` are shown
+per row but order nothing.
 
 A folder whose entire contents is **the one markdown file named after it** is
 **collapsed into its parent**: the walk lifts that document up and emits no folder

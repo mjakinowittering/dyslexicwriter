@@ -84,7 +84,11 @@
        line takes --foreground while highlighted; left at --muted-foreground it
        would be 5.15 here but only 4.17 in dark. The ring is 3.27 against
        --background and 3.10 against the wash. A lighter #D9C25A ring was the
-       first idea and measured 1.62 on cream, which is why this one is ochre. */
+       first idea and measured 1.62 on cream, which is why this one is ochre.
+
+       Also the rename field's text selection on the Files screen, in place of
+       the browser's blue: the same pen marking "this one", so selected stays
+       one warm colour on a warm page. --foreground on it as above. */
     --reveal: oklch(0.945 0.085 102);
     --reveal-ring: oklch(0.62 0.12 100);
     --border: oklch(0.885 0.016 80);
@@ -102,6 +106,15 @@
        the brightest surface in the app, and still cream at 0.975, never #fff. */
     --canvas: oklch(0.94 0.014 80);
     --sheet: oklch(0.975 0.01 80);
+    /* A pale surface that groups content on a screen without being paper — the
+       Files screen's tree today. Named for the role, not the screen, so other
+       grouped content can share it.
+
+       Mixed from the page and the canvas rather than given a value of its own,
+       so it adds no hue and needs no argument: it is simply a step between two
+       tokens already argued above. Defined once, here: `.dark` sits on this same
+       element and redefines both inputs, so the mix resolves in either theme. */
+    --panel: color-mix(in oklch, var(--background), var(--canvas) 60%);
     --sheet-shadow:
         0 1px 2px oklch(0.145 0.004 80 / 0.05),
         0 8px 24px oklch(0.145 0.004 80 / 0.06);
@@ -166,7 +179,7 @@
     --sheet: oklch(0.26 0 0);
     --sheet-shadow:
         0 1px 2px oklch(0 0 0 / 0.5), 0 8px 24px oklch(0 0 0 / 0.45);
-    /* See the light block: the arrival highlight keeps its hue too, as a
+    /* See the light block: the highlight and selection keep their hue, as a
        low olive-yellow the near-white ink sits on. --foreground on it 10.36;
        the ring 5.47 against --background. */
     --reveal: oklch(0.36 0.06 100);
@@ -235,6 +248,7 @@
        --shadow-sheet because a @theme entry cannot reference its own name. */
     --color-canvas: var(--canvas);
     --color-sheet: var(--sheet);
+    --color-panel: var(--panel);
     --shadow-sheet: var(--sheet-shadow);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
