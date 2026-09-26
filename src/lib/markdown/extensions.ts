@@ -25,12 +25,8 @@ export function documentExtensions({
 }: DocumentExtensionOptions = {}) {
     return [
         StarterKit.configure({
-            link: {
-                openOnClick: false,
-                HTMLAttributes: {
-                    class: 'text-primary underline underline-offset-4 hover:text-primary/80'
-                }
-            },
+            // Styled in layout.css, with the rest of the document's prose.
+            link: { openOnClick: false },
             trailingNode: trailingNode ? undefined : false
         }),
         // Images are real files beside the document; `src` is always a relative

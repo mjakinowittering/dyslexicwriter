@@ -136,6 +136,130 @@
         ]
     };
 
+    function text(value: string, marks: string[] = []) {
+        return marks.length === 0
+            ? { type: 'text', text: value }
+            : {
+                  type: 'text',
+                  text: value,
+                  marks: marks.map((type) => ({ type }))
+              };
+    }
+
+    function cell(
+        type: 'tableHeader' | 'tableCell',
+        value: string,
+        align?: string
+    ) {
+        return {
+            type,
+            attrs: align ? { align } : {},
+            content: [paragraph(value)]
+        };
+    }
+
+    // Every element the document can hold, once — for the restyle in layout.css,
+    // and for the axe run to measure each colour in both themes.
+    const proseSample = {
+        type: 'doc',
+        content: [
+            {
+                type: 'heading',
+                attrs: { level: 1 },
+                content: [text('The lighthouse keeper')]
+            },
+            {
+                type: 'paragraph',
+                content: [
+                    text('Some words are '),
+                    text('bold', ['bold']),
+                    text(', some are '),
+                    text('italic', ['italic']),
+                    text(', one is '),
+                    {
+                        type: 'text',
+                        text: 'a link',
+                        marks: [
+                            {
+                                type: 'link',
+                                attrs: { href: 'https://example.com' }
+                            }
+                        ]
+                    },
+                    text(', and one is '),
+                    text('inline code', ['code']),
+                    text('.')
+                ]
+            },
+            { type: 'heading', attrs: { level: 2 }, content: [text('Lists')] },
+            {
+                type: 'bulletList',
+                content: [listItem('A bullet'), listItem('Another')]
+            },
+            {
+                type: 'orderedList',
+                attrs: { start: 1 },
+                content: [listItem('First'), listItem('Second')]
+            },
+            {
+                type: 'taskList',
+                content: [
+                    taskItem('Still to do', false),
+                    taskItem('Done', true)
+                ]
+            },
+            { type: 'heading', attrs: { level: 3 }, content: [text('Quoted')] },
+            {
+                type: 'blockquote',
+                content: [paragraph('The light must never go out.')]
+            },
+            {
+                type: 'heading',
+                attrs: { level: 4 },
+                content: [text('Code and a table')]
+            },
+            {
+                type: 'codeBlock',
+                content: [text('const lamp = "lit";')]
+            },
+            {
+                type: 'table',
+                content: [
+                    {
+                        type: 'tableRow',
+                        content: [
+                            cell('tableHeader', 'Night'),
+                            cell('tableHeader', 'Hours', 'right')
+                        ]
+                    },
+                    {
+                        type: 'tableRow',
+                        content: [
+                            cell('tableCell', 'Monday'),
+                            cell('tableCell', '11', 'right')
+                        ]
+                    },
+                    {
+                        type: 'tableRow',
+                        content: [
+                            cell('tableCell', 'Tuesday'),
+                            cell('tableCell', '9', 'right')
+                        ]
+                    },
+                    {
+                        type: 'tableRow',
+                        content: [
+                            cell('tableCell', 'Wednesday'),
+                            cell('tableCell', '12', 'right')
+                        ]
+                    }
+                ]
+            },
+            { type: 'horizontalRule' },
+            paragraph('The end.')
+        ]
+    };
+
     const sample = {
         type: 'doc',
         content: [
@@ -199,10 +323,18 @@
     let dyslexicEditor = $state<TipTapEditor>();
     let listEditor = $state<TipTapEditor>();
 
-    // The word tint, as the browser reports it back. One definition lives in
-    // PageEditor.svelte's <style> block; this is the assertion's copy of it and
-    // the reason the marker story fails if that value moves.
-    const TINT = 'rgb(255, 153, 0)';
+    // The list-marker ink, as the browser resolves it in whichever theme the
+    // story is running under. Read through a probe rather than copied here, so
+    // the story checks that the markers follow `--marker` in layout.css, not
+    // that the token holds one particular value.
+    function markerInk(): string {
+        const probe = document.createElement('span');
+        probe.style.color = 'var(--marker)';
+        document.body.append(probe);
+        const ink = getComputedStyle(probe).color;
+        probe.remove();
+        return ink;
+    }
 
     // Light a sentence, and a word inside it, exactly as playback would: the ranges
     // come from the same pure helpers the SpeechController uses, so the harness can't
@@ -261,6 +393,55 @@
         ).toBeInTheDocument();
         await expect(canvas.getByText('rich')).toBeInTheDocument();
         await expect(canvas.getByText('First point')).toBeInTheDocument();
+    }}
+>
+    {#snippet template(args)}
+        <div class="bg-background min-h-96 w-full p-6">
+            <PageEditor {...args} />
+        </div>
+    {/snippet}
+</Story>
+
+<Story
+    name="Prose"
+    args={{ editable: true, content: proseSample }}
+    parameters={{
+        docs: {
+            description: {
+                story: 'Every element a document can hold, in the restyle from layout.css: weight-only bold, markers in the marker ink, a quote set apart by its rule alone, code as a chip, links in their own colour, and a banded table that scrolls in its own box.'
+            }
+        }
+    }}
+    play={async ({ canvas, canvasElement }) => {
+        // Typography sits in a later cascade layer than `@layer base`, so each
+        // of these is a check that an unlayered override actually won.
+        const quote = canvasElement.querySelector('blockquote') as HTMLElement;
+        await expect(getComputedStyle(quote).fontStyle).toBe('normal');
+        const quoted = quote.querySelector('p') as HTMLElement;
+        await expect(getComputedStyle(quoted, '::before').content).toBe('none');
+
+        const code = canvasElement.querySelector('p > code') as HTMLElement;
+        await expect(getComputedStyle(code, '::before').content).toBe('none');
+        await expect(getComputedStyle(code).fontWeight).toBe('400');
+
+        const link = canvas.getByText('a link');
+        await expect(getComputedStyle(link).fontWeight).toBe('400');
+
+        const bold = canvas.getByText('bold');
+        await expect(getComputedStyle(bold).fontWeight).toBe('700');
+        await expect(getComputedStyle(bold).color).toBe(
+            getComputedStyle(bold.parentElement as HTMLElement).color
+        );
+
+        const h4 = canvas.getByRole('heading', { level: 4 });
+        await expect(parseFloat(getComputedStyle(h4).fontSize)).toBeGreaterThan(
+            parseFloat(
+                getComputedStyle(code.parentElement as HTMLElement).fontSize
+            )
+        );
+
+        const table = canvasElement.querySelector('table') as HTMLElement;
+        await expect(getComputedStyle(table).overflowX).toBe('auto');
     }}
 >
     {#snippet template(args)}
@@ -369,7 +550,7 @@
     parameters={{
         docs: {
             description: {
-                story: "The marker half of the highlight. A spoken sentence inside a list item lights that item's bullet, number or checkbox in the word tint — the colour only, never the band — and leaves its neighbours alone. Driven by a `Decoration.node` on the item, because the markers are drawn as generated content and a real `<input>`, neither of which an inline span over the text can reach."
+                story: "The marker half of the highlight. A spoken sentence inside a list item marks that item's bullet, number or checkbox with `.tts-marker` and leaves its neighbours alone; every marker is drawn in the `--marker` ink, lit or not. Driven by a `Decoration.node` on the item, because the markers are drawn as generated content and a real `<input>`, neither of which an inline span over the text can reach."
             }
         }
     }}
@@ -390,10 +571,10 @@
         // obvious way to get this wrong.
         await expect(marked()).toHaveLength(1);
 
-        // Every marker is tinted, lit or not. The markers are drawn from
-        // layout.css in `@layer base`, so the tint wins only because a
-        // component <style> is unlayered — moving it into a layer would leave
-        // them Typography's grey.
+        // Every marker takes the marker ink, lit or not. Its colour reaches the
+        // `::before` through Typography's variables, which layout.css sets
+        // outside every layer — inside one, Typography's own grey would win.
+        const TINT = markerInk();
         const bullet = litItem() as HTMLElement;
         await expect(getComputedStyle(bullet, '::before').color).toBe(TINT);
         const neighbour = bullet.nextElementSibling as HTMLElement;
