@@ -112,11 +112,13 @@
             </p>
         {/if}
 
+        <!-- Sections run alphabetically by their visible heading, so a setting is
+             found by its name rather than by remembering where it sat; a new one
+             goes in that order. The order follows the English labels, the only
+             locale today — revisit it if another is added. -->
         <div class="flex flex-col gap-8 p-4">
             <section class="flex flex-col gap-3">
-                <h3
-                    class="text-muted-foreground text-xs font-semibold tracking-wide uppercase"
-                >
+                <h3 class="text-foreground text-sm font-semibold">
                     {m.settings_font()}
                 </h3>
                 <RadioGroup.Root
@@ -143,29 +145,7 @@
             </section>
 
             <section class="flex flex-col gap-3">
-                <h3
-                    class="text-muted-foreground text-xs font-semibold tracking-wide uppercase"
-                >
-                    {m.settings_theme()}
-                </h3>
-                <div class="flex items-center justify-between">
-                    <Label class="font-normal" for="theme-dark">
-                        {isDark
-                            ? m.settings_theme_dark()
-                            : m.settings_theme_light()}
-                    </Label>
-                    <Switch
-                        checked={isDark}
-                        id="theme-dark"
-                        onCheckedChange={onThemeChange}
-                    />
-                </div>
-            </section>
-
-            <section class="flex flex-col gap-3">
-                <h3
-                    class="text-muted-foreground text-xs font-semibold tracking-wide uppercase"
-                >
+                <h3 class="text-foreground text-sm font-semibold">
                     {m.settings_invisibles()}
                 </h3>
                 <div class="flex items-center justify-between gap-4">
@@ -185,6 +165,24 @@
                 >
                     {m.settings_invisibles_description()}
                 </p>
+            </section>
+
+            <section class="flex flex-col gap-3">
+                <h3 class="text-foreground text-sm font-semibold">
+                    {m.settings_theme()}
+                </h3>
+                <div class="flex items-center justify-between">
+                    <Label class="font-normal" for="theme-dark">
+                        {isDark
+                            ? m.settings_theme_dark()
+                            : m.settings_theme_light()}
+                    </Label>
+                    <Switch
+                        checked={isDark}
+                        id="theme-dark"
+                        onCheckedChange={onThemeChange}
+                    />
+                </div>
             </section>
         </div>
     </div>
